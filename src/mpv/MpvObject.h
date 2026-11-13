@@ -119,6 +119,10 @@ public:
     /// { id, label, selected } so QML needs no filtering logic.
     Q_INVOKABLE QVariantList tracksOfType(const QString &type) const;
 
+    /// Updates the bottom control bar offset so subtitles shift above the bar
+    /// whenever the bar is visible on screen.
+    Q_INVOKABLE void setBottomBarOffset(bool visible, double barHeight, double windowHeight);
+
     /// "hwdec=vaapi drop=0 decoder-drop=0" for benchmarks.
     QString statsLine() const;
 
@@ -144,6 +148,7 @@ private slots:
 private:
     void drainEvents();
     void refreshTracks();
+    void applySubtitlePosition();
     static void wakeupCallback(void *ctx);
 
     static MpvObject *s_instance;
@@ -167,4 +172,9 @@ private:
     bool m_subtitlesVisible = true;
     double m_subtitlePosition = 100.0;
     double m_subtitleFontSize = 38.0;
+
+    bool m_bottomBarVisible = false;
+    double m_bottomBarHeight = 0.0;
+    double m_windowHeight = 0.0;
+    double m_lastAppliedSubPos = 100.0;
 };

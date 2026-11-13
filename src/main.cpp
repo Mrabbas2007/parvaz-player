@@ -255,7 +255,22 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
                   qAbs(mpv.subtitlePosition() - 120.0) < 0.001);
             mpv.setSubtitleFontSize(38.0);
             mpv.setSubtitlePosition(100.0);
+            // Engage bottom bar offset to verify subtitles shift up when the bar shows.
+            mpv.setBottomBarOffset(true, 76.0, 720.0);
             break;
+        case 26: {
+            double rawSubPos = 0.0;
+            mpv_get_property(mpv.handle(), "sub-pos", MPV_FORMAT_DOUBLE, &rawSubPos);
+            check("bottom bar visible lifts subtitle position (< 90)", rawSubPos < 90.0 && rawSubPos > 0.0);
+            mpv.setBottomBarOffset(false, 76.0, 720.0);
+            break;
+        }
+        case 27: {
+            double rawSubPos = 0.0;
+            mpv_get_property(mpv.handle(), "sub-pos", MPV_FORMAT_DOUBLE, &rawSubPos);
+            check("bottom bar hidden restores subtitle position to 100", qAbs(rawSubPos - 100.0) < 0.001);
+            break;
+        }
         default: {
             const QString hw = mpv.hwdec();
             std::fprintf(stderr,
@@ -270,7 +285,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         // Action steps that need mpv to actually act (seek, reload, option change)
         // get a longer beat before the assertion on the next turn.
         const int delay = (step == 14 || step == 18 || step == 19 || step == 21 || step == 23
-                               || step == 24)
+                               || step == 24 || step == 25 || step == 26)
                               ? 500 : 250;
         QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };

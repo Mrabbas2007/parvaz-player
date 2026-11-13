@@ -44,6 +44,11 @@ Window {
             hideTimer.stop()
             pointerOnBar = false
         }
+        Mpv.setBottomBarOffset(barVisible, bar.height, root.height)
+    }
+
+    onHeightChanged: {
+        Mpv.setBottomBarOffset(barVisible, bar.height, root.height)
     }
 
     // Restart the countdown when playback resumes, otherwise a resume with no
@@ -56,7 +61,10 @@ Window {
         }
     }
 
-    Component.onCompleted: poke()
+    Component.onCompleted: {
+        poke()
+        Mpv.setBottomBarOffset(barVisible, bar.height, root.height)
+    }
 
     function localPath(u) {
         var s = u.toString()

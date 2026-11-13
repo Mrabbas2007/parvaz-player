@@ -177,7 +177,10 @@ void MpvObject::drainEvents()
                 m_subtitlesVisible = *static_cast<int *>(prop->data) != 0;
                 hasSubVisible = true;
             } else if (name == QLatin1String("sub-pos") && prop->format == MPV_FORMAT_DOUBLE) {
-                m_subtitlePosition = *static_cast<double *>(prop->data);
+                double rawPos = *static_cast<double *>(prop->data);
+                if (qAbs(rawPos - m_lastAppliedSubPos) > 0.001) {
+                    m_subtitlePosition = rawPos;
+                }
                 hasSubPos = true;
             } else if (name == QLatin1String("sub-font-size") && prop->format == MPV_FORMAT_DOUBLE) {
                 m_subtitleFontSize = *static_cast<double *>(prop->data);
@@ -539,10 +542,30 @@ void MpvObject::setSubtitlesVisible(bool visible)
 
 void MpvObject::setSubtitlePosition(double percentFromTop)
 {
+    // mpv's documented range is 0..150.
+    m_subtitlePosition = qBound(0.0, percentFromTop, 150.0);
+    applySubtitlePosition();
+}
+
+void MpvObject::setBottomBarOffset(bool visible, double barHeight, double windowHeight)
+{
+    m_bottomBarVisible = visible;
+    m_bottomBarHeight = barHeight;
+    m_windowHeight = windowHeight;
+    applySubtitlePosition();
+}
+
+void MpvObject::applySubtitlePosition()
+{
     if (!m_mpv)
         return;
-    // mpv's documented range is 0..150.
-    double p = qBound(0.0, percentFromTop, 150.0);
+    double p = m_subtitlePosition;
+    if (m_bottomBarVisible && m_windowHeight > 0.0 && m_bottomBarHeight > 0.0) {
+        // Shift subtitle up so it clears the bottom control bar plus a comfortable margin (16px).
+        double shiftPercent = ((m_bottomBarHeight + 16.0) / m_windowHeight) * 100.0;
+        p = qBound(0.0, p - shiftPercent, 150.0);
+    }
+    m_lastAppliedSubPos = p;
     mpv_set_property(m_mpv, "sub-pos", MPV_FORMAT_DOUBLE, &p);
 }
 
