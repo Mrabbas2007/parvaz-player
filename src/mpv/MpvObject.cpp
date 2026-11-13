@@ -30,6 +30,19 @@ QVariant nodeToVariant(const mpv_node &node)
     }
 }
 
+QString aspectFromRatio(double ratio)
+{
+    if (ratio <= 0.0)
+        return QStringLiteral("default");
+    if (std::abs(ratio - (16.0 / 9.0)) < 0.02)
+        return QStringLiteral("16:9");
+    if (std::abs(ratio - (4.0 / 3.0)) < 0.02)
+        return QStringLiteral("4:3");
+    if (std::abs(ratio - 2.35) < 0.05)
+        return QStringLiteral("2.35:1");
+    return QString::number(ratio, 'f', 2);
+}
+
 } // namespace
 
 MpvObject::MpvObject(QObject *parent)
@@ -77,6 +90,7 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "sub-visibility", MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "sub-pos",        MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "sub-font-size",  MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "video-aspect-override", MPV_FORMAT_DOUBLE);
 
     drainEvents();
 }
@@ -124,6 +138,7 @@ void MpvObject::drainEvents()
     bool hasSubVisible = false;
     bool hasSubPos = false;
     bool hasSubFontSize = false;
+    bool hasAspect = false;
 
     for (;;) {
         mpv_event *ev = mpv_wait_event(m_mpv, 0.0);
@@ -185,6 +200,9 @@ void MpvObject::drainEvents()
             } else if (name == QLatin1String("sub-font-size") && prop->format == MPV_FORMAT_DOUBLE) {
                 m_subtitleFontSize = *static_cast<double *>(prop->data);
                 hasSubFontSize = true;
+            } else if (name == QLatin1String("video-aspect-override") && prop->format == MPV_FORMAT_DOUBLE) {
+                m_videoAspect = aspectFromRatio(*static_cast<double *>(prop->data));
+                hasAspect = true;
             }
             break;
         }
@@ -213,6 +231,7 @@ void MpvObject::drainEvents()
     if (hasSubVisible)   emit subtitlesVisibleChanged();
     if (hasSubPos)       emit subtitlePositionChanged();
     if (hasSubFontSize)  emit subtitleFontSizeChanged();
+    if (hasAspect)       emit videoAspectChanged();
 }
 
 /// Reads "track-list" as an mpv_node, walks the node_list (keys is NULL for
@@ -620,4 +639,22 @@ void MpvObject::adjustSubtitleFontSize(double delta)
 void MpvObject::showOsd(const QString &text)
 {
     emit osdRequested(text);
+}
+
+void MpvObject::setVideoAspect(const QString &aspect)
+{
+    if (!m_mpv)
+        return;
+    double ratio = -1.0;
+    if (aspect == QLatin1String("16:9"))
+        ratio = 16.0 / 9.0;
+    else if (aspect == QLatin1String("4:3"))
+        ratio = 4.0 / 3.0;
+    else if (aspect == QLatin1String("2.35:1"))
+        ratio = 2.35;
+
+    mpv_set_property(m_mpv, "video-aspect-override", MPV_FORMAT_DOUBLE, &ratio);
+    m_videoAspect = aspectFromRatio(ratio);
+    emit videoAspectChanged();
+    showOsd(QStringLiteral("Aspect ratio: %1").arg(m_videoAspect));
 }

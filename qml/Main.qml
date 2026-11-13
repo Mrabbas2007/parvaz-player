@@ -24,6 +24,13 @@ Window {
 
     property bool barVisible: true
     property bool pointerOnBar: false
+    property bool alwaysOnTop: false
+    flags: alwaysOnTop ? (Qt.Window | Qt.WindowStaysOnTopHint) : Qt.Window
+
+    function toggleAlwaysOnTop() {
+        alwaysOnTop = !alwaysOnTop
+        Mpv.showOsd(alwaysOnTop ? "Always on top: On" : "Always on top: Off")
+    }
 
     function poke() {
         barVisible = true
@@ -106,8 +113,11 @@ Window {
         hoverEnabled: true
         onPositionChanged: poke()
         onClicked: (mouse) => {
-            if (mouse.button === Qt.LeftButton)
+            if (mouse.button === Qt.LeftButton) {
                 Mpv.togglePause()
+            } else if (mouse.button === Qt.RightButton) {
+                contextMenu.popup()
+            }
         }
         onDoubleClicked: (mouse) => {
             if (mouse.button === Qt.LeftButton)
@@ -482,7 +492,259 @@ Window {
     PlayerShortcut { sequence: "Alt+PageUp"; onActivated: Mpv.adjustSubtitleFontSize(2) }
     PlayerShortcut { sequence: "Alt+PageDown"; onActivated: Mpv.adjustSubtitleFontSize(-2) }
 
+    PlayerShortcut { sequence: "Ctrl+T"; onActivated: root.toggleAlwaysOnTop() }
     PlayerShortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
+
+    // --- Right-click Context Menu (PotPlayer style) -----------------------
+    Menu {
+        id: contextMenu
+
+        // 1. Open
+        Menu {
+            title: "Open"
+            MenuItem {
+                text: "Open media…"
+                onTriggered: openDialog.open()
+            }
+            MenuItem {
+                text: "Open subtitle file…"
+                onTriggered: subDialog.open()
+            }
+        }
+
+        MenuSeparator {}
+
+        // 2. Playback
+        Menu {
+            title: "Playback"
+            MenuItem {
+                text: Mpv.paused ? "Play" : "Pause"
+                onTriggered: Mpv.togglePause()
+            }
+            MenuItem {
+                text: "Stop (to beginning)"
+                onTriggered: { Mpv.seekAbsolute(0); if (!Mpv.paused) Mpv.togglePause() }
+            }
+            MenuSeparator {}
+            Menu {
+                title: "Jump forward"
+                MenuItem { text: "+5s (Right)"; onTriggered: Mpv.seekRelative(5) }
+                MenuItem { text: "+30s (Ctrl+Right)"; onTriggered: Mpv.seekRelative(30) }
+                MenuItem { text: "+1m (Shift+Right)"; onTriggered: Mpv.seekRelative(60) }
+                MenuItem { text: "+5m (Ctrl+Shift+Right)"; onTriggered: Mpv.seekRelative(300) }
+            }
+            Menu {
+                title: "Jump backward"
+                MenuItem { text: "-5s (Left)"; onTriggered: Mpv.seekRelative(-5) }
+                MenuItem { text: "-30s (Ctrl+Left)"; onTriggered: Mpv.seekRelative(-30) }
+                MenuItem { text: "-1m (Shift+Left)"; onTriggered: Mpv.seekRelative(-60) }
+                MenuItem { text: "-5m (Ctrl+Shift+Left)"; onTriggered: Mpv.seekRelative(-300) }
+            }
+            MenuSeparator {}
+            MenuItem { text: "Frame step forward (Period)"; onTriggered: Mpv.frameStep(1) }
+            MenuItem { text: "Frame step backward (Comma)"; onTriggered: Mpv.frameStep(-1) }
+        }
+
+        // 3. Speed
+        Menu {
+            title: "Speed"
+            MenuItem {
+                text: "Normal (1.0x)"
+                checkable: true
+                checked: Math.abs(Mpv.speed - 1.0) < 0.05
+                onTriggered: Mpv.resetSpeed()
+            }
+            MenuItem { text: "Faster +0.1x (C)"; onTriggered: Mpv.adjustSpeed(0.1) }
+            MenuItem { text: "Slower -0.1x (X)"; onTriggered: Mpv.adjustSpeed(-0.1) }
+            MenuSeparator {}
+            MenuItem { text: "0.5x"; onTriggered: Mpv.setSpeed(0.5) }
+            MenuItem { text: "0.75x"; onTriggered: Mpv.setSpeed(0.75) }
+            MenuItem { text: "1.0x"; onTriggered: Mpv.setSpeed(1.0) }
+            MenuItem { text: "1.25x"; onTriggered: Mpv.setSpeed(1.25) }
+            MenuItem { text: "1.5x"; onTriggered: Mpv.setSpeed(1.5) }
+            MenuItem { text: "2.0x"; onTriggered: Mpv.setSpeed(2.0) }
+        }
+
+        // 4. Audio
+        Menu {
+            title: "Audio"
+            Menu {
+                title: "Select track"
+                Repeater {
+                    model: Mpv.tracksOfType("audio")
+                    delegate: MenuItem {
+                        text: modelData.label
+                        checkable: true
+                        checked: modelData.selected
+                        onTriggered: Mpv.selectTrack(modelData.id)
+                    }
+                }
+            }
+            MenuItem {
+                text: "Next audio track (A)"
+                onTriggered: Mpv.cycleAudioTrack()
+            }
+            MenuSeparator {}
+            MenuItem {
+                text: Mpv.muted ? "Unmute (M)" : "Mute (M)"
+                onTriggered: {
+                    Mpv.setMuted(!Mpv.muted)
+                    Mpv.showOsd(Mpv.muted ? "Mute" : "Unmute (" + Mpv.volume + "%)")
+                }
+            }
+            Menu {
+                title: "Volume"
+                MenuItem { text: "100%"; onTriggered: Mpv.setVolume(100) }
+                MenuItem { text: "80%"; onTriggered: Mpv.setVolume(80) }
+                MenuItem { text: "50%"; onTriggered: Mpv.setVolume(50) }
+                MenuItem { text: "20%"; onTriggered: Mpv.setVolume(20) }
+                MenuItem { text: "0%"; onTriggered: Mpv.setVolume(0) }
+            }
+        }
+
+        // 5. Subtitles
+        Menu {
+            title: "Subtitles"
+            Menu {
+                title: "Select track"
+                Repeater {
+                    model: Mpv.tracksOfType("sub")
+                    delegate: MenuItem {
+                        text: modelData.label
+                        checkable: true
+                        checked: modelData.selected
+                        onTriggered: Mpv.selectTrack(modelData.id)
+                    }
+                }
+                MenuItem {
+                    text: "Off"
+                    onTriggered: Mpv.disableSubtitles()
+                }
+            }
+            MenuItem {
+                text: "Next subtitle track (S)"
+                onTriggered: Mpv.cycleSubtitleTrack()
+            }
+            MenuItem {
+                text: "Visible (V)"
+                checkable: true
+                checked: Mpv.subtitlesVisible
+                onTriggered: {
+                    Mpv.setSubtitlesVisible(!Mpv.subtitlesVisible)
+                    Mpv.showOsd(Mpv.subtitlesVisible ? "Subtitles: On" : "Subtitles: Off")
+                }
+            }
+            MenuSeparator {}
+            Menu {
+                title: "Sync / Delay"
+                MenuItem {
+                    text: "Delay -0.1s ([)"
+                    onTriggered: {
+                        Mpv.setSubtitleDelay(Mpv.subtitleDelay - 0.1)
+                        Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
+                    }
+                }
+                MenuItem {
+                    text: "Delay +0.1s (])"
+                    onTriggered: {
+                        Mpv.setSubtitleDelay(Mpv.subtitleDelay + 0.1)
+                        Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
+                    }
+                }
+                MenuItem {
+                    text: "Reset delay (0.0s)"
+                    onTriggered: {
+                        Mpv.setSubtitleDelay(0.0)
+                        Mpv.showOsd("Sub delay: 0.0s")
+                    }
+                }
+            }
+            Menu {
+                title: "Font size"
+                MenuItem { text: "Increase (Alt+PageUp)"; onTriggered: Mpv.adjustSubtitleFontSize(2) }
+                MenuItem { text: "Decrease (Alt+PageDown)"; onTriggered: Mpv.adjustSubtitleFontSize(-2) }
+                MenuItem { text: "Reset size (38)"; onTriggered: { Mpv.setSubtitleFontSize(38); Mpv.showOsd("Sub size: 38") } }
+            }
+            Menu {
+                title: "Position"
+                MenuItem { text: "Move up (Alt+Up)"; onTriggered: Mpv.adjustSubtitlePosition(-2) }
+                MenuItem { text: "Move down (Alt+Down)"; onTriggered: Mpv.adjustSubtitlePosition(2) }
+                MenuItem { text: "Reset position (100%)"; onTriggered: { Mpv.setSubtitlePosition(100); Mpv.showOsd("Sub pos: 100%") } }
+            }
+            MenuSeparator {}
+            MenuItem {
+                text: "Legacy Persian encoding (CP1256)"
+                onTriggered: {
+                    Mpv.setSubtitleCodepage("cp1256")
+                    Mpv.showOsd("Codepage: CP1256")
+                }
+            }
+            MenuItem {
+                text: "UTF-8 encoding"
+                onTriggered: {
+                    Mpv.setSubtitleCodepage("utf-8")
+                    Mpv.showOsd("Codepage: UTF-8")
+                }
+            }
+            MenuItem {
+                text: "Open subtitle file…"
+                onTriggered: subDialog.open()
+            }
+        }
+
+        // 6. Video & Aspect Ratio
+        Menu {
+            title: "Video"
+            Menu {
+                title: "Aspect ratio"
+                MenuItem {
+                    text: "Original / Default"
+                    onTriggered: Mpv.setVideoAspect("default")
+                }
+                MenuItem {
+                    text: "16:9"
+                    onTriggered: Mpv.setVideoAspect("16:9")
+                }
+                MenuItem {
+                    text: "4:3"
+                    onTriggered: Mpv.setVideoAspect("4:3")
+                }
+                MenuItem {
+                    text: "2.35:1 (Cinema)"
+                    onTriggered: Mpv.setVideoAspect("2.35:1")
+                }
+            }
+        }
+
+        // 7. Window
+        Menu {
+            title: "Window"
+            MenuItem {
+                text: "Always on top (Ctrl+T)"
+                checkable: true
+                checked: root.alwaysOnTop
+                onTriggered: root.toggleAlwaysOnTop()
+            }
+            MenuSeparator {}
+            MenuItem { text: "50% size (1)"; onTriggered: { root.visibility = Window.Windowed; root.width = 640; root.height = 360 } }
+            MenuItem { text: "100% size (2)"; onTriggered: { root.visibility = Window.Windowed; root.width = 1280; root.height = 720 } }
+            MenuItem { text: "150% size (3)"; onTriggered: { root.visibility = Window.Windowed; root.width = 1600; root.height = 900 } }
+            MenuItem { text: "200% size (4)"; onTriggered: { root.visibility = Window.Windowed; root.width = 1920; root.height = 1080 } }
+            MenuSeparator {}
+            MenuItem {
+                text: root.visibility === Window.FullScreen ? "Leave fullscreen (F / Enter)" : "Fullscreen (F / Enter)"
+                onTriggered: root.toggleFullscreen()
+            }
+        }
+
+        MenuSeparator {}
+
+        // 8. Exit
+        MenuItem {
+            text: "Exit (Ctrl+Q)"
+            onTriggered: Qt.quit()
+        }
+    }
 
     // --- OSD Toast --------------------------------------------------------
     Rectangle {

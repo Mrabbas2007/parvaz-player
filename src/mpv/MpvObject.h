@@ -35,6 +35,7 @@ class MpvObject : public QObject {
     /// Float option in scaled pixels at 720p (mpv default 38).
     Q_PROPERTY(double subtitleFontSize READ subtitleFontSize WRITE setSubtitleFontSize
                    NOTIFY subtitleFontSizeChanged)
+    Q_PROPERTY(QString videoAspect READ videoAspect WRITE setVideoAspect NOTIFY videoAspectChanged)
 
 public:
     explicit MpvObject(QObject *parent = nullptr);
@@ -57,6 +58,7 @@ public:
     bool subtitlesVisible() const { return m_subtitlesVisible; }
     double subtitlePosition() const { return m_subtitlePosition; }
     double subtitleFontSize() const { return m_subtitleFontSize; }
+    QString videoAspect() const { return m_videoAspect; }
 
     void setPaused(bool paused);
     void setVolume(int volume);
@@ -66,6 +68,7 @@ public:
     void setSubtitlesVisible(bool visible);
     void setSubtitlePosition(double percentFromTop);
     void setSubtitleFontSize(double size);
+    Q_INVOKABLE void setVideoAspect(const QString &aspect);
 
     /// mpv accepts --speed 0.01..100 (see `mpv --speed=` docs).
     static constexpr double kMinSpeed = 0.01;
@@ -151,6 +154,7 @@ signals:
     void subtitlesVisibleChanged();
     void subtitlePositionChanged();
     void subtitleFontSizeChanged();
+    void videoAspectChanged();
     void fileLoaded();
     void osdRequested(const QString &text);
 
@@ -185,6 +189,7 @@ private:
     bool m_subtitlesVisible = true;
     double m_subtitlePosition = 100.0;
     double m_subtitleFontSize = 38.0;
+    QString m_videoAspect = QStringLiteral("default");
 
     bool m_bottomBarVisible = false;
     double m_bottomBarHeight = 0.0;

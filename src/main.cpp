@@ -262,6 +262,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         case 26: {
             double rawSubPos = 0.0;
             mpv_get_property(mpv.handle(), "sub-pos", MPV_FORMAT_DOUBLE, &rawSubPos);
+            std::fprintf(stderr, "parvaz check: rawSubPos in step 26 = %f\n", rawSubPos);
             check("bottom bar visible lifts subtitle position (< 90)", rawSubPos < 90.0 && rawSubPos > 0.0);
             mpv.setBottomBarOffset(false, 76.0, 720.0);
             break;
@@ -269,6 +270,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         case 27: {
             double rawSubPos = 0.0;
             mpv_get_property(mpv.handle(), "sub-pos", MPV_FORMAT_DOUBLE, &rawSubPos);
+            std::fprintf(stderr, "parvaz check: rawSubPos in step 27 = %f\n", rawSubPos);
             check("bottom bar hidden restores subtitle position to 100", qAbs(rawSubPos - 100.0) < 0.001);
             mpv.adjustSpeed(0.1);
             break;
@@ -286,8 +288,14 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
                 check("resumePosition initially 0", history.resumePosition(QStringLiteral("/dummy/video.mkv")) == 0.0);
             }
             QFile::remove(testDb);
+            mpv.setVideoAspect(QStringLiteral("16:9"));
             break;
         }
+        case 30:
+            std::fprintf(stderr, "parvaz check: videoAspect = [%s]\n", qPrintable(mpv.videoAspect()));
+            check("videoAspect round-trips 16:9", mpv.videoAspect() == QLatin1String("16:9"));
+            mpv.setVideoAspect(QStringLiteral("default"));
+            break;
         default: {
             const QString hw = mpv.hwdec();
             std::fprintf(stderr,
@@ -301,8 +309,8 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         }
         // Action steps that need mpv to actually act (seek, reload, option change)
         // get a longer beat before the assertion on the next turn.
-        const int delay = (step == 14 || step == 18 || step == 19 || step == 21 || step == 23
-                               || step == 24 || step == 25 || step == 26 || step == 27 || step == 28)
+        const int delay = (step == 7 || step == 8 || step == 14 || step == 18 || step == 19 || step == 21 || step == 23
+                               || step == 24 || step == 25 || step == 26 || step == 27 || step == 28 || step == 29)
                               ? 500 : 250;
         QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };
