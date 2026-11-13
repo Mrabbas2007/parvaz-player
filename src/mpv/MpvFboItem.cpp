@@ -96,7 +96,7 @@ public:
             return;
 
         mpv_opengl_fbo fbo{m_fbo, m_w, m_h, 0};
-        int flipY = 1; // if the image shows up upside down, set this to 0
+        int flipY = 0;
         mpv_render_param params[] = {
             {MPV_RENDER_PARAM_OPENGL_FBO, &fbo},
             {MPV_RENDER_PARAM_FLIP_Y, &flipY},
