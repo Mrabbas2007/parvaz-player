@@ -15,6 +15,9 @@ class MpvObject : public QObject {
     Q_PROPERTY(double position READ position NOTIFY positionChanged)
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(bool paused READ paused WRITE setPaused NOTIFY pausedChanged)
+    Q_PROPERTY(int volume READ volume WRITE setVolume NOTIFY volumeChanged)
+    Q_PROPERTY(bool muted READ muted WRITE setMuted NOTIFY mutedChanged)
+    Q_PROPERTY(double speed READ speed WRITE setSpeed NOTIFY speedChanged)
     Q_PROPERTY(QString mediaTitle READ mediaTitle NOTIFY mediaTitleChanged)
     Q_PROPERTY(QString hwdec READ hwdec NOTIFY hwdecChanged)
 
@@ -28,10 +31,20 @@ public:
     double position() const { return m_position; }
     double duration() const { return m_duration; }
     bool paused() const { return m_paused; }
+    int volume() const { return m_volume; }
+    bool muted() const { return m_muted; }
+    double speed() const { return m_speed; }
     QString mediaTitle() const { return m_mediaTitle; }
     QString hwdec() const { return m_hwdec; }
 
     void setPaused(bool paused);
+    void setVolume(int volume);
+    void setMuted(bool muted);
+    void setSpeed(double speed);
+
+    /// mpv accepts --speed 0.01..100 (see `mpv --speed=` docs).
+    static constexpr double kMinSpeed = 0.01;
+    static constexpr double kMaxSpeed = 100.0;
 
     Q_INVOKABLE void loadFile(const QString &path);
 
@@ -41,7 +54,14 @@ public:
     void setRenderReady();
     Q_INVOKABLE void togglePause();
     Q_INVOKABLE void seekRelative(double seconds);
-    Q_INVOKABLE void setSpeed(double speed);
+
+    /// Absolute seek, used by the seekbar.
+    Q_INVOKABLE void seekAbsolute(double seconds);
+
+    /// One frame forwards or backwards. Works while paused: mpv steps by
+    /// playing frames and re-pausing ("play" mode) or by seeking (-1).
+    Q_INVOKABLE void frameStep(int n = 1);
+
     Q_INVOKABLE QString formatTime(double seconds) const;
 
     /// "hwdec=vaapi drop=0 decoder-drop=0" for benchmarks.
@@ -51,6 +71,9 @@ signals:
     void positionChanged();
     void durationChanged();
     void pausedChanged();
+    void volumeChanged();
+    void mutedChanged();
+    void speedChanged();
     void mediaTitleChanged();
     void hwdecChanged();
     void fileLoaded();
@@ -72,6 +95,9 @@ private:
     double m_position = 0.0;
     double m_duration = 0.0;
     bool m_paused = true;
+    int m_volume = 100;
+    bool m_muted = false;
+    double m_speed = 1.0;
     QString m_mediaTitle;
     QString m_hwdec;
 };

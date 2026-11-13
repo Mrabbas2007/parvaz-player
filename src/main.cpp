@@ -1,5 +1,7 @@
 #include <clocale>
+#include <cmath>
 #include <cstdio>
+#include <functional>
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -13,6 +15,102 @@
 
 #include "mpv/MpvObject.h"
 #include "mpv/MpvFboItem.h"
+
+/// Each step applies a change, then checks it on a later event-loop turn:
+/// mpv reports the new value only through the observe callbacks, which need a
+/// turn of the GUI event loop to arrive.
+static int failures = 0;
+
+// Positions recorded by the frame-step checks, read back on a later turn.
+static double g_idlePos = 0.0;   // where we were before a deliberate no-op
+static double g_stepFrom = 0.0;  // where we were before frameStep(1)
+static double g_backFrom = 0.0;  // where we were before frameStep(-1)
+
+static void check(const char *what, bool ok)
+{
+    std::fprintf(stderr, "parvaz check: %s ... %s\n", what, ok ? "PASS" : "FAIL");
+    if (!ok)
+        ++failures;
+}
+
+/// Starts the smoke sequence; returns immediately. The sequence runs from
+/// queued timers and calls exit(0) / exit(1) when it is done.
+static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
+{
+    // Kept alive by the queued timers below; a local std::function would dangle.
+    auto next = std::make_shared<std::function<void(int)>>();
+    *next = [&mpv, app, next](int step) {
+        switch (step) {
+        case 0:  check("frames >= 30", parvazRenderedFrames() >= 30);
+                 check("position advanced", mpv.position() > 0.0);
+                 break;
+        case 1:  check("duration known", mpv.duration() > 0.0);
+                 mpv.setPaused(true);
+                 break;
+        case 2:  check("paused after setPaused(true)", mpv.paused());
+                 mpv.setVolume(50);
+                 break;
+        case 3:  check("volume == 50", mpv.volume() == 50);
+                 mpv.setMuted(true);
+                 break;
+        case 4:  check("muted == true", mpv.muted());
+                 mpv.setMuted(false);
+                 break;
+        case 5:  check("muted == false", !mpv.muted());
+                 mpv.setSpeed(2.0);
+                 break;
+        case 6:  check("speed == 2.0", qAbs(mpv.speed() - 2.0) < 0.001);
+                 mpv.setSpeed(1.0);
+                 break;
+        case 7:  check("speed == 1.0", qAbs(mpv.speed() - 1.0) < 0.001);
+                 mpv.seekAbsolute(2.0);
+                 break;
+        case 8:  check("seekAbsolute(2.0) within 0.3s", qAbs(mpv.position() - 2.0) <= 0.3);
+                 mpv.seekAbsolute(1.0);
+                 break;
+        case 9:  check("seekAbsolute(1.0) within 0.3s", qAbs(mpv.position() - 1.0) <= 0.3);
+                 // Baseline: paused, and nothing asks mpv to step.
+                 g_idlePos = mpv.position();
+                 break;
+        case 10: // Still paused with no step requested: time-pos must not move.
+                 check("no step: position stayed put",
+                       qAbs(mpv.position() - g_idlePos) < 0.001);
+                 g_stepFrom = mpv.position();
+                 mpv.frameStep(1);
+                 break;
+        case 11: {
+            const double fwd = mpv.position() - g_stepFrom;
+            // One frame of the 30 fps test clip is 0.0333s; allow slack both
+            // ways so a no-op and a multi-second jump both fail.
+            check("frameStep(1) advanced ~1 frame", fwd >= 0.01 && fwd <= 0.1);
+            check("frameStep(1) left us paused", mpv.paused());
+            g_backFrom = mpv.position();
+            mpv.frameStep(-1);
+            break;
+        }
+        case 12: {
+            // Stepping back must not run the clock forward.
+            const double back = mpv.position() - g_backFrom;
+            check("frameStep(-1) did not advance", back <= 0.001);
+            check("frameStep(-1) left us paused", mpv.paused());
+            break;
+        }
+        default: {
+            const QString hw = mpv.hwdec();
+            std::fprintf(stderr,
+                         "parvaz smoke: frames=%d position=%.2fs duration=%.2fs hwdec=%s %s\n",
+                         parvazRenderedFrames(), mpv.position(), mpv.duration(),
+                         hw.isEmpty() ? "none" : qPrintable(hw),
+                         failures == 0 ? "OK" : "FAILED");
+            QCoreApplication::exit(failures == 0 ? 0 : 1);
+            return;
+        }
+        }
+        QTimer::singleShot(250, app, [next, step]() { (*next)(step + 1); });
+    };
+
+    QTimer::singleShot(2500, app, [next]() { (*next)(0); });
+}
 
 int main(int argc, char *argv[])
 {
@@ -67,17 +165,8 @@ int main(int argc, char *argv[])
         mpv.loadFile(files.first());
 
     if (parser.isSet(smokeOpt)) {
-        QTimer::singleShot(2500, &app, [&mpv]() {
-            const int frames = parvazRenderedFrames();
-            const double pos = mpv.position();
-            const QString hw = mpv.hwdec();
-            std::fprintf(stderr,
-                         "parvaz smoke: frames=%d position=%.2fs duration=%.2fs hwdec=%s\n",
-                         frames, pos, mpv.duration(),
-                         hw.isEmpty() ? "none" : qPrintable(hw));
-            const bool ok = frames >= 30 && pos > 0.0;
-            QCoreApplication::exit(ok ? 0 : 1);
-        });
+        // runSmokeChecks() exits the process itself when the sequence is done.
+        runSmokeChecks(&app, mpv);
     }
 
     if (parser.isSet(benchOpt)) {

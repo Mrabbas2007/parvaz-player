@@ -41,6 +41,9 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "time-pos",  MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "duration",  MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "pause",     MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "volume",    MPV_FORMAT_INT64);
+    mpv_observe_property(m_mpv, 0, "mute",      MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "speed",     MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "media-title", MPV_FORMAT_STRING);
     mpv_observe_property(m_mpv, 0, "hwdec-current", MPV_FORMAT_STRING);
 
@@ -80,6 +83,9 @@ void MpvObject::drainEvents()
     bool hasPos = false;
     bool hasDur = false;
     bool hasPause = false;
+    bool hasVolume = false;
+    bool hasMute = false;
+    bool hasSpeed = false;
     bool hasTitle = false;
     bool hasHwdec = false;
 
@@ -105,6 +111,15 @@ void MpvObject::drainEvents()
             } else if (name == QLatin1String("pause") && prop->format == MPV_FORMAT_FLAG) {
                 m_paused = *static_cast<int *>(prop->data) != 0;
                 hasPause = true;
+            } else if (name == QLatin1String("volume") && prop->format == MPV_FORMAT_INT64) {
+                m_volume = *static_cast<int64_t *>(prop->data);
+                hasVolume = true;
+            } else if (name == QLatin1String("mute") && prop->format == MPV_FORMAT_FLAG) {
+                m_muted = *static_cast<int *>(prop->data) != 0;
+                hasMute = true;
+            } else if (name == QLatin1String("speed") && prop->format == MPV_FORMAT_DOUBLE) {
+                m_speed = *static_cast<double *>(prop->data);
+                hasSpeed = true;
             } else if (name == QLatin1String("media-title") && prop->format == MPV_FORMAT_STRING) {
                 // Must copy before the next wait_event: data is not ours.
                 const char *s = *static_cast<char **>(prop->data);
@@ -129,11 +144,14 @@ void MpvObject::drainEvents()
         }
     }
 
-    if (hasPos)   emit positionChanged();
-    if (hasDur)   emit durationChanged();
-    if (hasPause) emit pausedChanged();
-    if (hasTitle) emit mediaTitleChanged();
-    if (hasHwdec) emit hwdecChanged();
+    if (hasPos)    emit positionChanged();
+    if (hasDur)    emit durationChanged();
+    if (hasPause)  emit pausedChanged();
+    if (hasVolume) emit volumeChanged();
+    if (hasMute)   emit mutedChanged();
+    if (hasSpeed)  emit speedChanged();
+    if (hasTitle)  emit mediaTitleChanged();
+    if (hasHwdec)  emit hwdecChanged();
 }
 
 void MpvObject::setPaused(bool paused)
@@ -191,8 +209,64 @@ void MpvObject::setSpeed(double speed)
 {
     if (!m_mpv)
         return;
+    // mpv supports 0.01..100 (see `mpv --speed=` in the manual).
+    if (!(speed >= kMinSpeed))
+        speed = kMinSpeed;
+    if (speed > kMaxSpeed)
+        speed = kMaxSpeed;
     double s = speed;
     mpv_set_property(m_mpv, "speed", MPV_FORMAT_DOUBLE, &s);
+}
+
+void MpvObject::setVolume(int volume)
+{
+    if (!m_mpv)
+        return;
+    // mpv treats anything below 0 as 0; keep our own range at 0..100.
+    if (volume < 0)
+        volume = 0;
+    if (volume > 100)
+        volume = 100;
+    int64_t v = volume;
+    mpv_set_property(m_mpv, "volume", MPV_FORMAT_INT64, &v);
+}
+
+void MpvObject::setMuted(bool muted)
+{
+    if (!m_mpv)
+        return;
+    int flag = muted ? 1 : 0;
+    mpv_set_property(m_mpv, "mute", MPV_FORMAT_FLAG, &flag);
+}
+
+void MpvObject::seekAbsolute(double seconds)
+{
+    if (!m_mpv)
+        return;
+    if (!(seconds >= 0.0))
+        seconds = 0.0;
+    const QByteArray arg = QByteArray::number(seconds, 'f', 3);
+    const char *cmd[] = {"seek", arg.constData(), "absolute", nullptr};
+    mpv_command(m_mpv, cmd);
+}
+
+void MpvObject::frameStep(int n)
+{
+    if (!m_mpv)
+        return;
+    if (n == 0)
+        return;
+
+    const QByteArray frames = QByteArray::number(n);
+    if (n > 0) {
+        // Forward: mpv plays n frames and pauses again ("play" mode).
+        const char *cmd[] = {"frame-step", frames.constData(), "play", nullptr};
+        mpv_command(m_mpv, cmd);
+    } else {
+        // Backward always needs a seek; -1 lands exactly on the previous frame.
+        const char *cmd[] = {"frame-step", frames.constData(), "seek", nullptr};
+        mpv_command(m_mpv, cmd);
+    }
 }
 
 QString MpvObject::statsLine() const
