@@ -18,6 +18,7 @@
 #include "mpv/MpvFboItem.h"
 #include "platform/IdleInhibitor.h"
 #include "platform/MprisService.h"
+#include "playback/PlaybackHistory.h"
 
 /// Each step applies a change, then checks it on a later event-loop turn:
 /// mpv reports the new value only through the observe callbacks, which need a
@@ -269,6 +270,22 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             double rawSubPos = 0.0;
             mpv_get_property(mpv.handle(), "sub-pos", MPV_FORMAT_DOUBLE, &rawSubPos);
             check("bottom bar hidden restores subtitle position to 100", qAbs(rawSubPos - 100.0) < 0.001);
+            mpv.adjustSpeed(0.1);
+            break;
+        }
+        case 28:
+            check("adjustSpeed(+0.1) moved speed to 1.1", qAbs(mpv.speed() - 1.1) < 0.001);
+            mpv.resetSpeed();
+            break;
+        case 29: {
+            check("resetSpeed() restored speed to 1.0", qAbs(mpv.speed() - 1.0) < 0.001);
+            const QString testDb = QStringLiteral("/tmp/test_parvaz_history.db");
+            QFile::remove(testDb);
+            {
+                parvaz::PlaybackHistory history(&mpv, testDb);
+                check("resumePosition initially 0", history.resumePosition(QStringLiteral("/dummy/video.mkv")) == 0.0);
+            }
+            QFile::remove(testDb);
             break;
         }
         default: {
@@ -285,7 +302,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         // Action steps that need mpv to actually act (seek, reload, option change)
         // get a longer beat before the assertion on the next turn.
         const int delay = (step == 14 || step == 18 || step == 19 || step == 21 || step == 23
-                               || step == 24 || step == 25 || step == 26)
+                               || step == 24 || step == 25 || step == 26 || step == 27 || step == 28)
                               ? 500 : 250;
         QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };
@@ -341,12 +358,13 @@ int main(int argc, char *argv[])
     }
 
     // Desktop integration, normal mode only: --smoke/--bench stay hermetic
-    // (no bus name to collide with a running instance, no idle inhibit) so
-    // `check` is reproducible. Both are parented to the app, on the GUI
-    // thread; all their D-Bus calls are async.
+    // (no bus name to collide with a running instance, no idle inhibit,
+    // no resume seeking) so `check` is reproducible. Both are parented to the
+    // app, on the GUI thread; all their D-Bus calls are async.
     if (!parser.isSet(smokeOpt) && !parser.isSet(benchOpt)) {
         new parvaz::MprisService(&mpv, &app);
         new parvaz::IdleInhibitor(&mpv, &app);
+        new parvaz::PlaybackHistory(&mpv, QString(), &app);
     }
 
     // Deferred internally until the render context owns the video output.

@@ -408,41 +408,120 @@ Window {
         enabled: !openDialog.visible && !subDialog.visible
     }
 
-    PlayerShortcut { sequence: "Space";  onActivated: Mpv.togglePause() }
-    PlayerShortcut { sequence: "Left";   onActivated: Mpv.seekRelative(-5) }
-    PlayerShortcut { sequence: "Right";  onActivated: Mpv.seekRelative(5) }
-    PlayerShortcut { sequence: "Down";   onActivated: Mpv.seekRelative(-30) }
-    PlayerShortcut { sequence: "Up";     onActivated: Mpv.seekRelative(30) }
-    PlayerShortcut { sequence: "F";      onActivated: root.toggleFullscreen() }
-    PlayerShortcut { sequence: "Escape"; onActivated: if (root.visibility === Window.FullScreen) root.visibility = Window.Windowed }
-
-    // Volume / mute / frame step. These keys are free: Space, the arrows,
-    // F, Esc and Ctrl+Q are taken above.
-    PlayerShortcut { sequence: "M"; onActivated: Mpv.setMuted(!Mpv.muted) }
-    PlayerShortcut {
-        sequence: "Ctrl+Up"
-        onActivated: {
-            Mpv.setVolume(Math.min(100, Mpv.volume + 5))
-            poke()
-        }
-    }
-    PlayerShortcut {
-        sequence: "Ctrl+Down"
-        onActivated: {
-            Mpv.setVolume(Math.max(0, Mpv.volume - 5))
-            poke()
-        }
-    }
-    PlayerShortcut { sequence: "Comma";  onActivated: Mpv.frameStep(-1) }
+    // Playback
+    PlayerShortcut { sequence: "Space"; onActivated: Mpv.togglePause() }
+    PlayerShortcut { sequence: "Comma"; onActivated: Mpv.frameStep(-1) }
     PlayerShortcut { sequence: "Period"; onActivated: Mpv.frameStep(1) }
 
-    // Subtitles / audio tracks. Uppercase letters are the shifted form in Qt's
-    // portable sequence syntax, matching the existing F and M bindings.
+    // Seeking (PotPlayer style: Left/Right 5s, Ctrl 30s, Shift 60s, Ctrl+Shift 300s, Backspace/Home 0s)
+    PlayerShortcut { sequence: "Left"; onActivated: Mpv.seekRelative(-5) }
+    PlayerShortcut { sequence: "Right"; onActivated: Mpv.seekRelative(5) }
+    PlayerShortcut { sequence: "Ctrl+Left"; onActivated: Mpv.seekRelative(-30) }
+    PlayerShortcut { sequence: "Ctrl+Right"; onActivated: Mpv.seekRelative(30) }
+    PlayerShortcut { sequence: "Shift+Left"; onActivated: Mpv.seekRelative(-60) }
+    PlayerShortcut { sequence: "Shift+Right"; onActivated: Mpv.seekRelative(60) }
+    PlayerShortcut { sequence: "Ctrl+Shift+Left"; onActivated: Mpv.seekRelative(-300) }
+    PlayerShortcut { sequence: "Ctrl+Shift+Right"; onActivated: Mpv.seekRelative(300) }
+    PlayerShortcut { sequence: "Backspace"; onActivated: { Mpv.seekAbsolute(0); Mpv.showOsd("00:00:00") } }
+    PlayerShortcut { sequence: "Home"; onActivated: { Mpv.seekAbsolute(0); Mpv.showOsd("00:00:00") } }
+
+    // Speed control (PotPlayer: Z = normal 1.0x, X = -0.1x, C = +0.1x)
+    PlayerShortcut { sequence: "Z"; onActivated: Mpv.resetSpeed() }
+    PlayerShortcut { sequence: "X"; onActivated: Mpv.adjustSpeed(-0.1) }
+    PlayerShortcut { sequence: "C"; onActivated: Mpv.adjustSpeed(0.1) }
+
+    // Volume (PotPlayer: Up/Down arrow = +/- 5%, M = mute)
+    PlayerShortcut { sequence: "Up"; onActivated: { Mpv.adjustVolume(5); poke() } }
+    PlayerShortcut { sequence: "Down"; onActivated: { Mpv.adjustVolume(-5); poke() } }
+    PlayerShortcut { sequence: "Ctrl+Up"; onActivated: { Mpv.adjustVolume(5); poke() } }
+    PlayerShortcut { sequence: "Ctrl+Down"; onActivated: { Mpv.adjustVolume(-5); poke() } }
+    PlayerShortcut {
+        sequence: "M"
+        onActivated: {
+            Mpv.setMuted(!Mpv.muted)
+            Mpv.showOsd(Mpv.muted ? "Mute" : "Unmute (" + Mpv.volume + "%)")
+        }
+    }
+
+    // Window sizing & Fullscreen (PotPlayer: 1=0.5x, 2=1.0x, 3=1.5x, 4=2.0x, Enter/F=Fullscreen)
+    PlayerShortcut { sequence: "1"; onActivated: { root.visibility = Window.Windowed; root.width = 640; root.height = 360 } }
+    PlayerShortcut { sequence: "2"; onActivated: { root.visibility = Window.Windowed; root.width = 1280; root.height = 720 } }
+    PlayerShortcut { sequence: "3"; onActivated: { root.visibility = Window.Windowed; root.width = 1600; root.height = 900 } }
+    PlayerShortcut { sequence: "4"; onActivated: { root.visibility = Window.Windowed; root.width = 1920; root.height = 1080 } }
+    PlayerShortcut { sequence: "Enter"; onActivated: root.toggleFullscreen() }
+    PlayerShortcut { sequence: "Return"; onActivated: root.toggleFullscreen() }
+    PlayerShortcut { sequence: "F"; onActivated: root.toggleFullscreen() }
+    PlayerShortcut { sequence: "Escape"; onActivated: if (root.visibility === Window.FullScreen) root.visibility = Window.Windowed }
+
+    // Subtitles & Audio tracks
     PlayerShortcut { sequence: "S"; onActivated: Mpv.cycleSubtitleTrack() }
     PlayerShortcut { sequence: "A"; onActivated: Mpv.cycleAudioTrack() }
-    PlayerShortcut { sequence: "V"; onActivated: Mpv.setSubtitlesVisible(!Mpv.subtitlesVisible) }
-    PlayerShortcut { sequence: "["; onActivated: Mpv.setSubtitleDelay(Mpv.subtitleDelay - 0.1) }
-    PlayerShortcut { sequence: "]"; onActivated: Mpv.setSubtitleDelay(Mpv.subtitleDelay + 0.1) }
+    PlayerShortcut {
+        sequence: "V"
+        onActivated: {
+            Mpv.setSubtitlesVisible(!Mpv.subtitlesVisible)
+            Mpv.showOsd(Mpv.subtitlesVisible ? "Subtitles: On" : "Subtitles: Off")
+        }
+    }
+    PlayerShortcut {
+        sequence: "["
+        onActivated: {
+            Mpv.setSubtitleDelay(Mpv.subtitleDelay - 0.1)
+            Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
+        }
+    }
+    PlayerShortcut {
+        sequence: "]"
+        onActivated: {
+            Mpv.setSubtitleDelay(Mpv.subtitleDelay + 0.1)
+            Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
+        }
+    }
+    PlayerShortcut { sequence: "Alt+Up"; onActivated: Mpv.adjustSubtitlePosition(-2) }
+    PlayerShortcut { sequence: "Alt+Down"; onActivated: Mpv.adjustSubtitlePosition(2) }
+    PlayerShortcut { sequence: "Alt+PageUp"; onActivated: Mpv.adjustSubtitleFontSize(2) }
+    PlayerShortcut { sequence: "Alt+PageDown"; onActivated: Mpv.adjustSubtitleFontSize(-2) }
 
     PlayerShortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
+
+    // --- OSD Toast --------------------------------------------------------
+    Rectangle {
+        id: osdToast
+        anchors.top: parent.top
+        anchors.topMargin: 28
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: osdText.implicitWidth + 32
+        height: osdText.implicitHeight + 16
+        radius: 6
+        color: "#d9151515"
+        border.color: "#40ffffff"
+        border.width: 1
+        opacity: 0.0
+        visible: opacity > 0.0
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+
+        Text {
+            id: osdText
+            anchors.centerIn: parent
+            color: "#ffffff"
+            font.pixelSize: 15
+            font.bold: true
+        }
+
+        Timer {
+            id: osdTimer
+            interval: 1600
+            repeat: false
+            onTriggered: osdToast.opacity = 0.0
+        }
+    }
+
+    Connections {
+        target: Mpv
+        function onOsdRequested(text) {
+            osdText.text = text
+            osdToast.opacity = 1.0
+            osdTimer.restart()
+        }
+    }
 }

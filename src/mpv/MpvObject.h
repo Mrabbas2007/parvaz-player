@@ -20,6 +20,7 @@ class MpvObject : public QObject {
     Q_PROPERTY(bool muted READ muted WRITE setMuted NOTIFY mutedChanged)
     Q_PROPERTY(double speed READ speed WRITE setSpeed NOTIFY speedChanged)
     Q_PROPERTY(QString mediaTitle READ mediaTitle NOTIFY mediaTitleChanged)
+    Q_PROPERTY(QString currentFile READ currentFile NOTIFY currentFileChanged)
     Q_PROPERTY(QString hwdec READ hwdec NOTIFY hwdecChanged)
     /// One QVariantMap per track: id, type, title, lang, codec, external,
     /// selected, default, forced. Derived from mpv's "track-list".
@@ -49,6 +50,7 @@ public:
     bool muted() const { return m_muted; }
     double speed() const { return m_speed; }
     QString mediaTitle() const { return m_mediaTitle; }
+    QString currentFile() const { return m_currentFile; }
     QString hwdec() const { return m_hwdec; }
     QVariantList tracks() const { return m_tracks; }
     double subtitleDelay() const { return m_subtitleDelay; }
@@ -123,6 +125,14 @@ public:
     /// whenever the bar is visible on screen.
     Q_INVOKABLE void setBottomBarOffset(bool visible, double barHeight, double windowHeight);
 
+    /// Shortcuts and OSD helpers
+    Q_INVOKABLE void adjustSpeed(double delta);
+    Q_INVOKABLE void resetSpeed();
+    Q_INVOKABLE void adjustVolume(int delta);
+    Q_INVOKABLE void adjustSubtitlePosition(double delta);
+    Q_INVOKABLE void adjustSubtitleFontSize(double delta);
+    Q_INVOKABLE void showOsd(const QString &text);
+
     /// "hwdec=vaapi drop=0 decoder-drop=0" for benchmarks.
     QString statsLine() const;
 
@@ -134,6 +144,7 @@ signals:
     void mutedChanged();
     void speedChanged();
     void mediaTitleChanged();
+    void currentFileChanged();
     void hwdecChanged();
     void tracksChanged();
     void subtitleDelayChanged();
@@ -141,6 +152,7 @@ signals:
     void subtitlePositionChanged();
     void subtitleFontSizeChanged();
     void fileLoaded();
+    void osdRequested(const QString &text);
 
 private slots:
     void onWakeup();
@@ -165,6 +177,7 @@ private:
     bool m_muted = false;
     double m_speed = 1.0;
     QString m_mediaTitle;
+    QString m_currentFile;
     QString m_hwdec;
 
     QVariantList m_tracks;

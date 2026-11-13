@@ -279,6 +279,9 @@ void MpvObject::loadFile(const QString &path)
     if (!m_mpv || path.isEmpty())
         return;
 
+    m_currentFile = path;
+    emit currentFileChanged();
+
     // Defer until the render context owns the video output.
     if (!m_renderReady) {
         m_pendingFile = path;
@@ -576,4 +579,45 @@ void MpvObject::setSubtitleFontSize(double size)
     // mpv clamps to 1..9000 itself; keep a sane UI range.
     double s = qBound(8.0, size, 200.0);
     mpv_set_property(m_mpv, "sub-font-size", MPV_FORMAT_DOUBLE, &s);
+}
+
+void MpvObject::adjustSpeed(double delta)
+{
+    double newSpeed = qBound(kMinSpeed, m_speed + delta, kMaxSpeed);
+    // Round to 1 decimal place to keep it clean (e.g. 0.9, 1.0, 1.1)
+    newSpeed = std::round(newSpeed * 10.0) / 10.0;
+    setSpeed(newSpeed);
+    showOsd(QStringLiteral("Speed: %1x").arg(m_speed, 0, 'f', 2));
+}
+
+void MpvObject::resetSpeed()
+{
+    setSpeed(1.0);
+    showOsd(QStringLiteral("Speed: 1.00x"));
+}
+
+void MpvObject::adjustVolume(int delta)
+{
+    int newVol = qBound(0, m_volume + delta, 100);
+    if (m_muted && delta > 0)
+        setMuted(false);
+    setVolume(newVol);
+    showOsd(QStringLiteral("Volume: %1%").arg(m_volume));
+}
+
+void MpvObject::adjustSubtitlePosition(double delta)
+{
+    setSubtitlePosition(m_subtitlePosition + delta);
+    showOsd(QStringLiteral("Sub pos: %1%").arg(int(std::round(m_subtitlePosition))));
+}
+
+void MpvObject::adjustSubtitleFontSize(double delta)
+{
+    setSubtitleFontSize(m_subtitleFontSize + delta);
+    showOsd(QStringLiteral("Sub size: %1").arg(int(std::round(m_subtitleFontSize))));
+}
+
+void MpvObject::showOsd(const QString &text)
+{
+    emit osdRequested(text);
 }
