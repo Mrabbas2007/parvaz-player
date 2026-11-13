@@ -230,7 +230,7 @@ sudo dnf install gcc-c++ cmake ninja-build mpv-libs-devel \
 - [ ] AppImage (با `linuxdeploy`)
 - [ ] RPM (COPR) + AUR + DEB
 - [ ] GitHub Actions: build + `make check` + smoke test روی هر PR
-- [ ] README با دو GIF و یک جمله: «PotPlayer برای لینوکس»
+- [ ] README با دو GIF + جدول مقایسه‌ی «PotPlayer vs Parvaz» (بخش ۱۳)
 - [ ] crash report اختیاری (breakpad یا فقط backtrace محلی)
 
 **DoD:** `flatpak install` روی یک ماشین تمیز، فایل 4K HEVC بدون هیچ کار اضافه پخش شود.
@@ -322,3 +322,35 @@ mkdir -p src/{mpv,ui,library,subs,config,dbus} qml/components qml/Menu \
 ```
 
 **قانون توقف:** تا فاز ۰ سبز نشده، هیچ فیچری اضافه نکن. وسوسه‌ی «بذار پلی‌لیست را هم بزنم» با AI ده برابر می‌شود، چون نوشتن فیچر جدید همیشه از دیباگ صفحه‌ی سیاه راحت‌تر است.
+
+---
+
+## ۱۳. نام‌گذاری و سئو (تصمیم قطعی)
+
+| مورد | مقدار |
+|---|---|
+| مخزن | `parvaz-player` |
+| نام نمایشی | **Parvaz Player** — پرواز |
+| باینری | `parvaz` |
+| Flatpak ID | `io.github.<username>.ParvazPlayer` |
+| شماره‌گذاری | `v0.1.0` |
+
+### قاعده
+> اسم محصول ≠ وصف محصول. «PotPlayer» علامت تجاری Kakao است و نباید در نام مخزن، نام بسته، App ID یا عنوان محصول بیاید (خطر takedown گیت‌هاب + رد شدن در Flathub).
+> اما در **وصف** مجاز است: «PotPlayer-style»، «PotPlayer alternative»، «Import PotPlayer keymap».
+
+### سئو، جای درستش
+
+```yaml
+description: "PotPlayer-style media player for Linux. mpv-powered, Wayland-native, GPLv3."
+topics: potplayer, mpv, video-player, media-player, linux, qt6, qml, wayland, hdr
+```
+
+- خط اول README: توضیح یک‌خطی با کلمه‌ی کلیدی.
+- جدول «PotPlayer vs Parvaz» در README (گوگل محتوای README را ایندکس می‌کند).
+- عنوان صفحه‌ی سایت: «PotPlayer alternative for Linux» نه «PotPlayer for Linux».
+- نام فیچر: «Import PotPlayer keymap» — قوی‌ترین قلاب برای کاربر ویندوزی.
+
+### چرا نه نام‌گذاری کلمه‌کلیدی
+`potplayer in:name` = ۲۸۹ ریپو · `potplayer linux` = ۱٬۰۵۷ نتیجه · `parvaz player` = ۰.
+اسم کلمه‌کلیدی رتبه نمی‌آورد، فقط رقابت اضافه می‌کند.
