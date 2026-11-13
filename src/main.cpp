@@ -15,6 +15,8 @@
 
 #include "mpv/MpvObject.h"
 #include "mpv/MpvFboItem.h"
+#include "platform/IdleInhibitor.h"
+#include "platform/MprisService.h"
 
 /// Each step applies a change, then checks it on a later event-loop turn:
 /// mpv reports the new value only through the observe callbacks, which need a
@@ -157,6 +159,15 @@ int main(int argc, char *argv[])
     if (engine.rootObjects().isEmpty()) {
         std::fprintf(stderr, "parvaz: could not load QML\n");
         return 1;
+    }
+
+    // Desktop integration, normal mode only: --smoke/--bench stay hermetic
+    // (no bus name to collide with a running instance, no idle inhibit) so
+    // `check` is reproducible. Both are parented to the app, on the GUI
+    // thread; all their D-Bus calls are async.
+    if (!parser.isSet(smokeOpt) && !parser.isSet(benchOpt)) {
+        new parvaz::MprisService(&mpv, &app);
+        new parvaz::IdleInhibitor(&mpv, &app);
     }
 
     // Deferred internally until the render context owns the video output.
