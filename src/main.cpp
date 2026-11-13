@@ -353,6 +353,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Parvaz", 1, 0, "Mpv", &mpv);
 
     QQmlApplicationEngine engine;
+    engine.addImportPath(QStringLiteral(PARVAZ_QML_DIR));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
                      &app, []() {
                          std::fprintf(stderr, "parvaz: QML root object creation failed\n");
