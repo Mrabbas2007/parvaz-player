@@ -7,9 +7,9 @@ Item {
     id: root
 
     property string iconName: ""
-    property color iconColor: active ? Theme.accent : (mouseArea.containsMouse ? Theme.textPrimary : Theme.textSecondary)
+    property color iconColor: active ? "#FFFFFF" : (mouseArea.containsMouse ? "#FFFFFF" : Theme.textSecondary)
     property real iconSize: 18
-    property real buttonSize: 34
+    property real buttonSize: 32
     property string tooltipText: ""
     property bool active: false
     property bool isRound: true
@@ -24,18 +24,15 @@ Item {
         anchors.fill: parent
         radius: root.isRound ? width / 2 : Theme.radiusMedium
         color: root.active
-               ? Theme.bgGlassLight
+               ? "#26FFFFFF"
                : (mouseArea.pressed
-                  ? Theme.bgGlassPressed
-                  : (mouseArea.containsMouse ? Theme.bgGlassHover : "transparent"))
-        border.color: root.active ? Theme.borderGlassActive : (mouseArea.containsMouse ? Theme.borderGlassSubtle : "transparent")
-        border.width: 1
+                  ? "#33FFFFFF"
+                  : (mouseArea.containsMouse ? "#14FFFFFF" : "transparent"))
 
         Behavior on color { ColorAnimation { duration: Theme.animFast } }
-        Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
     }
 
-    scale: mouseArea.pressed ? 0.90 : 1.0
+    scale: mouseArea.pressed ? 0.94 : 1.0
     Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutQuad } }
 
     Image {
@@ -56,7 +53,7 @@ Item {
         source: iconImg
         colorization: 1.0
         colorizationColor: root.iconColor
-        opacity: root.active ? 1.0 : (mouseArea.containsMouse ? 1.0 : 0.82)
+        opacity: root.active ? 1.0 : (mouseArea.containsMouse ? 1.0 : 0.78)
 
         Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
     }
@@ -71,7 +68,7 @@ Item {
 
     ToolTip {
         visible: root.tooltipText.length > 0 && mouseArea.containsMouse
-        delay: 400
+        delay: 450
         timeout: 2500
         text: root.tooltipText
         font.family: Theme.fontFamily

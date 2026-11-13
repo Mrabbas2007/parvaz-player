@@ -17,9 +17,9 @@ Item {
     signal openSubClicked()
     signal fullscreenToggled()
 
-    height: 84
+    height: Theme.controlBarHeight
 
-    // Frosted glass background: blurred backdrop + dark obsidian tint
+    // Frosted glass background: GPU blur of video + deep cinematic vignette gradient
     Item {
         id: dockBg
         anchors.fill: parent
@@ -30,23 +30,27 @@ Item {
             source: root.blurSource
             visible: root.blurSource !== null && root.opacity > 0.0
             blurEnabled: true
-            blur: 0.6
+            blur: 0.5
             blurMax: 32
-            saturation: 0.25
+            saturation: 0.15
             brightness: -0.15
         }
 
-        // Semi-transparent obsidian glass layer with border highlight
+        // Cinematic gradient from soft shadow to solid deep graphite
         Rectangle {
             anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: root.blurSource !== null ? "#B8101218" : Theme.bgGlass
-            border.color: Theme.borderGlass
-            border.width: 1
-
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#CC181B24" }
-                GradientStop { position: 1.0; color: "#E0101218" }
+                GradientStop { position: 0.0; color: "#00000000" }
+                GradientStop { position: 0.25; color: "#8008090D" }
+                GradientStop { position: 1.0; color: "#F208090D" }
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                height: 1
+                color: Theme.borderGlassSubtle
             }
         }
     }
@@ -64,13 +68,13 @@ Item {
 
     Column {
         anchors.fill: parent
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        anchors.topMargin: 8
+        anchors.leftMargin: 20
+        anchors.rightMargin: 20
+        anchors.topMargin: 6
         anchors.bottomMargin: 8
         spacing: 6
 
-        // ---- 1. Full-width Seek Bar ----
+        // ---- 1. Hairline Integrated Timeline ----
         SeekBar {
             id: seekBar
             anchors.left: parent.left
@@ -82,19 +86,19 @@ Item {
             onSeekingFinished: root.pokeRequested()
         }
 
-        // ---- 2. Controls & Actions Row ----
+        // ---- 2. Primary Playback Controls & Utility Actions ----
         Item {
             anchors.left: parent.left
             anchors.right: parent.right
             height: 38
 
-            // Left Section: Playback controls & Time readout
+            // Left Section: Playback controls & Monospace time readout
             Row {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 6
 
-                // Play / Pause prominent button
+                // Hero Play/Pause button
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: Mpv.paused ? "play" : "pause"
@@ -109,8 +113,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "skip-back"
                     tooltipText: "Frame backward (Comma)"
-                    buttonSize: 32
-                    iconSize: 18
+                    buttonSize: 30
+                    iconSize: 17
                     onClicked: Mpv.frameStep(-1)
                 }
 
@@ -118,8 +122,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "skip-forward"
                     tooltipText: "Frame forward (Period)"
-                    buttonSize: 32
-                    iconSize: 18
+                    buttonSize: 30
+                    iconSize: 17
                     onClicked: Mpv.frameStep(1)
                 }
 
@@ -135,18 +139,18 @@ Item {
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: 1
-                    height: 18
-                    color: Theme.borderGlassSubtle
+                    height: 14
+                    color: Theme.borderGlass
                 }
 
-                // Time readout (Position / Duration)
+                // Clean time display (Position / Duration)
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 4
 
                     Text {
                         text: Mpv.formatTime(Mpv.position)
-                        color: Theme.textPrimary
+                        color: "#FFFFFF"
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontNormal
                         font.bold: true
@@ -168,7 +172,7 @@ Item {
                 }
             }
 
-            // Right Section: Volume, Tracks, Speed, Open, Fullscreen
+            // Right Section: Volume, Tracks, Speed, HW, Open, Fullscreen
             Row {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -186,8 +190,8 @@ Item {
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: 1
-                    height: 18
-                    color: Theme.borderGlassSubtle
+                    height: 14
+                    color: Theme.borderGlass
                 }
 
                 // Subtitle tracks button
@@ -196,8 +200,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "subtitles"
                     tooltipText: "Subtitles & Options (V / S)"
-                    buttonSize: 32
-                    iconSize: 18
+                    buttonSize: 30
+                    iconSize: 17
                     active: Mpv.subtitlesVisible
                     onClicked: subsMenu.open()
                 }
@@ -208,43 +212,39 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "music"
                     tooltipText: "Audio tracks (A)"
-                    buttonSize: 32
-                    iconSize: 18
+                    buttonSize: 30
+                    iconSize: 17
                     onClicked: audioMenu.open()
                 }
 
-                // Speed pill badge
-                Rectangle {
+                // Clean text speed control (No bordered pill!)
+                Item {
                     anchors.verticalCenter: parent.verticalCenter
+                    width: speedRow.implicitWidth + 12
                     height: 28
-                    width: speedRow.implicitWidth + 16
-                    radius: Theme.radiusSmall
-                    color: speedMouse.containsMouse ? Theme.bgGlassHover : Theme.bgGlassLight
-                    border.color: Theme.borderGlassSubtle
-                    border.width: 1
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Theme.radiusSmall
+                        color: speedMouse.containsMouse ? Theme.bgGlassHover : "transparent"
+
+                        Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                    }
 
                     Row {
                         id: speedRow
                         anchors.centerIn: parent
-                        spacing: 5
-
-                        Image {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 14
-                            height: 14
-                            source: "../icons/gauge.svg"
-                            sourceSize: Qt.size(28, 28)
-                            fillMode: Image.PreserveAspectFit
-                            opacity: 0.85
-                        }
+                        spacing: 2
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: Mpv.speed.toFixed(2) + "x"
-                            color: Theme.textPrimary
+                            text: Mpv.speed.toFixed(2) + "×"
+                            color: speedMouse.containsMouse ? "#FFFFFF" : Theme.textSecondary
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSmall
+                            font.pixelSize: Theme.fontNormal
                             font.bold: true
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
                         }
                     }
 
@@ -265,28 +265,30 @@ Item {
 
                     ToolTip {
                         visible: speedMouse.containsMouse
-                        text: "Playback speed (Z: 1.0x, X: -0.1x, C: +0.1x)"
+                        text: "Speed (Z: 1.0x, X: -0.1x, C: +0.1x)"
                         delay: 400
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSmall
                     }
                 }
 
-                // Hardware decode pill
-                Rectangle {
+                // Discrete HW Indicator (Clean dot + label)
+                Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    height: 24
-                    width: hwText.implicitWidth + 12
-                    radius: Theme.radiusSmall
-                    color: Theme.bgGlassLight
-                    border.color: Theme.borderGlassSubtle
-                    border.width: 1
+                    spacing: 4
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 5
+                        height: 5
+                        radius: 2.5
+                        color: Mpv.hwdec.length > 0 ? Theme.statusGreen : Theme.textMuted
+                    }
 
                     Text {
-                        id: hwText
-                        anchors.centerIn: parent
-                        text: "hw: " + (Mpv.hwdec.length > 0 ? Mpv.hwdec : "off")
-                        color: Mpv.hwdec.length > 0 ? Theme.statusGreen : Theme.statusRed
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "HW"
+                        color: Mpv.hwdec.length > 0 ? Theme.textSecondary : Theme.textMuted
                         font.family: Theme.fontFamily
                         font.pixelSize: 10
                         font.bold: true
@@ -298,8 +300,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "folder-open"
                     tooltipText: "Open media…"
-                    buttonSize: 32
-                    iconSize: 18
+                    buttonSize: 30
+                    iconSize: 17
                     onClicked: root.openClicked()
                 }
 
@@ -308,8 +310,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: root.isFullscreen ? "minimize-2" : "maximize-2"
                     tooltipText: root.isFullscreen ? "Exit Fullscreen (F / Enter)" : "Fullscreen (F / Enter)"
-                    buttonSize: 32
-                    iconSize: 18
+                    buttonSize: 30
+                    iconSize: 17
                     onClicked: root.fullscreenToggled()
                 }
             }

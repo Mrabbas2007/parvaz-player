@@ -11,14 +11,14 @@ Row {
     signal volumeChangeRequested(int newVolume)
     signal muteToggled()
 
-    spacing: 6
+    spacing: 4
     anchors.verticalCenter: parent.verticalCenter
 
     IconButton {
         anchors.verticalCenter: parent.verticalCenter
         iconName: root.muted || root.volume === 0 ? "volume-x" : (root.volume > 40 ? "volume-2" : "volume-1")
         tooltipText: root.muted ? "Unmute (M)" : "Mute (M)"
-        buttonSize: 32
+        buttonSize: 30
         iconSize: 17
         onClicked: root.muteToggled()
     }
@@ -26,17 +26,17 @@ Row {
     Item {
         id: sliderArea
         anchors.verticalCenter: parent.verticalCenter
-        width: 86
-        height: 24
+        width: 74
+        height: 20
 
         // Rail
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            height: 4
-            radius: 2
-            color: "#33FFFFFF"
+            height: 3
+            radius: 1.5
+            color: Theme.timelineRail
         }
 
         // Fill
@@ -44,25 +44,24 @@ Row {
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            anchors.topMargin: 10
-            anchors.bottomMargin: 10
+            anchors.topMargin: 8.5
+            anchors.bottomMargin: 8.5
             width: parent.width * (root.muted ? 0.0 : (root.volume / 100.0))
-            radius: 2
-            color: root.muted ? Theme.textMuted : Theme.accent
+            radius: 1.5
+            color: root.muted ? Theme.textMuted : "#FFFFFF"
         }
 
-        // Handle
+        // Handle (shown on hover)
         Rectangle {
             x: (parent.width * (root.muted ? 0.0 : (root.volume / 100.0))) - (width / 2)
             anchors.verticalCenter: parent.verticalCenter
-            width: volMouse.containsMouse || volMouse.pressed ? 12 : 8
-            height: width
-            radius: width / 2
+            width: 8
+            height: 8
+            radius: 4
             color: "#FFFFFF"
-            border.color: Theme.accent
-            border.width: 1.5
+            opacity: volMouse.containsMouse || volMouse.pressed ? 1.0 : 0.0
 
-            Behavior on width { NumberAnimation { duration: Theme.animFast } }
+            Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
         }
 
         MouseArea {

@@ -16,13 +16,13 @@ Item {
     Rectangle {
         id: osdCapsule
         anchors.top: parent.top
-        anchors.topMargin: 56 // below the top title bar
+        anchors.topMargin: 20
         anchors.right: parent.right
-        anchors.rightMargin: 24
-        width: osdText.implicitWidth + 28
-        height: osdText.implicitHeight + 14
+        anchors.rightMargin: 20
+        width: osdText.implicitWidth + 24
+        height: osdText.implicitHeight + 12
         radius: Theme.radiusMedium
-        color: Theme.bgGlass
+        color: Theme.bgTooltip
         border.color: Theme.borderTooltip
         border.width: 1
         opacity: 0.0
@@ -30,31 +30,18 @@ Item {
 
         Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
 
-        Row {
+        Text {
+            id: osdText
             anchors.centerIn: parent
-            spacing: 8
-
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 5
-                height: 5
-                radius: 2.5
-                color: Theme.accent
-            }
-
-            Text {
-                id: osdText
-                anchors.verticalCenter: parent.verticalCenter
-                color: Theme.textPrimary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontMedium
-                font.bold: true
-            }
+            color: "#FFFFFF"
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+            font.bold: true
         }
 
         Timer {
             id: hideTimer
-            interval: 1600
+            interval: 1500
             repeat: false
             onTriggered: osdCapsule.opacity = 0.0
         }

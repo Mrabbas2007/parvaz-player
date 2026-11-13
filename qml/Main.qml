@@ -130,33 +130,20 @@ Window {
     Rectangle {
         visible: Mpv.duration <= 0
         anchors.centerIn: parent
-        width: dropText.implicitWidth + 36
-        height: dropText.implicitHeight + 20
-        radius: Theme.radiusLarge
-        color: Theme.bgGlass
+        width: dropText.implicitWidth + 32
+        height: 38
+        radius: Theme.radiusMedium
+        color: "#D90C0D12"
         border.color: Theme.borderGlass
         border.width: 1
 
-        Row {
+        Text {
+            id: dropText
             anchors.centerIn: parent
-            spacing: 10
-
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 8
-                height: 8
-                radius: 4
-                color: Theme.accent
-            }
-
-            Text {
-                id: dropText
-                anchors.verticalCenter: parent.verticalCenter
-                color: Theme.textSecondary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontMedium
-                text: "فایلی را اینجا رها کنید  ·  Space = پخش/توقف  ·  F = تمام‌صفحه"
-            }
+            color: Theme.textSecondary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+            text: "فایلی را اینجا رها کنید  ·  Space = پخش/توقف  ·  F = تمام‌صفحه"
         }
     }
 
@@ -195,15 +182,12 @@ Window {
         visible: false
     }
 
-    // --- Floating Bottom Control Dock --------------------------------------
+    // --- Grounded Bottom Control Dock --------------------------------------
     ControlBar {
         id: controlBar
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        anchors.bottomMargin: 14
         isFullscreen: root.visibility === Window.FullScreen
         blurSource: dockBlurSource
         opacity: root.chromeVisible ? 1.0 : 0.0

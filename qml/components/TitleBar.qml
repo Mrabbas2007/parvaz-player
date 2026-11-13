@@ -12,71 +12,61 @@ Item {
     signal pinToggled()
     signal fullscreenExitClicked()
 
-    height: 48
+    height: 56
 
-    // Top-left floating title pill
+    // Soft cinematic top vignette gradient
     Rectangle {
-        anchors.left: parent.left
-        anchors.leftMargin: 16
-        anchors.top: parent.top
-        anchors.topMargin: 12
-        height: 36
-        width: Math.min(titleText.implicitWidth + (pinBtn.visible ? 44 : 20) + 24, root.width - (root.isFullscreen ? 90 : 32))
-        radius: Theme.radiusLarge
-        color: Theme.bgGlass
-        border.color: Theme.borderGlass
-        border.width: 1
-
-        Row {
-            anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 8
-            spacing: 8
-
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 6
-                height: 6
-                radius: 3
-                color: Theme.accent
-            }
-
-            Text {
-                id: titleText
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - 24 - (pinBtn.visible ? pinBtn.width + 8 : 0)
-                text: root.mediaTitle.length > 0 ? root.mediaTitle : "Parvaz Player"
-                color: Theme.textPrimary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontNormal
-                font.bold: true
-                elide: Text.ElideRight
-            }
-
-            IconButton {
-                id: pinBtn
-                anchors.verticalCenter: parent.verticalCenter
-                iconName: "pin"
-                tooltipText: root.alwaysOnTop ? "Disable Always on top (Ctrl+T)" : "Always on top (Ctrl+T)"
-                active: root.alwaysOnTop
-                buttonSize: 28
-                iconSize: 15
-                onClicked: root.pinToggled()
-            }
+        anchors.fill: parent
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#B3000000" }
+            GradientStop { position: 0.7; color: "#40000000" }
+            GradientStop { position: 1.0; color: "transparent" }
         }
     }
 
-    // Top-right exit fullscreen button (only shown when in Fullscreen mode)
+    // Top-left title and pin
+    Row {
+        anchors.left: parent.left
+        anchors.leftMargin: 20
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        spacing: 10
+
+        Text {
+            id: titleText
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.mediaTitle.length > 0 ? root.mediaTitle : "Parvaz"
+            color: "#FFFFFF"
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontMedium
+            font.bold: true
+            elide: Text.ElideRight
+            width: Math.min(implicitWidth, root.width - (root.isFullscreen ? 120 : 80))
+        }
+
+        IconButton {
+            id: pinBtn
+            anchors.verticalCenter: parent.verticalCenter
+            iconName: "pin"
+            tooltipText: root.alwaysOnTop ? "Always on top: Active (Ctrl+T)" : "Always on top (Ctrl+T)"
+            active: root.alwaysOnTop
+            buttonSize: 26
+            iconSize: 14
+            onClicked: root.pinToggled()
+        }
+    }
+
+    // Exit fullscreen button (only shown when in Fullscreen mode)
     IconButton {
         visible: root.isFullscreen
         anchors.right: parent.right
-        anchors.rightMargin: 16
+        anchors.rightMargin: 18
         anchors.top: parent.top
-        anchors.topMargin: 12
+        anchors.topMargin: 10
         iconName: "minimize-2"
         tooltipText: "Exit fullscreen (Esc / F)"
-        buttonSize: 36
-        iconSize: 18
+        buttonSize: 32
+        iconSize: 17
         onClicked: root.fullscreenExitClicked()
     }
 }

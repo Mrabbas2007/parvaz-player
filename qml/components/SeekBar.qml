@@ -15,19 +15,19 @@ Item {
     signal seekingStarted()
     signal seekingFinished()
 
-    implicitHeight: 24
+    implicitHeight: 18
 
     readonly property real effectiveDuration: Math.max(0.001, duration)
     readonly property real currentPos: isDragging ? dragPosition : position
     readonly property real progressRatio: Math.max(0.0, Math.min(1.0, currentPos / effectiveDuration))
 
-    // Track background
+    // Track area
     Item {
         id: trackArea
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        height: mouseArea.containsMouse || root.isDragging ? 6 : 3.5
+        height: mouseArea.containsMouse || root.isDragging ? 4.5 : 2.5
 
         Behavior on height { NumberAnimation { duration: Theme.animFast } }
 
@@ -35,37 +35,31 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: height / 2
-            color: "#2EFFFFFF"
+            color: Theme.timelineRail
         }
 
-        // Progress fill
+        // Played progress fill
         Rectangle {
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: parent.width * root.progressRatio
             radius: height / 2
-
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: Theme.accentGradientStart }
-                GradientStop { position: 1.0; color: Theme.accentGradientEnd }
-            }
+            color: Theme.timelinePlayed
         }
 
-        // Scrubber Thumb Handle
+        // Scrubber Thumb Handle (only visible on hover or dragging)
         Rectangle {
             id: thumb
             x: (parent.width * root.progressRatio) - (width / 2)
             anchors.verticalCenter: parent.verticalCenter
-            width: mouseArea.containsMouse || root.isDragging ? 13 : 8
-            height: width
-            radius: width / 2
+            width: 10
+            height: 10
+            radius: 5
             color: "#FFFFFF"
-            border.color: Theme.accent
-            border.width: mouseArea.containsMouse || root.isDragging ? 2.5 : 1.5
+            opacity: mouseArea.containsMouse || root.isDragging ? 1.0 : 0.0
 
-            Behavior on width { NumberAnimation { duration: Theme.animFast } }
+            Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
         }
     }
 
@@ -73,9 +67,9 @@ Item {
     Rectangle {
         id: previewTooltip
         visible: mouseArea.containsMouse && root.duration > 0
-        y: trackArea.y - height - 8
-        width: previewText.implicitWidth + 14
-        height: previewText.implicitHeight + 8
+        y: trackArea.y - height - 6
+        width: previewText.implicitWidth + 12
+        height: previewText.implicitHeight + 6
         radius: Theme.radiusSmall
         color: Theme.bgTooltip
         border.color: Theme.borderTooltip
