@@ -45,7 +45,7 @@ QtObject {
     readonly property real radiusLarge: 12
     readonly property real radiusMedium: 8
     readonly property real radiusSmall: 4
-    readonly property real controlBarHeight: 76
+    readonly property real controlBarHeight: 84
     readonly property real titleBarHeight: 44
 
     // ---- زمان‌بندی انیمیشن‌ها ----

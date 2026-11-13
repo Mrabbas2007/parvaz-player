@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import Parvaz 1.0
 import ".."
 
@@ -7,6 +8,8 @@ Item {
     id: root
 
     property bool pointerOnBar: false
+    property bool isFullscreen: false
+    property var blurSource: null
     property alias isDraggingSeek: seekBar.isDragging
 
     signal pokeRequested()
@@ -14,19 +17,37 @@ Item {
     signal openSubClicked()
     signal fullscreenToggled()
 
-    height: Theme.controlBarHeight
+    height: 84
 
-    // Translucent glass dock background
-    Rectangle {
+    // Frosted glass background: blurred backdrop + dark obsidian tint
+    Item {
+        id: dockBg
         anchors.fill: parent
-        color: Theme.bgGlass
-        border.color: Theme.borderGlass
-        border.width: 1
-        radius: Theme.radiusLarge
 
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.bgGlassLight }
-            GradientStop { position: 1.0; color: Theme.bgGlass }
+        // GPU blur of the video region behind the dock
+        MultiEffect {
+            anchors.fill: parent
+            source: root.blurSource
+            visible: root.blurSource !== null && root.opacity > 0.0
+            blurEnabled: true
+            blur: 0.6
+            blurMax: 32
+            saturation: 0.25
+            brightness: -0.15
+        }
+
+        // Semi-transparent obsidian glass layer with border highlight
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.radiusLarge
+            color: root.blurSource !== null ? "#B8101218" : Theme.bgGlass
+            border.color: Theme.borderGlass
+            border.width: 1
+
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "#CC181B24" }
+                GradientStop { position: 1.0; color: "#E0101218" }
+            }
         }
     }
 
@@ -47,139 +68,113 @@ Item {
         anchors.rightMargin: 16
         anchors.topMargin: 8
         anchors.bottomMargin: 8
-        spacing: 4
+        spacing: 6
 
-        // ---- Seekbar Row (Current time + SeekBar + Duration) ----
-        Row {
+        // ---- 1. Full-width Seek Bar ----
+        SeekBar {
+            id: seekBar
             anchors.left: parent.left
             anchors.right: parent.right
-            spacing: 12
-            height: 24
-
-            Text {
-                id: timeLabel
-                anchors.verticalCenter: parent.verticalCenter
-                color: Theme.textPrimary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSmall
-                font.bold: true
-                text: Mpv.formatTime(Mpv.position)
-            }
-
-            SeekBar {
-                id: seekBar
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - timeLabel.width - durationLabel.width - 24
-                position: Mpv.position
-                duration: Mpv.duration
-                onSeekRequested: (target) => Mpv.seekAbsolute(target)
-                onSeekingStarted: root.pokeRequested()
-                onSeekingFinished: root.pokeRequested()
-            }
-
-            Text {
-                id: durationLabel
-                anchors.verticalCenter: parent.verticalCenter
-                color: Theme.textSecondary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSmall
-                text: Mpv.formatTime(Mpv.duration)
-            }
+            position: Mpv.position
+            duration: Mpv.duration
+            onSeekRequested: (target) => Mpv.seekAbsolute(target)
+            onSeekingStarted: root.pokeRequested()
+            onSeekingFinished: root.pokeRequested()
         }
 
-        // ---- Controls Row ----
+        // ---- 2. Controls & Actions Row ----
         Item {
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 36
+            height: 38
 
-            // Left Section (Open, Audio, Subs)
+            // Left Section: Playback controls & Time readout
             Row {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 6
 
-                IconButton {
-                    iconName: "open"
-                    tooltipText: "Open media…"
-                    buttonSize: 32
-                    iconSize: 15
-                    onClicked: root.openClicked()
-                }
-
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 1; height: 16; color: Theme.borderGlassSubtle
-                }
-
-                IconButton {
-                    id: audioBtn
-                    iconName: "audio"
-                    tooltipText: "Audio tracks"
-                    buttonSize: 32
-                    iconSize: 15
-                    onClicked: audioMenu.open()
-                }
-
-                IconButton {
-                    id: subsBtn
-                    iconName: "subtitles"
-                    tooltipText: "Subtitle tracks & options"
-                    buttonSize: 32
-                    iconSize: 15
-                    onClicked: subsMenu.open()
-                }
-            }
-
-            // Center Section (Prev, Play/Pause, Next, Stop)
-            Row {
-                anchors.centerIn: parent
-                spacing: 8
-
-                IconButton {
-                    anchors.verticalCenter: parent.verticalCenter
-                    iconName: "step-back"
-                    tooltipText: "Frame backward (Comma)"
-                    buttonSize: 32
-                    iconSize: 14
-                    onClicked: Mpv.frameStep(-1)
-                }
-
+                // Play / Pause prominent button
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: Mpv.paused ? "play" : "pause"
                     tooltipText: Mpv.paused ? "Play (Space)" : "Pause (Space)"
                     buttonSize: 36
-                    iconSize: 17
-                    active: true
+                    iconSize: 20
+                    active: !Mpv.paused
                     onClicked: Mpv.togglePause()
                 }
 
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    iconName: "step-forward"
+                    iconName: "skip-back"
+                    tooltipText: "Frame backward (Comma)"
+                    buttonSize: 32
+                    iconSize: 18
+                    onClicked: Mpv.frameStep(-1)
+                }
+
+                IconButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "skip-forward"
                     tooltipText: "Frame forward (Period)"
                     buttonSize: 32
-                    iconSize: 14
+                    iconSize: 18
                     onClicked: Mpv.frameStep(1)
                 }
 
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    iconName: "stop"
+                    iconName: "square"
                     tooltipText: "Stop to start (Backspace)"
-                    buttonSize: 32
-                    iconSize: 13
+                    buttonSize: 30
+                    iconSize: 15
                     onClicked: { Mpv.seekAbsolute(0); if (!Mpv.paused) Mpv.togglePause() }
+                }
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 1
+                    height: 18
+                    color: Theme.borderGlassSubtle
+                }
+
+                // Time readout (Position / Duration)
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 4
+
+                    Text {
+                        text: Mpv.formatTime(Mpv.position)
+                        color: Theme.textPrimary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontNormal
+                        font.bold: true
+                    }
+
+                    Text {
+                        text: "/"
+                        color: Theme.textMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontNormal
+                    }
+
+                    Text {
+                        text: Mpv.formatTime(Mpv.duration)
+                        color: Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontNormal
+                    }
                 }
             }
 
-            // Right Section (Volume, Speed, HW, Fullscreen)
+            // Right Section: Volume, Tracks, Speed, Open, Fullscreen
             Row {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 8
 
+                // Volume control
                 VolumeControl {
                     anchors.verticalCenter: parent.verticalCenter
                     volume: Mpv.volume
@@ -190,27 +185,67 @@ Item {
 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 1; height: 16; color: Theme.borderGlassSubtle
+                    width: 1
+                    height: 18
+                    color: Theme.borderGlassSubtle
                 }
 
-                // Speed indicator capsule
+                // Subtitle tracks button
+                IconButton {
+                    id: subsBtn
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "subtitles"
+                    tooltipText: "Subtitles & Options (V / S)"
+                    buttonSize: 32
+                    iconSize: 18
+                    active: Mpv.subtitlesVisible
+                    onClicked: subsMenu.open()
+                }
+
+                // Audio tracks button
+                IconButton {
+                    id: audioBtn
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "music"
+                    tooltipText: "Audio tracks (A)"
+                    buttonSize: 32
+                    iconSize: 18
+                    onClicked: audioMenu.open()
+                }
+
+                // Speed pill badge
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: speedText.implicitWidth + 16
-                    height: 26
+                    height: 28
+                    width: speedRow.implicitWidth + 16
                     radius: Theme.radiusSmall
                     color: speedMouse.containsMouse ? Theme.bgGlassHover : Theme.bgGlassLight
                     border.color: Theme.borderGlassSubtle
                     border.width: 1
 
-                    Text {
-                        id: speedText
+                    Row {
+                        id: speedRow
                         anchors.centerIn: parent
-                        text: Mpv.speed.toFixed(2) + "x"
-                        color: Theme.textPrimary
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSmall
-                        font.bold: true
+                        spacing: 5
+
+                        Image {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 14
+                            height: 14
+                            source: "../icons/gauge.svg"
+                            sourceSize: Qt.size(28, 28)
+                            fillMode: Image.PreserveAspectFit
+                            opacity: 0.85
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Mpv.speed.toFixed(2) + "x"
+                            color: Theme.textPrimary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSmall
+                            font.bold: true
+                        }
                     }
 
                     MouseArea {
@@ -230,18 +265,18 @@ Item {
 
                     ToolTip {
                         visible: speedMouse.containsMouse
-                        text: "Playback speed (Z/X/C)"
-                        delay: 500
+                        text: "Playback speed (Z: 1.0x, X: -0.1x, C: +0.1x)"
+                        delay: 400
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSmall
                     }
                 }
 
-                // HW decode pill
+                // Hardware decode pill
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
+                    height: 24
                     width: hwText.implicitWidth + 12
-                    height: 22
                     radius: Theme.radiusSmall
                     color: Theme.bgGlassLight
                     border.color: Theme.borderGlassSubtle
@@ -258,12 +293,23 @@ Item {
                     }
                 }
 
+                // Open file button
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    iconName: root.parent.visibility === Window.FullScreen ? "fullscreen-exit" : "fullscreen"
-                    tooltipText: "Fullscreen (Enter / F)"
+                    iconName: "folder-open"
+                    tooltipText: "Open media…"
                     buttonSize: 32
-                    iconSize: 15
+                    iconSize: 18
+                    onClicked: root.openClicked()
+                }
+
+                // Fullscreen toggle button
+                IconButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: root.isFullscreen ? "minimize-2" : "maximize-2"
+                    tooltipText: root.isFullscreen ? "Exit Fullscreen (F / Enter)" : "Fullscreen (F / Enter)"
+                    buttonSize: 32
+                    iconSize: 18
                     onClicked: root.fullscreenToggled()
                 }
             }
@@ -273,11 +319,11 @@ Item {
     // Audio Menu
     Menu {
         id: audioMenu
-        x: audioBtn.x
+        x: audioBtn.x - 60
         y: audioBtn.y - height - 8
 
         background: Rectangle {
-            implicitWidth: 200
+            implicitWidth: 210
             color: Theme.bgGlass
             border.color: Theme.borderGlass
             border.width: 1
@@ -309,11 +355,11 @@ Item {
     // Subtitle Menu
     Menu {
         id: subsMenu
-        x: subsBtn.x
+        x: subsBtn.x - 80
         y: subsBtn.y - height - 8
 
         background: Rectangle {
-            implicitWidth: 220
+            implicitWidth: 230
             color: Theme.bgGlass
             border.color: Theme.borderGlass
             border.width: 1

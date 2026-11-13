@@ -11,15 +11,15 @@ Row {
     signal volumeChangeRequested(int newVolume)
     signal muteToggled()
 
-    spacing: 4
+    spacing: 6
     anchors.verticalCenter: parent.verticalCenter
 
     IconButton {
         anchors.verticalCenter: parent.verticalCenter
-        iconName: root.muted || root.volume === 0 ? "volume-muted" : "volume-high"
+        iconName: root.muted || root.volume === 0 ? "volume-x" : (root.volume > 40 ? "volume-2" : "volume-1")
         tooltipText: root.muted ? "Unmute (M)" : "Mute (M)"
         buttonSize: 32
-        iconSize: 15
+        iconSize: 17
         onClicked: root.muteToggled()
     }
 
@@ -27,16 +27,16 @@ Row {
         id: sliderArea
         anchors.verticalCenter: parent.verticalCenter
         width: 86
-        height: 20
+        height: 24
 
         // Rail
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            height: 3.5
+            height: 4
             radius: 2
-            color: "#2EFFFFFF"
+            color: "#33FFFFFF"
         }
 
         // Fill
@@ -44,8 +44,8 @@ Row {
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            anchors.topMargin: 8
-            anchors.bottomMargin: 8
+            anchors.topMargin: 10
+            anchors.bottomMargin: 10
             width: parent.width * (root.muted ? 0.0 : (root.volume / 100.0))
             radius: 2
             color: root.muted ? Theme.textMuted : Theme.accent
@@ -55,7 +55,7 @@ Row {
         Rectangle {
             x: (parent.width * (root.muted ? 0.0 : (root.volume / 100.0))) - (width / 2)
             anchors.verticalCenter: parent.verticalCenter
-            width: volMouse.containsMouse || volMouse.pressed ? 11 : 7
+            width: volMouse.containsMouse || volMouse.pressed ? 12 : 8
             height: width
             radius: width / 2
             color: "#FFFFFF"

@@ -183,9 +183,16 @@ Window {
         Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
 
         onPinToggled: root.toggleAlwaysOnTop()
-        onMinimizeClicked: root.showMinimized()
-        onMaximizeClicked: root.toggleFullscreen()
-        onCloseClicked: Qt.quit()
+        onFullscreenExitClicked: root.toggleFullscreen()
+    }
+
+    // Source texture for docking blur
+    ShaderEffectSource {
+        id: dockBlurSource
+        sourceItem: video
+        sourceRect: Qt.rect(controlBar.x, controlBar.y, controlBar.width, controlBar.height)
+        live: root.chromeVisible
+        visible: false
     }
 
     // --- Floating Bottom Control Dock --------------------------------------
@@ -194,9 +201,11 @@ Window {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.leftMargin: 12
-        anchors.rightMargin: 12
-        anchors.bottomMargin: 10
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+        anchors.bottomMargin: 14
+        isFullscreen: root.visibility === Window.FullScreen
+        blurSource: dockBlurSource
         opacity: root.chromeVisible ? 1.0 : 0.0
         visible: opacity > 0.0
 

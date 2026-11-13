@@ -10,88 +10,73 @@ Item {
     property bool isFullscreen: false
 
     signal pinToggled()
-    signal minimizeClicked()
-    signal maximizeClicked()
-    signal closeClicked()
+    signal fullscreenExitClicked()
 
-    height: Theme.titleBarHeight
+    height: 48
 
-    // Subtle dark gradient from top to bottom
+    // Top-left floating title pill
     Rectangle {
-        anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#EE0D0E12" }
-            GradientStop { position: 0.8; color: "#B30D0E12" }
-            GradientStop { position: 1.0; color: "transparent" }
-        }
-    }
-
-    Row {
         anchors.left: parent.left
         anchors.leftMargin: 16
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.right: windowActions.left
-        anchors.rightMargin: 16
-        spacing: 10
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        height: 36
+        width: Math.min(titleText.implicitWidth + (pinBtn.visible ? 44 : 20) + 24, root.width - (root.isFullscreen ? 90 : 32))
+        radius: Theme.radiusLarge
+        color: Theme.bgGlass
+        border.color: Theme.borderGlass
+        border.width: 1
 
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 6
-            height: 6
-            radius: 3
-            color: Theme.accent
-        }
+        Row {
+            anchors.fill: parent
+            anchors.leftMargin: 12
+            anchors.rightMargin: 8
+            spacing: 8
 
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            width: Math.min(implicitWidth, parent.width - 20)
-            text: root.mediaTitle.length > 0 ? root.mediaTitle : "Parvaz Player"
-            color: Theme.textPrimary
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
-            font.bold: true
-            elide: Text.ElideRight
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 6
+                height: 6
+                radius: 3
+                color: Theme.accent
+            }
+
+            Text {
+                id: titleText
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - 24 - (pinBtn.visible ? pinBtn.width + 8 : 0)
+                text: root.mediaTitle.length > 0 ? root.mediaTitle : "Parvaz Player"
+                color: Theme.textPrimary
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontNormal
+                font.bold: true
+                elide: Text.ElideRight
+            }
+
+            IconButton {
+                id: pinBtn
+                anchors.verticalCenter: parent.verticalCenter
+                iconName: "pin"
+                tooltipText: root.alwaysOnTop ? "Disable Always on top (Ctrl+T)" : "Always on top (Ctrl+T)"
+                active: root.alwaysOnTop
+                buttonSize: 28
+                iconSize: 15
+                onClicked: root.pinToggled()
+            }
         }
     }
 
-    Row {
-        id: windowActions
+    // Top-right exit fullscreen button (only shown when in Fullscreen mode)
+    IconButton {
+        visible: root.isFullscreen
         anchors.right: parent.right
-        anchors.rightMargin: 14
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 4
-
-        IconButton {
-            iconName: "pin"
-            tooltipText: root.alwaysOnTop ? "Disable Always on top (Ctrl+T)" : "Always on top (Ctrl+T)"
-            active: root.alwaysOnTop
-            buttonSize: 30
-            iconSize: 14
-            onClicked: root.pinToggled()
-        }
-
-        IconButton {
-            iconName: "minimize"
-            tooltipText: "Minimize"
-            buttonSize: 30
-            iconSize: 13
-            onClicked: root.minimizeClicked()
-        }
-
-        IconButton {
-            iconName: "maximize"
-            tooltipText: root.isFullscreen ? "Restore window" : "Maximize"
-            buttonSize: 30
-            iconSize: 13
-            onClicked: root.maximizeClicked()
-        }
-
-        IconButton {
-            iconName: "close"
-            tooltipText: "Close (Ctrl+Q)"
-            buttonSize: 30
-            iconSize: 13
-            onClicked: root.closeClicked()
-        }
+        anchors.rightMargin: 16
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        iconName: "minimize-2"
+        tooltipText: "Exit fullscreen (Esc / F)"
+        buttonSize: 36
+        iconSize: 18
+        onClicked: root.fullscreenExitClicked()
     }
 }
