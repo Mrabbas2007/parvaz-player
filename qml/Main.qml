@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import Parvaz 1.0
 
 Window {
@@ -62,6 +63,16 @@ Window {
         if (s.startsWith("file://"))
             s = s.substring(7)
         return decodeURIComponent(s)
+    }
+
+    FileDialog {
+        id: openDialog
+        title: "Open media"
+        nameFilters: [
+            "Media (*.mkv *.mp4 *.webm *.avi *.mov *.flv *.ts *.ogm *.mp3 *.flac *.ogg *.opus *.wav)",
+            "All files (*)"
+        ]
+        onAccepted: Mpv.loadFile(root.localPath(openDialog.selectedFile))
     }
 
     MpvFboItem {
@@ -179,6 +190,13 @@ Window {
                 spacing: 10
 
                 Button {
+                    text: "Open…"
+                    // Must not take keyboard focus from the player shortcuts.
+                    focusPolicy: Qt.NoFocus
+                    onClicked: openDialog.open()
+                }
+
+                Button {
                     id: playPause
                     text: Mpv.paused ? "▶" : "⏸"
                     onClicked: Mpv.togglePause()
@@ -264,33 +282,39 @@ Window {
     }
 
     // --- keyboard ---------------------------------------------------------
-    Shortcut { sequence: "Space";  onActivated: Mpv.togglePause() }
-    Shortcut { sequence: "Left";   onActivated: Mpv.seekRelative(-5) }
-    Shortcut { sequence: "Right";  onActivated: Mpv.seekRelative(5) }
-    Shortcut { sequence: "Down";   onActivated: Mpv.seekRelative(-30) }
-    Shortcut { sequence: "Up";     onActivated: Mpv.seekRelative(30) }
-    Shortcut { sequence: "F";      onActivated: root.toggleFullscreen() }
-    Shortcut { sequence: "Escape"; onActivated: if (root.visibility === Window.FullScreen) root.visibility = Window.Windowed }
+    // All shortcuts are suspended while the file dialog is open, so the dialog
+    // never leaves Space/arrows/F/Esc/Ctrl+Q bound to the player.
+    component PlayerShortcut: Shortcut {
+        enabled: !openDialog.visible
+    }
+
+    PlayerShortcut { sequence: "Space";  onActivated: Mpv.togglePause() }
+    PlayerShortcut { sequence: "Left";   onActivated: Mpv.seekRelative(-5) }
+    PlayerShortcut { sequence: "Right";  onActivated: Mpv.seekRelative(5) }
+    PlayerShortcut { sequence: "Down";   onActivated: Mpv.seekRelative(-30) }
+    PlayerShortcut { sequence: "Up";     onActivated: Mpv.seekRelative(30) }
+    PlayerShortcut { sequence: "F";      onActivated: root.toggleFullscreen() }
+    PlayerShortcut { sequence: "Escape"; onActivated: if (root.visibility === Window.FullScreen) root.visibility = Window.Windowed }
 
     // Volume / mute / frame step. These keys are free: Space, the arrows,
     // F, Esc and Ctrl+Q are taken above.
-    Shortcut { sequence: "M"; onActivated: Mpv.setMuted(!Mpv.muted) }
-    Shortcut {
+    PlayerShortcut { sequence: "M"; onActivated: Mpv.setMuted(!Mpv.muted) }
+    PlayerShortcut {
         sequence: "Ctrl+Up"
         onActivated: {
             Mpv.setVolume(Math.min(100, Mpv.volume + 5))
             poke()
         }
     }
-    Shortcut {
+    PlayerShortcut {
         sequence: "Ctrl+Down"
         onActivated: {
             Mpv.setVolume(Math.max(0, Mpv.volume - 5))
             poke()
         }
     }
-    Shortcut { sequence: "Comma";  onActivated: Mpv.frameStep(-1) }
-    Shortcut { sequence: "Period"; onActivated: Mpv.frameStep(1) }
+    PlayerShortcut { sequence: "Comma";  onActivated: Mpv.frameStep(-1) }
+    PlayerShortcut { sequence: "Period"; onActivated: Mpv.frameStep(1) }
 
-    Shortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
+    PlayerShortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
 }
