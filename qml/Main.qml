@@ -15,6 +15,10 @@ Window {
     color: Theme.bgBase
     title: Mpv.mediaTitle.length > 0 ? Mpv.mediaTitle + " — Parvaz" : "Parvaz Player"
 
+    FontLoader { id: vazirFont; source: "fonts/Vazirmatn.ttf" }
+    FontLoader { id: monoMediumFont; source: "fonts/JetBrainsMono-Medium.otf" }
+    FontLoader { id: monoRegularFont; source: "fonts/JetBrainsMono-Regular.otf" }
+
     property bool chromeVisible: true
     property bool pointerOnBar: false
     property bool alwaysOnTop: false

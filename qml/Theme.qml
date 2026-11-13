@@ -26,9 +26,13 @@ QtObject {
     readonly property color timelineRail: "#26FFFFFF"      // ریل خاکستری مات
     readonly property color statusGreen: "#10B981"         // نقطه سبز مینیمال HW
 
-    // ---- تایپوگرافی (Vazirmatn با Fallback) ----
-    readonly property string fontFamily: "Vazirmatn"
-    readonly property string fontFallback: "Segoe UI, Inter, sans-serif"
+    // ---- تایپوگرافی دوگانه استودیویی (Dual Typography Engine) ----
+    // 1. قلم اصلی متون، منوها، عناوین و زیرنویس‌ها (پشتیبانی بی‌نقص فارسی و انگلیسی)
+    readonly property string fontFamily: "Vazirmatn, Segoe UI, Inter, sans-serif"
+
+    // 2. قلم مهندسی اعداد و تایم‌کدها (Tabular Monospace: عدم لرزش ثانیه‌شمار، ارقام ترازو، تقارن کامل)
+    readonly property string fontDigits: "JetBrains Mono, Vazirmatn, monospace"
+
     readonly property int fontSmall: 11
     readonly property int fontNormal: 12
     readonly property int fontMedium: 13

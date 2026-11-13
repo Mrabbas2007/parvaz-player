@@ -92,7 +92,7 @@ Row {
             contentItem: Text {
                 text: root.muted ? "Muted" : root.volume + "%"
                 color: Theme.textPrimary
-                font.family: Theme.fontFamily
+                font.family: Theme.fontDigits
                 font.pixelSize: Theme.fontSmall
             }
 

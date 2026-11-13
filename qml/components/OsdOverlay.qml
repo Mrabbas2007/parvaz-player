@@ -34,7 +34,7 @@ Item {
             id: osdText
             anchors.centerIn: parent
             color: "#FFFFFF"
-            font.family: Theme.fontFamily
+            font.family: Theme.fontDigits
             font.pixelSize: Theme.fontNormal
             font.bold: true
         }

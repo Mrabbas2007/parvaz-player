@@ -85,7 +85,7 @@ Item {
             anchors.centerIn: parent
             text: Mpv.formatTime(previewTooltip.hoverSeconds)
             color: Theme.textPrimary
-            font.family: Theme.fontFamily
+            font.family: Theme.fontDigits
             font.pixelSize: Theme.fontSmall
             font.bold: true
         }

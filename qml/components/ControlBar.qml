@@ -151,23 +151,23 @@ Item {
                     Text {
                         text: Mpv.formatTime(Mpv.position)
                         color: "#FFFFFF"
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontNormal
+                        font.family: Theme.fontDigits
+                        font.pixelSize: Theme.fontMedium
                         font.bold: true
                     }
 
                     Text {
                         text: "/"
                         color: Theme.textMuted
-                        font.family: Theme.fontFamily
+                        font.family: Theme.fontDigits
                         font.pixelSize: Theme.fontNormal
                     }
 
                     Text {
                         text: Mpv.formatTime(Mpv.duration)
                         color: Theme.textSecondary
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontNormal
+                        font.family: Theme.fontDigits
+                        font.pixelSize: Theme.fontMedium
                     }
                 }
             }
@@ -240,7 +240,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: Mpv.speed.toFixed(2) + "×"
                             color: speedMouse.containsMouse ? "#FFFFFF" : Theme.textSecondary
-                            font.family: Theme.fontFamily
+                            font.family: Theme.fontDigits
                             font.pixelSize: Theme.fontNormal
                             font.bold: true
 
