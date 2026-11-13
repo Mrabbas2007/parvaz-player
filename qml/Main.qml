@@ -75,6 +75,16 @@ Window {
         onAccepted: Mpv.loadFile(root.localPath(openDialog.selectedFile))
     }
 
+    FileDialog {
+        id: subDialog
+        title: "Open subtitle file"
+        nameFilters: [
+            "Subtitles (*.srt *.ass *.ssa *.sub *.vtt *.sup)",
+            "All files (*)"
+        ]
+        onAccepted: Mpv.addSubtitleFile(root.localPath(subDialog.selectedFile))
+    }
+
     MpvFboItem {
         id: video
         anchors.fill: parent
@@ -212,6 +222,108 @@ Window {
                     onClicked: Mpv.frameStep(1)
                 }
 
+                // Both menus are declared as children of this Row so their x/y
+                // share its coordinate space. Qt flips them up to stay on screen,
+                // since the bar sits at the bottom edge.
+                Button {
+                    id: audioBtn
+                    text: "Audio"
+                    focusPolicy: Qt.NoFocus
+                    onClicked: audioMenu.open()
+                }
+
+                Button {
+                    id: subsBtn
+                    text: "Subs"
+                    focusPolicy: Qt.NoFocus
+                    onClicked: subsMenu.open()
+                }
+
+                Menu {
+                    id: audioMenu
+                    x: audioBtn.x
+                    y: audioBtn.y + audioBtn.height
+
+                    Repeater {
+                        model: Mpv.tracksOfType("audio")
+                        delegate: MenuItem {
+                            text: modelData.label
+                            checkable: true
+                            checked: modelData.selected
+                            onTriggered: Mpv.selectTrack(modelData.id)
+                        }
+                    }
+
+                    MenuSeparator {}
+
+                    MenuItem {
+                        text: "Next audio track"
+                        onTriggered: Mpv.cycleAudioTrack()
+                    }
+                }
+
+                Menu {
+                    id: subsMenu
+                    x: subsBtn.x
+                    y: subsBtn.y + subsBtn.height
+
+                    Repeater {
+                        model: Mpv.tracksOfType("sub")
+                        delegate: MenuItem {
+                            text: modelData.label
+                            checkable: true
+                            checked: modelData.selected
+                            onTriggered: Mpv.selectTrack(modelData.id)
+                        }
+                    }
+
+                    MenuItem {
+                        text: "Off"
+                        onTriggered: Mpv.disableSubtitles()
+                    }
+
+                    MenuSeparator {}
+
+                    MenuItem {
+                        text: "Delay −0.1s"
+                        onTriggered: Mpv.setSubtitleDelay(Mpv.subtitleDelay - 0.1)
+                    }
+
+                    MenuItem {
+                        text: "Delay +0.1s"
+                        onTriggered: Mpv.setSubtitleDelay(Mpv.subtitleDelay + 0.1)
+                    }
+
+                    MenuItem {
+                        text: "Visible"
+                        checkable: true
+                        checked: Mpv.subtitlesVisible
+                        onTriggered: Mpv.setSubtitlesVisible(!Mpv.subtitlesVisible)
+                    }
+
+                    MenuItem {
+                        text: "Font size −"
+                        onTriggered: Mpv.setSubtitleFontSize(Mpv.subtitleFontSize - 2)
+                    }
+
+                    MenuItem {
+                        text: "Font size +"
+                        onTriggered: Mpv.setSubtitleFontSize(Mpv.subtitleFontSize + 2)
+                    }
+
+                    MenuSeparator {}
+
+                    MenuItem {
+                        text: "Legacy encoding (cp1256)"
+                        onTriggered: Mpv.setSubtitleCodepage("cp1256")
+                    }
+
+                    MenuItem {
+                        text: "Open subtitle file…"
+                        onTriggered: subDialog.open()
+                    }
+                }
+
                 Button {
                     id: muteBtn
                     text: Mpv.muted ? "Unmute" : "Mute"
@@ -285,7 +397,7 @@ Window {
     // All shortcuts are suspended while the file dialog is open, so the dialog
     // never leaves Space/arrows/F/Esc/Ctrl+Q bound to the player.
     component PlayerShortcut: Shortcut {
-        enabled: !openDialog.visible
+        enabled: !openDialog.visible && !subDialog.visible
     }
 
     PlayerShortcut { sequence: "Space";  onActivated: Mpv.togglePause() }
@@ -315,6 +427,14 @@ Window {
     }
     PlayerShortcut { sequence: "Comma";  onActivated: Mpv.frameStep(-1) }
     PlayerShortcut { sequence: "Period"; onActivated: Mpv.frameStep(1) }
+
+    // Subtitles / audio tracks. Uppercase letters are the shifted form in Qt's
+    // portable sequence syntax, matching the existing F and M bindings.
+    PlayerShortcut { sequence: "S"; onActivated: Mpv.cycleSubtitleTrack() }
+    PlayerShortcut { sequence: "A"; onActivated: Mpv.cycleAudioTrack() }
+    PlayerShortcut { sequence: "V"; onActivated: Mpv.setSubtitlesVisible(!Mpv.subtitlesVisible) }
+    PlayerShortcut { sequence: "["; onActivated: Mpv.setSubtitleDelay(Mpv.subtitleDelay - 0.1) }
+    PlayerShortcut { sequence: "]"; onActivated: Mpv.setSubtitleDelay(Mpv.subtitleDelay + 0.1) }
 
     PlayerShortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
 }
