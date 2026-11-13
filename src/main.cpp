@@ -9,7 +9,6 @@
 #include <QSGRendererInterface>
 #include <QCommandLineParser>
 #include <QFile>
-#include <QSet>
 #include <QTimer>
 #include <QUrl>
 #include <QVariantMap>
