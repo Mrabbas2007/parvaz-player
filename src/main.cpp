@@ -9,8 +9,10 @@
 #include <QSGRendererInterface>
 #include <QCommandLineParser>
 #include <QFile>
+#include <QSet>
 #include <QTimer>
 #include <QUrl>
+#include <QVariantMap>
 #include <qqml.h>
 
 #include "mpv/MpvObject.h"
@@ -27,12 +29,91 @@ static int failures = 0;
 static double g_idlePos = 0.0;   // where we were before a deliberate no-op
 static double g_stepFrom = 0.0;  // where we were before frameStep(1)
 static double g_backFrom = 0.0;  // where we were before frameStep(-1)
+static int g_trackCountBeforeAdd = 0;   // tracks before addSubtitleFile()
 
 static void check(const char *what, bool ok)
 {
     std::fprintf(stderr, "parvaz check: %s ... %s\n", what, ok ? "PASS" : "FAIL");
     if (!ok)
         ++failures;
+}
+
+/// One line per track, once, so a human can eyeball the node parse.
+static void dumpTracks(const MpvObject &mpv)
+{
+    const QVariantList tracks = mpv.tracks();
+    std::fprintf(stderr, "parvaz tracks: %d\n", int(tracks.size()));
+    for (const QVariant &v : tracks) {
+        const QVariantMap t = v.toMap();
+        std::fprintf(stderr,
+                     "parvaz track: id=%lld type=%s lang=%s title=%s external=%d selected=%d\n",
+                     static_cast<long long>(t.value(QStringLiteral("id")).toLongLong()),
+                     qPrintable(t.value(QStringLiteral("type")).toString()),
+                     qPrintable(t.value(QStringLiteral("lang")).toString()),
+                     qPrintable(t.value(QStringLiteral("title")).toString()),
+                     t.value(QStringLiteral("external")).toBool() ? 1 : 0,
+                     t.value(QStringLiteral("selected")).toBool() ? 1 : 0);
+    }
+}
+
+static bool hasAudioTrack(const MpvObject &mpv)
+{
+    for (const QVariant &v : mpv.tracks()) {
+        if (v.toMap().value(QStringLiteral("type")).toString() == QLatin1String("audio"))
+            return true;
+    }
+    return false;
+}
+
+/// Counts tracks of one type that came from an external file.
+static int externalSubCount(const MpvObject &mpv)
+{
+    int n = 0;
+    for (const QVariant &v : mpv.tracks()) {
+        const QVariantMap t = v.toMap();
+        if (t.value(QStringLiteral("type")).toString() == QLatin1String("sub") &&
+            t.value(QStringLiteral("external")).toBool())
+            ++n;
+    }
+    return n;
+}
+
+/// The external sub track that is currently selected, or -1.
+static qint64 selectedSubId(const MpvObject &mpv)
+{
+    for (const QVariant &v : mpv.tracks()) {
+        const QVariantMap t = v.toMap();
+        if (t.value(QStringLiteral("type")).toString() == QLatin1String("sub") &&
+            t.value(QStringLiteral("external")).toBool() &&
+            t.value(QStringLiteral("selected")).toBool())
+            return t.value(QStringLiteral("id")).toLongLong();
+    }
+    return -1;
+}
+
+/// Title of the external sub track that is currently selected, or "".
+static QString selectedSubTitle(const MpvObject &mpv)
+{
+    for (const QVariant &v : mpv.tracks()) {
+        const QVariantMap t = v.toMap();
+        if (t.value(QStringLiteral("type")).toString() == QLatin1String("sub") &&
+            t.value(QStringLiteral("external")).toBool() &&
+            t.value(QStringLiteral("selected")).toBool())
+            return t.value(QStringLiteral("title")).toString();
+    }
+    return QString();
+}
+
+/// True when the string holds at least one Arabic-block codepoint. Proves the
+/// bytes survived decode: a mojibake or empty result has none of these.
+static bool hasArabicScript(const QString &s)
+{
+    for (const QChar c : s) {
+        const ushort u = c.unicode();
+        if (u >= 0x0600 && u <= 0x06FF)
+            return true;
+    }
+    return false;
 }
 
 /// Starts the smoke sequence; returns immediately. The sequence runs from
@@ -97,6 +178,73 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("frameStep(-1) left us paused", mpv.paused());
             break;
         }
+        case 13: {
+            dumpTracks(mpv);
+            check("tracks is not empty", !mpv.tracks().isEmpty());
+            check("tracks has an audio track", hasAudioTrack(mpv));
+            check("tracks has an external sub track (sidecar)", externalSubCount(mpv) >= 1);
+            break;
+        }
+        case 14:
+            // Subtitles only decode while the clock runs, so unpause first.
+            mpv.setPaused(false);
+            mpv.seekAbsolute(0.2);
+            break;
+        case 15: {
+            const QString text = mpv.subtitleText();
+            std::fprintf(stderr, "parvaz check: sub-text at %.2fs = [%s]\n",
+                         mpv.position(), qPrintable(text));
+            check("subtitleText() non-empty after seek into cue 1", !text.isEmpty());
+            check("subtitleText() holds Arabic script", hasArabicScript(text));
+            break;
+        }
+        case 16:
+            g_trackCountBeforeAdd = int(mpv.tracks().size());
+            mpv.addSubtitleFile(QStringLiteral(PARVAZ_TESTS_DIR "/fa-cp1256.srt"));
+            break;
+        case 17: {
+            const qint64 newId = selectedSubId(mpv);
+            check("sub-add grew the track list by one",
+                  int(mpv.tracks().size()) == g_trackCountBeforeAdd + 1);
+            check("sub-add selected an external sub track", newId >= 0);
+            // Without this the cp1256 assertion below could pass on the UTF-8
+            // sidecar still being the selected track.
+            std::fprintf(stderr, "parvaz check: selected sub title = [%s]\n",
+                         qPrintable(selectedSubTitle(mpv)));
+            check("sub-add selected the cp1256 file",
+                  selectedSubTitle(mpv).contains(QStringLiteral("cp1256")));
+            break;
+        }
+        case 18:
+            mpv.setSubtitleCodepage(QStringLiteral("cp1256"));
+            break;
+        case 19:
+            check("sub-codepage reads back cp1256",
+                  mpv.subtitleCodepage() == QLatin1String("cp1256"));
+            // Re-seek so a cue is on screen for the assertion below.
+            mpv.seekAbsolute(0.2);
+            break;
+        case 20: {
+            const QString text = mpv.subtitleText();
+            std::fprintf(stderr, "parvaz check: sub-text after cp1256 reload = [%s]\n",
+                         qPrintable(text));
+            check("cp1256 subtitle decodes to text", !text.isEmpty());
+            check("cp1256 subtitle holds Arabic script", hasArabicScript(text));
+            break;
+        }
+        case 21:
+            mpv.disableSubtitles();
+            break;
+        case 22:
+            check("disableSubtitles() empties sub-text", mpv.subtitleText().isEmpty());
+            break;
+        case 23:
+            mpv.setSubtitleDelay(0.5);
+            break;
+        case 24:
+            check("subtitleDelay round-trips 0.5", qAbs(mpv.subtitleDelay() - 0.5) < 0.001);
+            mpv.setSubtitleDelay(0.0);
+            break;
         default: {
             const QString hw = mpv.hwdec();
             std::fprintf(stderr,
@@ -108,7 +256,11 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             return;
         }
         }
-        QTimer::singleShot(250, app, [next, step]() { (*next)(step + 1); });
+        // Action steps that need mpv to actually act (seek, reload, option change)
+        // get a longer beat before the assertion on the next turn.
+        const int delay = (step == 14 || step == 18 || step == 19 || step == 21 || step == 23)
+                              ? 500 : 250;
+        QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };
 
     QTimer::singleShot(2500, app, [next]() { (*next)(0); });

@@ -21,6 +21,7 @@ qt_add_executable(parvaz
 target_include_directories(parvaz PRIVATE src)
 target_compile_definitions(parvaz PRIVATE
     PARVAZ_QML_DIR="${CMAKE_CURRENT_SOURCE_DIR}/qml"
+    PARVAZ_TESTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests"
 )
 
 target_link_libraries(parvaz PRIVATE
@@ -28,10 +29,17 @@ target_link_libraries(parvaz PRIVATE
     PkgConfig::MPV
 )
 
-# make check : build + generate a test clip + 3s smoke run
+# make check : build + generate a test clip with one audio and one video track
+# (so the track-list assertions have something to find) + a matching UTF-8
+# sidecar (mpv's default sub-auto=exact loads <video>.srt) + a 3s smoke run.
 add_custom_target(check
-    COMMAND ffmpeg -y -f lavfi -i "testsrc=size=640x360:rate=30:duration=3"
-            -c:v libx264 -pix_fmt yuv420p ${CMAKE_BINARY_DIR}/test.mp4
+    COMMAND ffmpeg -y
+            -f lavfi -i "testsrc=size=640x360:rate=30:duration=3"
+            -f lavfi -i "sine=frequency=440:duration=3"
+            -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest
+            ${CMAKE_BINARY_DIR}/test.mp4
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fa.srt ${CMAKE_BINARY_DIR}/test.srt
     COMMAND ${CMAKE_BINARY_DIR}/parvaz --smoke ${CMAKE_BINARY_DIR}/test.mp4
     DEPENDS parvaz
     USES_TERMINAL

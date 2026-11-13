@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <QByteArray>
+#include <QVariantList>
 #include <atomic>
 
 #include <mpv/client.h>
@@ -20,6 +21,17 @@ class MpvObject : public QObject {
     Q_PROPERTY(double speed READ speed WRITE setSpeed NOTIFY speedChanged)
     Q_PROPERTY(QString mediaTitle READ mediaTitle NOTIFY mediaTitleChanged)
     Q_PROPERTY(QString hwdec READ hwdec NOTIFY hwdecChanged)
+    /// One QVariantMap per track: id, type, title, lang, codec, external,
+    /// selected, default, forced. Derived from mpv's "track-list".
+    Q_PROPERTY(QVariantList tracks READ tracks NOTIFY tracksChanged)
+    Q_PROPERTY(double subtitleDelay READ subtitleDelay WRITE setSubtitleDelay
+                   NOTIFY subtitleDelayChanged)
+    Q_PROPERTY(bool subtitlesVisible READ subtitlesVisible WRITE setSubtitlesVisible
+                   NOTIFY subtitlesVisibleChanged)
+    Q_PROPERTY(int subtitlePosition READ subtitlePosition WRITE setSubtitlePosition
+                   NOTIFY subtitlePositionChanged)
+    Q_PROPERTY(int subtitleFontSize READ subtitleFontSize WRITE setSubtitleFontSize
+                   NOTIFY subtitleFontSizeChanged)
 
 public:
     explicit MpvObject(QObject *parent = nullptr);
@@ -36,11 +48,20 @@ public:
     double speed() const { return m_speed; }
     QString mediaTitle() const { return m_mediaTitle; }
     QString hwdec() const { return m_hwdec; }
+    QVariantList tracks() const { return m_tracks; }
+    double subtitleDelay() const { return m_subtitleDelay; }
+    bool subtitlesVisible() const { return m_subtitlesVisible; }
+    int subtitlePosition() const { return m_subtitlePosition; }
+    int subtitleFontSize() const { return m_subtitleFontSize; }
 
     void setPaused(bool paused);
     void setVolume(int volume);
     void setMuted(bool muted);
     void setSpeed(double speed);
+    void setSubtitleDelay(double seconds);
+    void setSubtitlesVisible(bool visible);
+    void setSubtitlePosition(int percentFromTop);
+    void setSubtitleFontSize(int size);
 
     /// mpv accepts --speed 0.01..100 (see `mpv --speed=` docs).
     static constexpr double kMinSpeed = 0.01;
@@ -64,6 +85,38 @@ public:
 
     Q_INVOKABLE QString formatTime(double seconds) const;
 
+    /// Selects an audio ("aid") or subtitle ("sid") track by its track-list id.
+    /// The id alone is ambiguous, so the type is looked up in the track list.
+    Q_INVOKABLE void selectTrack(qint64 id);
+
+    /// Deselects subtitles ("sid" = "no"). The track stays loaded.
+    Q_INVOKABLE void disableSubtitles();
+
+    /// Loads an external subtitle file and selects it ("select" flag).
+    Q_INVOKABLE void addSubtitleFile(const QString &path);
+
+    /// "sub-codepage" forces a legacy encoding, then reloads the current
+    /// subtitle so it is re-decoded. libass/HarfBuzz shape Persian correctly
+    /// once the bytes are right; we never reverse text by hand.
+    Q_INVOKABLE void setSubtitleCodepage(const QString &codepage);
+
+    /// Current "sub-codepage" option, for assertions on the setter.
+    Q_INVOKABLE QString subtitleCodepage() const;
+
+    /// Re-runs the current external subtitle decode (sub-reload).
+    Q_INVOKABLE void reloadSubtitles();
+
+    /// Text of the subtitle on screen right now, empty when nothing shows.
+    /// Synchronous on purpose: the smoke test asserts on the return value.
+    Q_INVOKABLE QString subtitleText() const;
+
+    Q_INVOKABLE void cycleSubtitleTrack();
+    Q_INVOKABLE void cycleAudioTrack();
+
+    /// The tracks of one type ("audio" / "video" / "sub"), each reduced to
+    /// { id, label, selected } so QML needs no filtering logic.
+    Q_INVOKABLE QVariantList tracksOfType(const QString &type) const;
+
     /// "hwdec=vaapi drop=0 decoder-drop=0" for benchmarks.
     QString statsLine() const;
 
@@ -76,6 +129,11 @@ signals:
     void speedChanged();
     void mediaTitleChanged();
     void hwdecChanged();
+    void tracksChanged();
+    void subtitleDelayChanged();
+    void subtitlesVisibleChanged();
+    void subtitlePositionChanged();
+    void subtitleFontSizeChanged();
     void fileLoaded();
 
 private slots:
@@ -83,6 +141,7 @@ private slots:
 
 private:
     void drainEvents();
+    void refreshTracks();
     static void wakeupCallback(void *ctx);
 
     static MpvObject *s_instance;
@@ -100,4 +159,10 @@ private:
     double m_speed = 1.0;
     QString m_mediaTitle;
     QString m_hwdec;
+
+    QVariantList m_tracks;
+    double m_subtitleDelay = 0.0;
+    bool m_subtitlesVisible = true;
+    int m_subtitlePosition = 100;
+    int m_subtitleFontSize = 55;
 };

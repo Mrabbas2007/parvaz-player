@@ -3,11 +3,34 @@
 #include <QMetaObject>
 #include <QFile>
 #include <QDebug>
+#include <QVariantMap>
 
 #include <cstring>
 #include <cstdio>
 
 MpvObject *MpvObject::s_instance = nullptr;
+
+namespace {
+
+/// Copies one mpv_node into a QVariant. Only the scalar formats we need are
+/// handled; mpv gives us no other shape for track-list fields.
+QVariant nodeToVariant(const mpv_node &node)
+{
+    switch (node.format) {
+    case MPV_FORMAT_STRING:
+        return node.u.string ? QString::fromUtf8(node.u.string) : QString();
+    case MPV_FORMAT_INT64:
+        return QVariant::fromValue<qlonglong>(node.u.int64);
+    case MPV_FORMAT_DOUBLE:
+        return node.u.double_;
+    case MPV_FORMAT_FLAG:
+        return node.u.flag != 0;
+    default:
+        return QVariant();
+    }
+}
+
+} // namespace
 
 MpvObject::MpvObject(QObject *parent)
     : QObject(parent)
@@ -46,6 +69,14 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "speed",     MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "media-title", MPV_FORMAT_STRING);
     mpv_observe_property(m_mpv, 0, "hwdec-current", MPV_FORMAT_STRING);
+    // "track-list" is a node property: observing it with MPV_FORMAT_NONE keeps
+    // mpv from serialising the whole list on every wake-up; the value itself is
+    // fetched on demand in refreshTracks().
+    mpv_observe_property(m_mpv, 0, "track-list", MPV_FORMAT_NONE);
+    mpv_observe_property(m_mpv, 0, "sub-delay",      MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "sub-visibility", MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "sub-pos",        MPV_FORMAT_INT64);
+    mpv_observe_property(m_mpv, 0, "sub-font-size",  MPV_FORMAT_INT64);
 
     drainEvents();
 }
@@ -88,6 +119,11 @@ void MpvObject::drainEvents()
     bool hasSpeed = false;
     bool hasTitle = false;
     bool hasHwdec = false;
+    bool hasTracks = false;
+    bool hasSubDelay = false;
+    bool hasSubVisible = false;
+    bool hasSubPos = false;
+    bool hasSubFontSize = false;
 
     for (;;) {
         mpv_event *ev = mpv_wait_event(m_mpv, 0.0);
@@ -129,6 +165,23 @@ void MpvObject::drainEvents()
                 const char *s = *static_cast<char **>(prop->data);
                 m_hwdec = s ? QString::fromUtf8(s) : QString();
                 hasHwdec = true;
+            } else if (name == QLatin1String("track-list")) {
+                // Observed with MPV_FORMAT_NONE, so prop->data is unset; the
+                // value has to be fetched explicitly.
+                refreshTracks();
+                hasTracks = true;
+            } else if (name == QLatin1String("sub-delay") && prop->format == MPV_FORMAT_DOUBLE) {
+                m_subtitleDelay = *static_cast<double *>(prop->data);
+                hasSubDelay = true;
+            } else if (name == QLatin1String("sub-visibility") && prop->format == MPV_FORMAT_FLAG) {
+                m_subtitlesVisible = *static_cast<int *>(prop->data) != 0;
+                hasSubVisible = true;
+            } else if (name == QLatin1String("sub-pos") && prop->format == MPV_FORMAT_INT64) {
+                m_subtitlePosition = static_cast<int>(*static_cast<int64_t *>(prop->data));
+                hasSubPos = true;
+            } else if (name == QLatin1String("sub-font-size") && prop->format == MPV_FORMAT_INT64) {
+                m_subtitleFontSize = static_cast<int>(*static_cast<int64_t *>(prop->data));
+                hasSubFontSize = true;
             }
             break;
         }
@@ -152,6 +205,50 @@ void MpvObject::drainEvents()
     if (hasSpeed)  emit speedChanged();
     if (hasTitle)  emit mediaTitleChanged();
     if (hasHwdec)  emit hwdecChanged();
+    if (hasTracks) emit tracksChanged();
+    if (hasSubDelay)     emit subtitleDelayChanged();
+    if (hasSubVisible)   emit subtitlesVisibleChanged();
+    if (hasSubPos)       emit subtitlePositionChanged();
+    if (hasSubFontSize)  emit subtitleFontSizeChanged();
+}
+
+/// Reads "track-list" as an mpv_node, walks the node_list (keys is NULL for
+/// arrays, valid for maps), copies everything into QVariantMaps and frees the
+/// mpv-owned strings with mpv_free_node_contents().
+void MpvObject::refreshTracks()
+{
+    if (!m_mpv)
+        return;
+
+    mpv_node node;
+    if (mpv_get_property(m_mpv, "track-list", MPV_FORMAT_NODE, &node) < 0)
+        return;
+
+    QVariantList out;
+    if (node.format == MPV_FORMAT_NODE_ARRAY && node.u.list) {
+        mpv_node_list *list = node.u.list;
+        for (int i = 0; i < list->num; ++i) {
+            mpv_node &entry = list->values[i];
+            if (entry.format != MPV_FORMAT_NODE_MAP || !entry.u.list)
+                continue;
+            mpv_node_list *fields = entry.u.list;
+            QVariantMap track;
+            for (int f = 0; f < fields->num; ++f) {
+                const char *key = fields->keys ? fields->keys[f] : nullptr;
+                if (!key)
+                    continue;
+                const QVariant v = nodeToVariant(fields->values[f]);
+                if (v.isValid())
+                    track.insert(QString::fromUtf8(key), v);
+            }
+            if (!track.isEmpty())
+                out.append(track);
+        }
+    }
+    mpv_free_node_contents(&node);
+
+    if (out != m_tracks)
+        m_tracks = out;
 }
 
 void MpvObject::setPaused(bool paused)
@@ -301,4 +398,158 @@ QString MpvObject::formatTime(double seconds) const
     return QStringLiteral("%1:%2")
         .arg(m, 2, 10, QLatin1Char('0'))
         .arg(s, 2, 10, QLatin1Char('0'));
+}
+
+// ---- subtitle / track control ----------------------------------------------
+
+void MpvObject::selectTrack(qint64 id)
+{
+    if (!m_mpv)
+        return;
+
+    // The id is only unique within its own track type, so find out which
+    // property ("aid" or "sid") it belongs to.
+    for (const QVariant &v : m_tracks) {
+        const QVariantMap t = v.toMap();
+        if (t.value(QStringLiteral("id")).toLongLong() != id)
+            continue;
+        const QString type = t.value(QStringLiteral("type")).toString();
+        if (type == QLatin1String("audio"))
+            mpv_set_property(m_mpv, "aid", MPV_FORMAT_INT64, &id);
+        else if (type == QLatin1String("sub"))
+            mpv_set_property(m_mpv, "sid", MPV_FORMAT_INT64, &id);
+        return;
+    }
+}
+
+void MpvObject::disableSubtitles()
+{
+    if (!m_mpv)
+        return;
+    // "sid" accepts the string "no" to deselect without unloading the track.
+    mpv_set_property_string(m_mpv, "sid", "no");
+}
+
+void MpvObject::addSubtitleFile(const QString &path)
+{
+    if (!m_mpv || path.isEmpty())
+        return;
+    // The flags argument is a string ("select" = make it current right away).
+    const QByteArray encoded = QFile::encodeName(path);
+    const char *cmd[] = {"sub-add", encoded.constData(), "select", nullptr};
+    if (mpv_command(m_mpv, cmd) < 0)
+        std::fprintf(stderr, "parvaz: sub-add failed for %s\n", qPrintable(path));
+}
+
+void MpvObject::setSubtitleCodepage(const QString &codepage)
+{
+    if (!m_mpv || codepage.isEmpty())
+        return;
+    // Without a leading '+', mpv still trusts data that already looks like
+    // UTF-8; only "+cp1256" would force the legacy decoder onto UTF-8 files.
+    mpv_set_property_string(m_mpv, "sub-codepage", QFile::encodeName(codepage).constData());
+    reloadSubtitles();
+}
+
+void MpvObject::reloadSubtitles()
+{
+    if (!m_mpv)
+        return;
+    const char *cmd[] = {"sub-reload", nullptr};
+    mpv_command(m_mpv, cmd);
+}
+
+QString MpvObject::subtitleCodepage() const
+{
+    if (!m_mpv)
+        return QString();
+    char *cp = mpv_get_property_string(m_mpv, "sub-codepage");
+    const QString out = cp ? QString::fromUtf8(cp) : QString();
+    mpv_free(cp);
+    return out;
+}
+
+QString MpvObject::subtitleText() const
+{
+    if (!m_mpv)
+        return QString();
+    char *text = mpv_get_property_string(m_mpv, "sub-text");
+    const QString out = text ? QString::fromUtf8(text) : QString();
+    mpv_free(text);
+    return out;
+}
+
+void MpvObject::cycleSubtitleTrack()
+{
+    if (!m_mpv)
+        return;
+    const char *cmd[] = {"cycle", "sid", nullptr};
+    mpv_command(m_mpv, cmd);
+}
+
+void MpvObject::cycleAudioTrack()
+{
+    if (!m_mpv)
+        return;
+    const char *cmd[] = {"cycle", "aid", nullptr};
+    mpv_command(m_mpv, cmd);
+}
+
+QVariantList MpvObject::tracksOfType(const QString &type) const
+{
+    QVariantList out;
+    int fallback = 0;
+    for (const QVariant &v : m_tracks) {
+        const QVariantMap t = v.toMap();
+        if (t.value(QStringLiteral("type")).toString() != type)
+            continue;
+
+        QString label = t.value(QStringLiteral("title")).toString();
+        const QString lang = t.value(QStringLiteral("lang")).toString();
+        if (label.isEmpty())
+            label = lang.isEmpty() ? QStringLiteral("Track %1").arg(++fallback)
+                                   : QStringLiteral("%1 (%2)").arg(lang).arg(++fallback);
+        else if (!lang.isEmpty())
+            label = QStringLiteral("%1 [%2]").arg(label, lang);
+
+        QVariantMap entry;
+        entry.insert(QStringLiteral("id"), t.value(QStringLiteral("id")));
+        entry.insert(QStringLiteral("label"), label);
+        entry.insert(QStringLiteral("selected"), t.value(QStringLiteral("selected")).toBool());
+        out.append(entry);
+    }
+    return out;
+}
+
+void MpvObject::setSubtitleDelay(double seconds)
+{
+    if (!m_mpv)
+        return;
+    double d = seconds;
+    mpv_set_property(m_mpv, "sub-delay", MPV_FORMAT_DOUBLE, &d);
+}
+
+void MpvObject::setSubtitlesVisible(bool visible)
+{
+    if (!m_mpv)
+        return;
+    int flag = visible ? 1 : 0;
+    mpv_set_property(m_mpv, "sub-visibility", MPV_FORMAT_FLAG, &flag);
+}
+
+void MpvObject::setSubtitlePosition(int percentFromTop)
+{
+    if (!m_mpv)
+        return;
+    // mpv's documented range is 0..150.
+    int p = qBound(0, percentFromTop, 150);
+    mpv_set_property(m_mpv, "sub-pos", MPV_FORMAT_INT64, &p);
+}
+
+void MpvObject::setSubtitleFontSize(int size)
+{
+    if (!m_mpv)
+        return;
+    int s = qBound(8, size, 200);
+    mpv_set_property(m_mpv, "sub-font-size", MPV_FORMAT_INT64, &s);
 }
