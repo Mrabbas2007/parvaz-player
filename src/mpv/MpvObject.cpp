@@ -75,8 +75,8 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "track-list", MPV_FORMAT_NONE);
     mpv_observe_property(m_mpv, 0, "sub-delay",      MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "sub-visibility", MPV_FORMAT_FLAG);
-    mpv_observe_property(m_mpv, 0, "sub-pos",        MPV_FORMAT_INT64);
-    mpv_observe_property(m_mpv, 0, "sub-font-size",  MPV_FORMAT_INT64);
+    mpv_observe_property(m_mpv, 0, "sub-pos",        MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "sub-font-size",  MPV_FORMAT_DOUBLE);
 
     drainEvents();
 }
@@ -176,11 +176,11 @@ void MpvObject::drainEvents()
             } else if (name == QLatin1String("sub-visibility") && prop->format == MPV_FORMAT_FLAG) {
                 m_subtitlesVisible = *static_cast<int *>(prop->data) != 0;
                 hasSubVisible = true;
-            } else if (name == QLatin1String("sub-pos") && prop->format == MPV_FORMAT_INT64) {
-                m_subtitlePosition = static_cast<int>(*static_cast<int64_t *>(prop->data));
+            } else if (name == QLatin1String("sub-pos") && prop->format == MPV_FORMAT_DOUBLE) {
+                m_subtitlePosition = *static_cast<double *>(prop->data);
                 hasSubPos = true;
-            } else if (name == QLatin1String("sub-font-size") && prop->format == MPV_FORMAT_INT64) {
-                m_subtitleFontSize = static_cast<int>(*static_cast<int64_t *>(prop->data));
+            } else if (name == QLatin1String("sub-font-size") && prop->format == MPV_FORMAT_DOUBLE) {
+                m_subtitleFontSize = *static_cast<double *>(prop->data);
                 hasSubFontSize = true;
             }
             break;
@@ -537,19 +537,20 @@ void MpvObject::setSubtitlesVisible(bool visible)
     mpv_set_property(m_mpv, "sub-visibility", MPV_FORMAT_FLAG, &flag);
 }
 
-void MpvObject::setSubtitlePosition(int percentFromTop)
+void MpvObject::setSubtitlePosition(double percentFromTop)
 {
     if (!m_mpv)
         return;
     // mpv's documented range is 0..150.
-    int p = qBound(0, percentFromTop, 150);
-    mpv_set_property(m_mpv, "sub-pos", MPV_FORMAT_INT64, &p);
+    double p = qBound(0.0, percentFromTop, 150.0);
+    mpv_set_property(m_mpv, "sub-pos", MPV_FORMAT_DOUBLE, &p);
 }
 
-void MpvObject::setSubtitleFontSize(int size)
+void MpvObject::setSubtitleFontSize(double size)
 {
     if (!m_mpv)
         return;
-    int s = qBound(8, size, 200);
-    mpv_set_property(m_mpv, "sub-font-size", MPV_FORMAT_INT64, &s);
+    // mpv clamps to 1..9000 itself; keep a sane UI range.
+    double s = qBound(8.0, size, 200.0);
+    mpv_set_property(m_mpv, "sub-font-size", MPV_FORMAT_DOUBLE, &s);
 }

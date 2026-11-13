@@ -243,6 +243,18 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         case 24:
             check("subtitleDelay round-trips 0.5", qAbs(mpv.subtitleDelay() - 0.5) < 0.001);
             mpv.setSubtitleDelay(0.0);
+            mpv.setSubtitleFontSize(50.0);
+            mpv.setSubtitlePosition(120.0);
+            break;
+        case 25:
+            // Both of these are mpv Float options; a wrong format would show up
+            // as the value never moving.
+            check("subtitleFontSize round-trips 50",
+                  qAbs(mpv.subtitleFontSize() - 50.0) < 0.001);
+            check("subtitlePosition round-trips 120",
+                  qAbs(mpv.subtitlePosition() - 120.0) < 0.001);
+            mpv.setSubtitleFontSize(38.0);
+            mpv.setSubtitlePosition(100.0);
             break;
         default: {
             const QString hw = mpv.hwdec();
@@ -257,7 +269,8 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         }
         // Action steps that need mpv to actually act (seek, reload, option change)
         // get a longer beat before the assertion on the next turn.
-        const int delay = (step == 14 || step == 18 || step == 19 || step == 21 || step == 23)
+        const int delay = (step == 14 || step == 18 || step == 19 || step == 21 || step == 23
+                               || step == 24)
                               ? 500 : 250;
         QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };

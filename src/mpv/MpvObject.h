@@ -28,9 +28,11 @@ class MpvObject : public QObject {
                    NOTIFY subtitleDelayChanged)
     Q_PROPERTY(bool subtitlesVisible READ subtitlesVisible WRITE setSubtitlesVisible
                    NOTIFY subtitlesVisibleChanged)
-    Q_PROPERTY(int subtitlePosition READ subtitlePosition WRITE setSubtitlePosition
+    /// Float option, 0..150, percent from the top (mpv default 100).
+    Q_PROPERTY(double subtitlePosition READ subtitlePosition WRITE setSubtitlePosition
                    NOTIFY subtitlePositionChanged)
-    Q_PROPERTY(int subtitleFontSize READ subtitleFontSize WRITE setSubtitleFontSize
+    /// Float option in scaled pixels at 720p (mpv default 38).
+    Q_PROPERTY(double subtitleFontSize READ subtitleFontSize WRITE setSubtitleFontSize
                    NOTIFY subtitleFontSizeChanged)
 
 public:
@@ -51,8 +53,8 @@ public:
     QVariantList tracks() const { return m_tracks; }
     double subtitleDelay() const { return m_subtitleDelay; }
     bool subtitlesVisible() const { return m_subtitlesVisible; }
-    int subtitlePosition() const { return m_subtitlePosition; }
-    int subtitleFontSize() const { return m_subtitleFontSize; }
+    double subtitlePosition() const { return m_subtitlePosition; }
+    double subtitleFontSize() const { return m_subtitleFontSize; }
 
     void setPaused(bool paused);
     void setVolume(int volume);
@@ -60,8 +62,8 @@ public:
     void setSpeed(double speed);
     void setSubtitleDelay(double seconds);
     void setSubtitlesVisible(bool visible);
-    void setSubtitlePosition(int percentFromTop);
-    void setSubtitleFontSize(int size);
+    void setSubtitlePosition(double percentFromTop);
+    void setSubtitleFontSize(double size);
 
     /// mpv accepts --speed 0.01..100 (see `mpv --speed=` docs).
     static constexpr double kMinSpeed = 0.01;
@@ -163,6 +165,6 @@ private:
     QVariantList m_tracks;
     double m_subtitleDelay = 0.0;
     bool m_subtitlesVisible = true;
-    int m_subtitlePosition = 100;
-    int m_subtitleFontSize = 55;
+    double m_subtitlePosition = 100.0;
+    double m_subtitleFontSize = 38.0;
 };
