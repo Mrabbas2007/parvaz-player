@@ -52,8 +52,11 @@ public:
     void run() override;
 
 private:
-    QString m_id;
-    QSize m_requestedSize;
+    /// Parsed once in the constructor (GUI thread), read-only afterwards on
+    /// the pool thread.
+    QString m_path;
+    int m_sec = 0;
+    QString m_cacheKey;
     ThumbnailProvider *m_provider;
     QQuickTextureFactory *m_texture = nullptr;
     QString m_error;

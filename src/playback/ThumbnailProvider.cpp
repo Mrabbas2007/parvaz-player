@@ -61,34 +61,34 @@ QQuickImageResponse *ThumbnailProvider::requestImageResponse(const QString &id, 
 
 // ---- ThumbnailResponse -----------------------------------------------------
 
-ThumbnailResponse::ThumbnailResponse(const QString &id, const QSize &requestedSize, ThumbnailProvider *provider)
-    : m_id(id), m_requestedSize(requestedSize), m_provider(provider)
+ThumbnailResponse::ThumbnailResponse(const QString &id, const QSize &requestedSize,
+                                     ThumbnailProvider *provider)
+    : m_provider(provider)
 {
     setAutoDelete(false);
+    Q_UNUSED(requestedSize); // thumbnails have a fixed size set by the filter
 
-    const int qIdx = m_id.lastIndexOf('?');
-    const QString rawPath = (qIdx >= 0) ? m_id.left(qIdx) : m_id;
-    const QString queryStr = (qIdx >= 0) ? m_id.mid(qIdx + 1) : QString();
+    // Parse the id once here; run() only reads the parsed members.
+    const int qIdx = id.lastIndexOf('?');
+    const QString rawPath = (qIdx >= 0) ? id.left(qIdx) : id;
+    const QString queryStr = (qIdx >= 0) ? id.mid(qIdx + 1) : QString();
 
-    QString path = rawPath;
-    if (path.contains(QLatin1Char('%'))) {
-        path = QUrl::fromPercentEncoding(path.toUtf8());
+    m_path = rawPath;
+    if (m_path.contains(QLatin1Char('%'))) {
+        m_path = QUrl::fromPercentEncoding(m_path.toUtf8());
     }
-    if (path.startsWith(QLatin1String("file://"))) {
-        path = QUrl(path).toLocalFile();
+    if (m_path.startsWith(QLatin1String("file://"))) {
+        m_path = QUrl(m_path).toLocalFile();
     }
 
-    double timestamp = 0.0;
     const QUrlQuery query(queryStr);
     if (query.hasQueryItem(QStringLiteral("t"))) {
-        timestamp = query.queryItemValue(QStringLiteral("t")).toDouble();
+        m_sec = qMax(0, qRound(query.queryItemValue(QStringLiteral("t")).toDouble()));
     }
-
-    const int sec = qMax(0, qRound(timestamp));
-    const QString cacheKey = QStringLiteral("%1@%2").arg(path).arg(sec);
+    m_cacheKey = QStringLiteral("%1@%2").arg(m_path).arg(m_sec);
 
     QImage memImg;
-    if (m_provider->getCached(cacheKey, memImg)) {
+    if (m_provider->getCached(m_cacheKey, memImg)) {
         m_texture = QQuickTextureFactory::textureFactoryForImage(memImg);
         QMetaObject::invokeMethod(this, &QQuickImageResponse::finished, Qt::QueuedConnection);
         return;
@@ -133,26 +133,9 @@ void ThumbnailResponse::run()
         return;
     }
 
-    const int qIdx = m_id.lastIndexOf('?');
-    const QString rawPath = (qIdx >= 0) ? m_id.left(qIdx) : m_id;
-    const QString queryStr = (qIdx >= 0) ? m_id.mid(qIdx + 1) : QString();
-
-    QString path = rawPath;
-    if (path.contains(QLatin1Char('%'))) {
-        path = QUrl::fromPercentEncoding(path.toUtf8());
-    }
-    if (path.startsWith(QLatin1String("file://"))) {
-        path = QUrl(path).toLocalFile();
-    }
-
-    double timestamp = 0.0;
-    const QUrlQuery query(queryStr);
-    if (query.hasQueryItem(QStringLiteral("t"))) {
-        timestamp = query.queryItemValue(QStringLiteral("t")).toDouble();
-    }
-
-    const int sec = qMax(0, qRound(timestamp));
-    const QString cacheKey = QStringLiteral("%1@%2").arg(path).arg(sec);
+    const QString &path = m_path;
+    const int sec = m_sec;
+    const QString &cacheKey = m_cacheKey;
 
     const QByteArray hash = QCryptographicHash::hash(path.toUtf8(), QCryptographicHash::Sha1).toHex();
     const QString subDir = m_provider->diskCacheDir() + QStringLiteral("/") + QString::fromLatin1(hash);
