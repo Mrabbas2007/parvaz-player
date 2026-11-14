@@ -1,0 +1,14 @@
+# Parvaz formatting: matches the style already in the codebase.
+# Apply per file: clang-format -i <file>  (never mass-reformat existing
+# files in a feature commit — formatting churn hides real diffs).
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 100
+PointerAlignment: Right
+DerivePointerAlignment: false
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+NamespaceIndentation: None
+SortIncludes: CaseSensitive
+InsertBraces: false

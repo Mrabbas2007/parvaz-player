@@ -26,6 +26,12 @@ target_compile_definitions(parvaz PRIVATE
     PARVAZ_TESTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests"
 )
 
+# Warnings are part of the contract: new code that trips -Wall/-Wextra must
+# be fixed before merge, not silenced per-line.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(parvaz PRIVATE -Wall -Wextra)
+endif()
+
 target_link_libraries(parvaz PRIVATE
     Qt6::Core Qt6::Gui Qt6::OpenGL Qt6::Quick Qt6::QuickControls2 Qt6::DBus Qt6::Sql
     PkgConfig::MPV
