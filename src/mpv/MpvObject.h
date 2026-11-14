@@ -113,14 +113,18 @@ public:
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
 
-    void setPaused(bool paused);
-    void setVolume(int volume);
-    void setMuted(bool muted);
-    void setSpeed(double speed);
-    void setSubtitleDelay(double seconds);
-    void setSubtitlesVisible(bool visible);
-    void setSubtitlePosition(double percentFromTop);
-    void setSubtitleFontSize(double size);
+    // Q_PROPERTY WRITE setters, also Q_INVOKABLE so QML can call them as
+    // functions (Mpv.setMuted(...)). Plain WRITE accessors are NOT callable
+    // from QML — omitting Q_INVOKABLE made every such call a silent
+    // TypeError and the action never ran (setVideoAspect set the precedent).
+    Q_INVOKABLE void setPaused(bool paused);
+    Q_INVOKABLE void setVolume(int volume);
+    Q_INVOKABLE void setMuted(bool muted);
+    Q_INVOKABLE void setSpeed(double speed);
+    Q_INVOKABLE void setSubtitleDelay(double seconds);
+    Q_INVOKABLE void setSubtitlesVisible(bool visible);
+    Q_INVOKABLE void setSubtitlePosition(double percentFromTop);
+    Q_INVOKABLE void setSubtitleFontSize(double size);
     Q_INVOKABLE void setVideoAspect(const QString &aspect);
 
     /// mpv accepts --speed 0.01..100 (see `mpv --speed=` docs).
