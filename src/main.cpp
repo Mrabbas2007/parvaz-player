@@ -32,6 +32,7 @@ static double g_idlePos = 0.0;   // where we were before a deliberate no-op
 static double g_stepFrom = 0.0;  // where we were before frameStep(1)
 static double g_backFrom = 0.0;  // where we were before frameStep(-1)
 static int g_trackCountBeforeAdd = 0;   // tracks before addSubtitleFile()
+static int g_coverRetries = 0;          // async cover extraction polls (step 37)
 
 static void check(const char *what, bool ok)
 {
@@ -371,6 +372,14 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("trackTitle is 'Test Music'", mpv.trackTitle() == QLatin1String("Test Music"));
             check("trackArtist is 'Antigravity'", mpv.trackArtist() == QLatin1String("Antigravity"));
             check("trackAlbum is 'Parvaz Album'", mpv.trackAlbum() == QLatin1String("Parvaz Album"));
+            // Cover extraction is asynchronous (ffmpeg runs in the background),
+            // so poll instead of trusting the fixed step beat: re-run this same
+            // step until the URL lands or the budget runs out.
+            if (mpv.coverArtUrl().isEmpty() && g_coverRetries < 20) {
+                ++g_coverRetries;
+                QTimer::singleShot(250, app, [next, step]() { (*next)(step); });
+                return;
+            }
             check("coverArtUrl is non-empty", !mpv.coverArtUrl().isEmpty());
             break;
         }
