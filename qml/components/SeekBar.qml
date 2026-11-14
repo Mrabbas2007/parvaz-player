@@ -63,31 +63,76 @@ Item {
         }
     }
 
-    // Hover time preview tooltip
+    readonly property bool hasVideo: Mpv.tracksOfType("video").length > 0
+    property int activeThumbSec: 0
+
+    Timer {
+        id: thumbDebounceTimer
+        interval: 40
+        repeat: false
+        onTriggered: {
+            root.activeThumbSec = previewTooltip.hoverSec
+        }
+    }
+
+    // Hover time preview tooltip with thumbnail
     Rectangle {
         id: previewTooltip
         visible: mouseArea.containsMouse && root.duration > 0
-        y: trackArea.y - height - 6
-        width: previewText.implicitWidth + 12
-        height: previewText.implicitHeight + 6
-        radius: Theme.radiusSmall
-        color: Theme.bgTooltip
-        border.color: Theme.borderTooltip
-        border.width: 1
+        y: trackArea.y - height - 8
 
         readonly property real hoverRatio: Math.max(0.0, Math.min(1.0, mouseArea.mouseX / Math.max(1, root.width)))
         readonly property real hoverSeconds: hoverRatio * root.effectiveDuration
+        readonly property int hoverSec: Math.max(0, Math.round(hoverSeconds))
 
-        x: Math.max(0, Math.min(root.width - width, mouseArea.mouseX - (width / 2)))
+        onHoverSecChanged: thumbDebounceTimer.restart()
 
-        Text {
-            id: previewText
+        width: root.hasVideo ? 164 : (previewText.implicitWidth + 14)
+        height: root.hasVideo ? 116 : (previewText.implicitHeight + 6)
+        radius: Theme.radiusSmall
+        color: "#0F1015"
+        border.color: "#282C3A"
+        border.width: 1
+
+        x: Math.max(8, Math.min(root.width - width - 8, mouseArea.mouseX - (width / 2)))
+
+        Column {
             anchors.centerIn: parent
-            text: Mpv.formatTime(previewTooltip.hoverSeconds)
-            color: Theme.textPrimary
-            font.family: Theme.fontDigits
-            font.pixelSize: Theme.fontSmall
-            font.bold: true
+            spacing: 3
+
+            // Thumbnail container
+            Rectangle {
+                visible: root.hasVideo
+                width: 158
+                height: 88
+                radius: 2
+                color: "#08090C"
+                clip: true
+
+                Image {
+                    id: thumbImg
+                    anchors.fill: parent
+                    asynchronous: true
+                    fillMode: Image.PreserveAspectFit
+                    source: (root.hasVideo && Mpv.currentFile.length > 0)
+                                ? ("image://thumbnail/" + encodeURIComponent(Mpv.currentFile) + "?t=" + root.activeThumbSec)
+                                : ""
+
+                    opacity: status === Image.Ready ? 1.0 : 0.0
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
+                }
+            }
+
+            // Timestamp readout
+            Text {
+                id: previewText
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Mpv.formatTime(previewTooltip.hoverSeconds)
+                color: Theme.textPrimary
+                font.family: Theme.fontDigits
+                font.pixelSize: Theme.fontSmall
+                font.bold: true
+            }
         }
     }
 

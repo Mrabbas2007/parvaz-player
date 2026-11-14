@@ -17,6 +17,7 @@ qt_add_executable(parvaz
     src/platform/IdleInhibitor.h src/platform/IdleInhibitor.cpp
     src/platform/MprisService.h  src/platform/MprisService.cpp
     src/playback/PlaybackHistory.h src/playback/PlaybackHistory.cpp
+    src/playback/ThumbnailProvider.h src/playback/ThumbnailProvider.cpp
 )
 
 target_include_directories(parvaz PRIVATE src)

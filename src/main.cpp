@@ -20,6 +20,7 @@
 #include "platform/IdleInhibitor.h"
 #include "platform/MprisService.h"
 #include "playback/PlaybackHistory.h"
+#include "playback/ThumbnailProvider.h"
 
 /// Each step applies a change, then checks it on a later event-loop turn:
 /// mpv reports the new value only through the observe callbacks, which need a
@@ -396,6 +397,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonInstance("Parvaz", 1, 0, "Mpv", &mpv);
 
     QQmlApplicationEngine engine;
+    engine.addImageProvider(QStringLiteral("thumbnail"), new ThumbnailProvider());
     engine.addImportPath(QStringLiteral(PARVAZ_QML_DIR));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
                      &app, []() {
