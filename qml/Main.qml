@@ -40,7 +40,7 @@ Window {
         interval: Theme.autoHideTimeout
         repeat: false
         onTriggered: {
-            if (!Mpv.paused && !root.pointerOnBar && !controlBar.isDraggingSeek) {
+            if (!Mpv.paused && !root.pointerOnBar && !controlBar.isDraggingSeek && !playlistDrawer.isOpen) {
                 root.chromeVisible = false
             }
         }
@@ -151,12 +151,9 @@ Window {
         }
     }
 
-    DropArea {
-        anchors.fill: parent
-        onDropped: (drop) => {
-            if (drop.hasUrls && drop.urls.length > 0)
-                Mpv.loadFile(root.localPath(drop.urls[0]))
-        }
+    // Dual-Zone Drop Target: Play later (top 28%) & Play now (bottom 72%)
+    DropOverlay {
+        id: dropOverlay
     }
 
     // --- Top Title Bar -----------------------------------------------------
@@ -208,10 +205,25 @@ Window {
             }
         }
 
+        playlistOpen: playlistDrawer.isOpen
+        onPlaylistToggleRequested: {
+            playlistDrawer.toggle()
+            root.poke()
+        }
+
         onPokeRequested: root.poke()
         onOpenClicked: openDialog.open()
         onOpenSubClicked: subDialog.open()
         onFullscreenToggled: root.toggleFullscreen()
+    }
+
+    // --- PotPlayer Playlist Drawer (F6) -----------------------------------
+    PlaylistDrawer {
+        id: playlistDrawer
+        onIsOpenChanged: {
+            if (isOpen)
+                root.poke()
+        }
     }
 
     // --- Non-intrusive Top Corner OSD --------------------------------------
@@ -313,6 +325,27 @@ Window {
     PlayerShortcut { sequence: "Alt+Down"; onActivated: Mpv.adjustSubtitlePosition(2) }
     PlayerShortcut { sequence: "Alt+PageUp"; onActivated: Mpv.adjustSubtitleFontSize(2) }
     PlayerShortcut { sequence: "Alt+PageDown"; onActivated: Mpv.adjustSubtitleFontSize(-2) }
+
+    // Playlist shortcuts (PotPlayer Standard: F6 toggle, PgDn/PgUp Next/Prev)
+    PlayerShortcut { sequence: "F6"; onActivated: { playlistDrawer.toggle(); root.poke() } }
+    PlayerShortcut {
+        sequence: "PgDown"
+        onActivated: {
+            if (Mpv.hasNext) {
+                Mpv.next()
+                Mpv.showOsd("Next track")
+            }
+        }
+    }
+    PlayerShortcut {
+        sequence: "PgUp"
+        onActivated: {
+            if (Mpv.hasPrevious) {
+                Mpv.previous()
+                Mpv.showOsd("Previous track")
+            }
+        }
+    }
 
     PlayerShortcut { sequence: "Ctrl+T"; onActivated: root.toggleAlwaysOnTop() }
     PlayerShortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }

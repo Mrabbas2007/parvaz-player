@@ -9,6 +9,7 @@
 #include <QSGRendererInterface>
 #include <QCommandLineParser>
 #include <QFile>
+#include <QDir>
 #include <QTimer>
 #include <QUrl>
 #include <QVariantMap>
@@ -314,6 +315,28 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             break;
         case 34:
             check("playlistCount == 1 after clearPlaylist()", mpv.playlistCount() == 1);
+            // Test recursive folder scanning with 120 tracks
+            {
+                const QString testAlbumDir = QStringLiteral("/tmp/parvaz_album_test");
+                QDir().mkpath(testAlbumDir + QStringLiteral("/cd1"));
+                QDir().mkpath(testAlbumDir + QStringLiteral("/cd2"));
+                for (int i = 1; i <= 60; ++i) {
+                    QFile f(QStringLiteral("%1/cd1/01-Track %2.mp3").arg(testAlbumDir).arg(i, 2, 10, QLatin1Char('0')));
+                    (void)f.open(QIODevice::WriteOnly);
+                }
+                for (int i = 61; i <= 120; ++i) {
+                    QFile f(QStringLiteral("%1/cd2/02-Track %2.flac").arg(testAlbumDir).arg(i, 3, 10, QLatin1Char('0')));
+                    (void)f.open(QIODevice::WriteOnly);
+                }
+                mpv.loadFiles(QStringList{testAlbumDir}, QStringLiteral("append"));
+            }
+            break;
+        case 35:
+            check("playlistCount expanded from folder (1 + 120 = 121)", mpv.playlistCount() == 121);
+            check("first folder item has title 01-Track 01.mp3",
+                  mpv.playlist().size() > 1 &&
+                  mpv.playlist().at(1).toMap().value(QStringLiteral("title")).toString() == QLatin1String("01-Track 01.mp3"));
+            QDir(QStringLiteral("/tmp/parvaz_album_test")).removeRecursively();
             break;
         default: {
             const QString hw = mpv.hwdec();
@@ -330,7 +353,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         // get a longer beat before the assertion on the next turn.
         const int delay = (step == 7 || step == 8 || step == 14 || step == 18 || step == 19 || step == 21 || step == 23
                                || step == 24 || step == 25 || step == 26 || step == 27 || step == 28 || step == 29
-                               || step == 30 || step == 31 || step == 32 || step == 33)
+                               || step == 30 || step == 31 || step == 32 || step == 33 || step == 34)
                               ? 500 : 250;
         QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };

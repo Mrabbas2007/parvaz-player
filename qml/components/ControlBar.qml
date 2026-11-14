@@ -9,6 +9,7 @@ Item {
 
     property bool pointerOnBar: false
     property bool isFullscreen: false
+    property bool playlistOpen: false
     property var blurSource: null
     property alias isDraggingSeek: seekBar.isDragging
 
@@ -16,6 +17,7 @@ Item {
     signal openClicked()
     signal openSubClicked()
     signal fullscreenToggled()
+    signal playlistToggleRequested()
 
     height: Theme.controlBarHeight
 
@@ -112,19 +114,35 @@ Item {
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "skip-back"
-                    tooltipText: "Frame backward (Comma)"
+                    tooltipText: Mpv.playlistCount > 1 ? "Previous track (Page Down)" : "Frame backward (Comma)"
                     buttonSize: 30
                     iconSize: 17
-                    onClicked: Mpv.frameStep(-1)
+                    enabled: Mpv.playlistCount > 1 ? Mpv.hasPrevious : true
+                    opacity: enabled ? 1.0 : 0.4
+                    onClicked: {
+                        if (Mpv.playlistCount > 1) {
+                            Mpv.previous()
+                        } else {
+                            Mpv.frameStep(-1)
+                        }
+                    }
                 }
 
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "skip-forward"
-                    tooltipText: "Frame forward (Period)"
+                    tooltipText: Mpv.playlistCount > 1 ? "Next track (Page Up)" : "Frame forward (Period)"
                     buttonSize: 30
                     iconSize: 17
-                    onClicked: Mpv.frameStep(1)
+                    enabled: Mpv.playlistCount > 1 ? Mpv.hasNext : true
+                    opacity: enabled ? 1.0 : 0.4
+                    onClicked: {
+                        if (Mpv.playlistCount > 1) {
+                            Mpv.next()
+                        } else {
+                            Mpv.frameStep(1)
+                        }
+                    }
                 }
 
                 IconButton {
@@ -293,6 +311,17 @@ Item {
                         font.pixelSize: 10
                         font.bold: true
                     }
+                }
+
+                // Playlist toggle button
+                IconButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "list"
+                    tooltipText: "Playlist (F6)"
+                    buttonSize: 30
+                    iconSize: 17
+                    active: root.playlistOpen
+                    onClicked: root.playlistToggleRequested()
                 }
 
                 // Open file button
