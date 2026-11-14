@@ -103,6 +103,20 @@ MpvObject::MpvObject(QObject *parent)
         qFatal("parvaz: mpv_initialize failed");
         return;
     }
+    m_subtitles.setHandle(m_mpv);
+
+    // Subtitle state lives in the controller; re-expose its change signals
+    // under the MpvObject NOTIFY names QML binds to.
+    connect(&m_subtitles, &SubtitleController::delayChanged,
+            this, &MpvObject::subtitleDelayChanged);
+    connect(&m_subtitles, &SubtitleController::visibleChanged,
+            this, &MpvObject::subtitlesVisibleChanged);
+    connect(&m_subtitles, &SubtitleController::positionChanged,
+            this, &MpvObject::subtitlePositionChanged);
+    connect(&m_subtitles, &SubtitleController::fontSizeChanged,
+            this, &MpvObject::subtitleFontSizeChanged);
+    connect(&m_subtitles, &SubtitleController::secondaryTrackChanged,
+            this, &MpvObject::secondarySubtitleTrackChanged);
 
     mpv_observe_property(m_mpv, 0, "time-pos",  MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "duration",  MPV_FORMAT_DOUBLE);
@@ -180,15 +194,10 @@ void MpvObject::drainEvents()
     bool hasTitle = false;
     bool hasHwdec = false;
     bool hasTracks = false;
-    bool hasSubDelay = false;
-    bool hasSubVisible = false;
-    bool hasSubPos = false;
-    bool hasSubFontSize = false;
     bool hasAspect = false;
     bool hasPlaylist = false;
     bool hasChapter = false;
     bool hasChapters = false;
-    bool hasSecondarySub = false;
 
     for (;;) {
         mpv_event *ev = mpv_wait_event(m_mpv, 0.0);
@@ -202,6 +211,11 @@ void MpvObject::drainEvents()
                 break;
 
             const QString name = QString::fromUtf8(prop->name);
+
+            // sub-delay/visibility/pos/font-size and secondary-sid belong to
+            // the subtitle controller; it emits its change signals directly.
+            if (m_subtitles.onMpvProperty(name, prop->format, prop->data))
+                break;
 
             if (name == QLatin1String("time-pos") && prop->format == MPV_FORMAT_DOUBLE) {
                 m_position = *static_cast<double *>(prop->data);
@@ -235,21 +249,6 @@ void MpvObject::drainEvents()
                 // value has to be fetched explicitly.
                 refreshTracks();
                 hasTracks = true;
-            } else if (name == QLatin1String("sub-delay") && prop->format == MPV_FORMAT_DOUBLE) {
-                m_subtitleDelay = *static_cast<double *>(prop->data);
-                hasSubDelay = true;
-            } else if (name == QLatin1String("sub-visibility") && prop->format == MPV_FORMAT_FLAG) {
-                m_subtitlesVisible = *static_cast<int *>(prop->data) != 0;
-                hasSubVisible = true;
-            } else if (name == QLatin1String("sub-pos") && prop->format == MPV_FORMAT_DOUBLE) {
-                double rawPos = *static_cast<double *>(prop->data);
-                if (qAbs(rawPos - m_lastAppliedSubPos) > 0.001) {
-                    m_subtitlePosition = rawPos;
-                }
-                hasSubPos = true;
-            } else if (name == QLatin1String("sub-font-size") && prop->format == MPV_FORMAT_DOUBLE) {
-                m_subtitleFontSize = *static_cast<double *>(prop->data);
-                hasSubFontSize = true;
             } else if (name == QLatin1String("video-aspect-override") && prop->format == MPV_FORMAT_DOUBLE) {
                 m_videoAspect = aspectFromRatio(*static_cast<double *>(prop->data));
                 hasAspect = true;
@@ -268,9 +267,6 @@ void MpvObject::drainEvents()
             } else if (name == QLatin1String("chapter-list")) {
                 refreshChapters();
                 hasChapters = true;
-            } else if (name == QLatin1String("secondary-sid") && prop->format == MPV_FORMAT_INT64) {
-                m_secondarySubtitleTrack = *static_cast<int64_t *>(prop->data);
-                hasSecondarySub = true;
             } else if (name == QLatin1String("metadata")) {
                 refreshMetadata();
             }
@@ -316,15 +312,10 @@ void MpvObject::drainEvents()
     if (hasTitle)  emit mediaTitleChanged();
     if (hasHwdec)  emit hwdecChanged();
     if (hasTracks) emit tracksChanged();
-    if (hasSubDelay)     emit subtitleDelayChanged();
-    if (hasSubVisible)   emit subtitlesVisibleChanged();
-    if (hasSubPos)       emit subtitlePositionChanged();
-    if (hasSubFontSize)  emit subtitleFontSizeChanged();
     if (hasAspect)       emit videoAspectChanged();
     if (hasPlaylist)     emit playlistChanged();
     if (hasChapter)      emit currentChapterChanged();
     if (hasChapters)     emit chaptersChanged();
-    if (hasSecondarySub) emit secondarySubtitleTrackChanged();
 }
 
 /// Reads "track-list" as an mpv_node, walks the node_list (keys is NULL for
@@ -866,6 +857,8 @@ QString MpvObject::formatTime(double seconds) const
 }
 
 // ---- subtitle / track control ----------------------------------------------
+// Subtitle state and mpv calls live in SubtitleController; these are the
+// QML-facing delegates (plus OSD announcements).
 
 void MpvObject::selectTrack(qint64 id)
 {
@@ -889,67 +882,37 @@ void MpvObject::selectTrack(qint64 id)
 
 void MpvObject::disableSubtitles()
 {
-    if (!m_mpv)
-        return;
-    // "sid" accepts the string "no" to deselect without unloading the track.
-    mpv_set_property_string(m_mpv, "sid", "no");
+    m_subtitles.deselect();
 }
 
 void MpvObject::addSubtitleFile(const QString &path)
 {
-    if (!m_mpv || path.isEmpty())
-        return;
-    // The flags argument is a string ("select" = make it current right away).
-    const QByteArray encoded = QFile::encodeName(path);
-    const char *cmd[] = {"sub-add", encoded.constData(), "select", nullptr};
-    if (mpv_command(m_mpv, cmd) < 0)
-        std::fprintf(stderr, "parvaz: sub-add failed for %s\n", qPrintable(path));
+    m_subtitles.addSubtitleFile(path);
 }
 
 void MpvObject::setSubtitleCodepage(const QString &codepage)
 {
-    if (!m_mpv || codepage.isEmpty())
-        return;
-    // Without a leading '+', mpv still trusts data that already looks like
-    // UTF-8; only "+cp1256" would force the legacy decoder onto UTF-8 files.
-    mpv_set_property_string(m_mpv, "sub-codepage", QFile::encodeName(codepage).constData());
-    reloadSubtitles();
+    m_subtitles.setCodepage(codepage);
 }
 
 void MpvObject::reloadSubtitles()
 {
-    if (!m_mpv)
-        return;
-    const char *cmd[] = {"sub-reload", nullptr};
-    mpv_command(m_mpv, cmd);
+    m_subtitles.reload();
 }
 
 QString MpvObject::subtitleCodepage() const
 {
-    if (!m_mpv)
-        return QString();
-    char *cp = mpv_get_property_string(m_mpv, "sub-codepage");
-    const QString out = cp ? QString::fromUtf8(cp) : QString();
-    mpv_free(cp);
-    return out;
+    return m_subtitles.codepage();
 }
 
 QString MpvObject::subtitleText() const
 {
-    if (!m_mpv)
-        return QString();
-    char *text = mpv_get_property_string(m_mpv, "sub-text");
-    const QString out = text ? QString::fromUtf8(text) : QString();
-    mpv_free(text);
-    return out;
+    return m_subtitles.text();
 }
 
 void MpvObject::cycleSubtitleTrack()
 {
-    if (!m_mpv)
-        return;
-    const char *cmd[] = {"cycle", "sid", nullptr};
-    mpv_command(m_mpv, cmd);
+    m_subtitles.cycleTrack();
 }
 
 void MpvObject::cycleAudioTrack()
@@ -988,56 +951,27 @@ QVariantList MpvObject::tracksOfType(const QString &type) const
 
 void MpvObject::setSubtitleDelay(double seconds)
 {
-    if (!m_mpv)
-        return;
-    double d = seconds;
-    mpv_set_property(m_mpv, "sub-delay", MPV_FORMAT_DOUBLE, &d);
+    m_subtitles.setDelay(seconds);
 }
 
 void MpvObject::setSubtitlesVisible(bool visible)
 {
-    if (!m_mpv)
-        return;
-    int flag = visible ? 1 : 0;
-    mpv_set_property(m_mpv, "sub-visibility", MPV_FORMAT_FLAG, &flag);
+    m_subtitles.setVisible(visible);
 }
 
 void MpvObject::setSubtitlePosition(double percentFromTop)
 {
-    // mpv's documented range is 0..150.
-    m_subtitlePosition = qBound(0.0, percentFromTop, 150.0);
-    applySubtitlePosition();
+    m_subtitles.setPosition(percentFromTop);
 }
 
 void MpvObject::setBottomBarOffset(bool visible, double barHeight, double windowHeight)
 {
-    m_bottomBarVisible = visible;
-    m_bottomBarHeight = barHeight;
-    m_windowHeight = windowHeight;
-    applySubtitlePosition();
-}
-
-void MpvObject::applySubtitlePosition()
-{
-    if (!m_mpv)
-        return;
-    double p = m_subtitlePosition;
-    if (m_bottomBarVisible && m_windowHeight > 0.0 && m_bottomBarHeight > 0.0) {
-        // Shift subtitle up so it clears the bottom control bar plus a comfortable margin (16px).
-        double shiftPercent = ((m_bottomBarHeight + 16.0) / m_windowHeight) * 100.0;
-        p = qBound(0.0, p - shiftPercent, 150.0);
-    }
-    m_lastAppliedSubPos = p;
-    mpv_set_property(m_mpv, "sub-pos", MPV_FORMAT_DOUBLE, &p);
+    m_subtitles.setBottomBarOffset(visible, barHeight, windowHeight);
 }
 
 void MpvObject::setSubtitleFontSize(double size)
 {
-    if (!m_mpv)
-        return;
-    // mpv clamps to 1..9000 itself; keep a sane UI range.
-    double s = qBound(8.0, size, 200.0);
-    mpv_set_property(m_mpv, "sub-font-size", MPV_FORMAT_DOUBLE, &s);
+    m_subtitles.setFontSize(size);
 }
 
 void MpvObject::adjustSpeed(double delta)
@@ -1066,14 +1000,14 @@ void MpvObject::adjustVolume(int delta)
 
 void MpvObject::adjustSubtitlePosition(double delta)
 {
-    setSubtitlePosition(m_subtitlePosition + delta);
-    showOsd(QStringLiteral("Sub pos: %1%").arg(int(std::round(m_subtitlePosition))));
+    m_subtitles.setPosition(m_subtitles.position() + delta);
+    showOsd(QStringLiteral("Sub pos: %1%").arg(int(std::round(m_subtitles.position()))));
 }
 
 void MpvObject::adjustSubtitleFontSize(double delta)
 {
-    setSubtitleFontSize(m_subtitleFontSize + delta);
-    showOsd(QStringLiteral("Sub size: %1").arg(int(std::round(m_subtitleFontSize))));
+    m_subtitles.setFontSize(m_subtitles.fontSize() + delta);
+    showOsd(QStringLiteral("Sub size: %1").arg(int(std::round(m_subtitles.fontSize()))));
 }
 
 void MpvObject::showOsd(const QString &text)
@@ -1220,26 +1154,16 @@ void MpvObject::setChapter(int index)
 
 void MpvObject::selectSecondarySubtitleTrack(qint64 id)
 {
-    if (!m_mpv)
-        return;
-    if (id <= 0) {
-        const char *cmd[] = {"set", "secondary-sid", "no", nullptr};
-        mpv_command_async(m_mpv, 0, cmd);
+    m_subtitles.selectSecondaryTrack(id);
+    if (id <= 0)
         showOsd(QStringLiteral("Secondary sub: None"));
-    } else {
-        const QByteArray idStr = QByteArray::number(id);
-        const char *cmd[] = {"set", "secondary-sid", idStr.constData(), nullptr};
-        mpv_command_async(m_mpv, 0, cmd);
+    else
         showOsd(QStringLiteral("Secondary sub track #%1").arg(id));
-    }
 }
 
 void MpvObject::cycleSecondarySubtitleTrack()
 {
-    if (!m_mpv)
-        return;
-    const char *cmd[] = {"cycle", "secondary-sid", nullptr};
-    mpv_command_async(m_mpv, 0, cmd);
+    m_subtitles.cycleSecondaryTrack();
 }
 
 void MpvObject::setAudioNormalizer(bool enabled)

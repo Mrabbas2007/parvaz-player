@@ -14,6 +14,7 @@ qt_add_executable(parvaz
     src/main.cpp
     src/mpv/MpvObject.h  src/mpv/MpvObject.cpp
     src/mpv/MpvFboItem.h src/mpv/MpvFboItem.cpp
+    src/mpv/SubtitleController.h src/mpv/SubtitleController.cpp
     src/platform/IdleInhibitor.h src/platform/IdleInhibitor.cpp
     src/platform/MprisService.h  src/platform/MprisService.cpp
     src/playback/PlaybackHistory.h src/playback/PlaybackHistory.cpp

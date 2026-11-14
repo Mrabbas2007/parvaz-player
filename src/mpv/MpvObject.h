@@ -7,6 +7,7 @@
 #include <atomic>
 
 #include <mpv/client.h>
+#include <mpv/SubtitleController.h>
 #include <playback/CoverArtProvider.h>
 
 namespace parvaz { class PlaybackHistory; }
@@ -85,10 +86,10 @@ public:
     QString trackGenre() const;
     QString coverArtUrl() const { return m_coverArtUrl; }
     QVariantList tracks() const { return m_tracks; }
-    double subtitleDelay() const { return m_subtitleDelay; }
-    bool subtitlesVisible() const { return m_subtitlesVisible; }
-    double subtitlePosition() const { return m_subtitlePosition; }
-    double subtitleFontSize() const { return m_subtitleFontSize; }
+    double subtitleDelay() const { return m_subtitles.delay(); }
+    bool subtitlesVisible() const { return m_subtitles.visible(); }
+    double subtitlePosition() const { return m_subtitles.position(); }
+    double subtitleFontSize() const { return m_subtitles.fontSize(); }
     QString videoAspect() const { return m_videoAspect; }
     int playlistCount() const { return m_playlistCount; }
     int playlistIndex() const { return m_playlistIndex; }
@@ -99,7 +100,7 @@ public:
     int currentChapter() const { return m_currentChapter; }
     QVariantList bookmarks() const { return m_bookmarks; }
     bool audioNormalizer() const { return m_audioNormalizer; }
-    qint64 secondarySubtitleTrack() const { return m_secondarySubtitleTrack; }
+    qint64 secondarySubtitleTrack() const { return m_subtitles.secondaryTrack(); }
 
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
@@ -251,7 +252,6 @@ private:
     void refreshCoverArt();
     void setCoverArtUrl(const QString &url);
     QStringList expandAndSortPaths(const QStringList &rawPaths);
-    void applySubtitlePosition();
     static void wakeupCallback(void *ctx);
 
     static MpvObject *s_instance;
@@ -281,22 +281,15 @@ private:
     int m_currentChapter = -1;
     QVariantList m_bookmarks;
     bool m_audioNormalizer = false;
-    qint64 m_secondarySubtitleTrack = -1;
     QVariantMap m_metadata;
     QString m_coverArtUrl;
     bool m_isAudioOnly = false;
     /// Cover-art lookup and extraction (see playback/CoverArtProvider.h).
     parvaz::CoverArtProvider m_coverArt;
 
-    QVariantList m_tracks;
-    double m_subtitleDelay = 0.0;
-    bool m_subtitlesVisible = true;
-    double m_subtitlePosition = 100.0;
-    double m_subtitleFontSize = 38.0;
-    QString m_videoAspect = QStringLiteral("default");
+    /// Subtitle state and mpv wiring; QML-facing API stays on MpvObject.
+    SubtitleController m_subtitles;
 
-    bool m_bottomBarVisible = false;
-    double m_bottomBarHeight = 0.0;
-    double m_windowHeight = 0.0;
-    double m_lastAppliedSubPos = 100.0;
+    QVariantList m_tracks;
+    QString m_videoAspect = QStringLiteral("default");
 };
