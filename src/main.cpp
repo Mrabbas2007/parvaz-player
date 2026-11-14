@@ -295,6 +295,25 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             std::fprintf(stderr, "parvaz check: videoAspect = [%s]\n", qPrintable(mpv.videoAspect()));
             check("videoAspect round-trips 16:9", mpv.videoAspect() == QLatin1String("16:9"));
             mpv.setVideoAspect(QStringLiteral("default"));
+            // Append another copy of test.mp4 to test playlist features
+            mpv.loadFiles(QStringList{QStringLiteral(PARVAZ_TESTS_DIR "/../build/test.mp4")}, QStringLiteral("append"));
+            break;
+        case 31:
+            check("playlistCount == 2 after append", mpv.playlistCount() == 2);
+            check("hasNext is true", mpv.hasNext());
+            mpv.next();
+            break;
+        case 32:
+            check("playlistIndex == 1 after next()", mpv.playlistIndex() == 1);
+            check("hasPrevious is true", mpv.hasPrevious());
+            mpv.previous();
+            break;
+        case 33:
+            check("playlistIndex == 0 after previous()", mpv.playlistIndex() == 0);
+            mpv.clearPlaylist();
+            break;
+        case 34:
+            check("playlistCount == 1 after clearPlaylist()", mpv.playlistCount() == 1);
             break;
         default: {
             const QString hw = mpv.hwdec();
@@ -310,7 +329,8 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         // Action steps that need mpv to actually act (seek, reload, option change)
         // get a longer beat before the assertion on the next turn.
         const int delay = (step == 7 || step == 8 || step == 14 || step == 18 || step == 19 || step == 21 || step == 23
-                               || step == 24 || step == 25 || step == 26 || step == 27 || step == 28 || step == 29)
+                               || step == 24 || step == 25 || step == 26 || step == 27 || step == 28 || step == 29
+                               || step == 30 || step == 31 || step == 32 || step == 33)
                               ? 500 : 250;
         QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };

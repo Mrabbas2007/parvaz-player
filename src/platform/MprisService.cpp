@@ -172,6 +172,10 @@ MprisService::MprisService(MpvObject *mpv, QObject *parent)
         notifyPropertiesChanged({QStringLiteral("Metadata"),
                                  QStringLiteral("PlaybackStatus")});
     });
+    connect(m_mpv, &MpvObject::playlistChanged, this, [this] {
+        notifyPropertiesChanged({QStringLiteral("CanGoNext"),
+                                 QStringLiteral("CanGoPrevious")});
+    });
 }
 
 MprisService::~MprisService()
@@ -224,8 +228,17 @@ void MprisService::Quit()
 
 // ---- Player interface: methods ----------------------------------------------
 
-void MprisService::Next() {}
-void MprisService::Previous() {} // no playlist yet
+void MprisService::Next()
+{
+    if (m_mpv)
+        m_mpv->next();
+}
+
+void MprisService::Previous()
+{
+    if (m_mpv)
+        m_mpv->previous();
+}
 
 void MprisService::Pause() { m_mpv->setPaused(true); }
 void MprisService::Play() { m_mpv->setPaused(false); }
@@ -319,6 +332,16 @@ qlonglong MprisService::Position() const
     return static_cast<qlonglong>(std::max(0.0, m_mpv->position()) * 1e6);
 }
 
+bool MprisService::CanGoNext() const
+{
+    return m_mpv && m_mpv->hasNext();
+}
+
+bool MprisService::CanGoPrevious() const
+{
+    return m_mpv && m_mpv->hasPrevious();
+}
+
 // ---- PropertiesChanged -------------------------------------------------------
 
 QVariant MprisService::propertyValue(const QString &name) const
@@ -331,6 +354,10 @@ QVariant MprisService::propertyValue(const QString &name) const
         return Volume();
     if (name == QLatin1String("Rate"))
         return Rate();
+    if (name == QLatin1String("CanGoNext"))
+        return CanGoNext();
+    if (name == QLatin1String("CanGoPrevious"))
+        return CanGoPrevious();
     return {};
 }
 

@@ -36,6 +36,11 @@ class MpvObject : public QObject {
     Q_PROPERTY(double subtitleFontSize READ subtitleFontSize WRITE setSubtitleFontSize
                    NOTIFY subtitleFontSizeChanged)
     Q_PROPERTY(QString videoAspect READ videoAspect WRITE setVideoAspect NOTIFY videoAspectChanged)
+    Q_PROPERTY(int playlistCount READ playlistCount NOTIFY playlistChanged)
+    Q_PROPERTY(int playlistIndex READ playlistIndex NOTIFY playlistChanged)
+    Q_PROPERTY(bool hasNext READ hasNext NOTIFY playlistChanged)
+    Q_PROPERTY(bool hasPrevious READ hasPrevious NOTIFY playlistChanged)
+    Q_PROPERTY(QVariantList playlist READ playlist NOTIFY playlistChanged)
 
 public:
     explicit MpvObject(QObject *parent = nullptr);
@@ -59,6 +64,11 @@ public:
     double subtitlePosition() const { return m_subtitlePosition; }
     double subtitleFontSize() const { return m_subtitleFontSize; }
     QString videoAspect() const { return m_videoAspect; }
+    int playlistCount() const { return m_playlistCount; }
+    int playlistIndex() const { return m_playlistIndex; }
+    bool hasNext() const { return m_playlistCount > 0 && m_playlistIndex >= 0 && m_playlistIndex < m_playlistCount - 1; }
+    bool hasPrevious() const { return m_playlistCount > 0 && m_playlistIndex > 0; }
+    QVariantList playlist() const { return m_playlist; }
 
     void setPaused(bool paused);
     void setVolume(int volume);
@@ -75,6 +85,13 @@ public:
     static constexpr double kMaxSpeed = 100.0;
 
     Q_INVOKABLE void loadFile(const QString &path);
+    Q_INVOKABLE void loadFiles(const QStringList &paths, const QString &mode = QStringLiteral("replace"));
+    Q_INVOKABLE void next();
+    Q_INVOKABLE void previous();
+    Q_INVOKABLE void playIndex(int index);
+    Q_INVOKABLE void removeIndex(int index);
+    Q_INVOKABLE void clearPlaylist();
+    Q_INVOKABLE void shufflePlaylist();
 
     /// Called (marshalled) from the render thread once the mpv render context
     /// exists. Playback must not start before that, otherwise mpv fails to
@@ -155,6 +172,7 @@ signals:
     void subtitlePositionChanged();
     void subtitleFontSizeChanged();
     void videoAspectChanged();
+    void playlistChanged();
     void fileLoaded();
     void osdRequested(const QString &text);
 
@@ -164,6 +182,8 @@ private slots:
 private:
     void drainEvents();
     void refreshTracks();
+    void refreshPlaylist();
+    QStringList expandAndSortPaths(const QStringList &rawPaths);
     void applySubtitlePosition();
     static void wakeupCallback(void *ctx);
 
@@ -172,7 +192,8 @@ private:
     std::atomic_bool m_wakeupPending{false};
 
     bool m_renderReady = false;
-    QString m_pendingFile;
+    QStringList m_pendingFiles;
+    QString m_pendingMode;
 
     double m_position = 0.0;
     double m_duration = 0.0;
@@ -183,6 +204,10 @@ private:
     QString m_mediaTitle;
     QString m_currentFile;
     QString m_hwdec;
+
+    int m_playlistCount = 0;
+    int m_playlistIndex = -1;
+    QVariantList m_playlist;
 
     QVariantList m_tracks;
     double m_subtitleDelay = 0.0;

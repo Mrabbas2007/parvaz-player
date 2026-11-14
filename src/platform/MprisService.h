@@ -64,8 +64,8 @@ public:
     bool CanPause() const { return true; }
     bool CanSeek() const { return true; }
     bool CanControl() const { return true; }
-    bool CanGoNext() const { return false; }
-    bool CanGoPrevious() const { return false; }
+    bool CanGoNext() const;
+    bool CanGoPrevious() const;
 
 private:
     void notifyPropertiesChanged(const QStringList &names);
