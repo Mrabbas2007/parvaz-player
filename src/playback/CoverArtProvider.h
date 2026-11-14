@@ -19,6 +19,9 @@ public:
     explicit CoverArtProvider(QObject *parent = nullptr);
     ~CoverArtProvider() override;
 
+    /// Disk cache budget: 20MB of extracted cover art.
+    static constexpr qint64 kMaxDiskCacheBytes = 20 * 1024 * 1024;
+
     /// Folder-cover scan + disk-cache lookup. Only stat() calls, safe on the
     /// GUI thread. Empty when nothing is available and extraction is needed.
     QString localCoverUrl(const QString &file) const;

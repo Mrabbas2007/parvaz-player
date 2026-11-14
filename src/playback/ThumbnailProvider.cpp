@@ -1,4 +1,5 @@
 #include "playback/ThumbnailProvider.h"
+#include "playback/CacheMaintenance.h"
 
 #include <QStandardPaths>
 #include <QCryptographicHash>
@@ -15,7 +16,8 @@ ThumbnailProvider *ThumbnailProvider::s_instance = nullptr;
 ThumbnailProvider::ThumbnailProvider()
 {
     s_instance = this;
-    m_memCache.setMaxCost(120);
+    // Cost is measured in KB (see putCache); 16MB of decoded thumbnails.
+    m_memCache.setMaxCost(16 * 1024);
     m_threadPool.setMaxThreadCount(2);
 
     const QString cacheBase = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
@@ -23,6 +25,8 @@ ThumbnailProvider::ThumbnailProvider()
                          ? QStringLiteral("/tmp/parvaz/thumbnails")
                          : (cacheBase + QStringLiteral("/thumbnails"));
     QDir().mkpath(m_diskCacheDir);
+    // The disk cache is append-only otherwise; keep it bounded.
+    parvaz::evictOldestCacheFiles(m_diskCacheDir, kMaxDiskCacheBytes);
 }
 
 ThumbnailProvider::~ThumbnailProvider()
@@ -45,7 +49,9 @@ bool ThumbnailProvider::getCached(const QString &key, QImage &outImage)
 void ThumbnailProvider::putCache(const QString &key, const QImage &image)
 {
     QMutexLocker locker(&m_cacheMutex);
-    m_memCache.insert(key, new QImage(image));
+    // Cost in KB, so the LRU bound is a memory bound rather than an item
+    // count that ignores how big each decoded image is.
+    m_memCache.insert(key, new QImage(image), qMax(1, int(image.sizeInBytes() / 1024)));
 }
 
 QQuickImageResponse *ThumbnailProvider::requestImageResponse(const QString &id, const QSize &requestedSize)

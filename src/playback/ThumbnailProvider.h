@@ -18,6 +18,9 @@ public:
     ThumbnailProvider();
     ~ThumbnailProvider() override;
 
+    /// Disk cache budget: 50MB of encoded thumbnails.
+    static constexpr qint64 kMaxDiskCacheBytes = 50 * 1024 * 1024;
+
     QQuickImageResponse *requestImageResponse(const QString &id, const QSize &requestedSize) override;
 
     static ThumbnailProvider *instance() { return s_instance; }

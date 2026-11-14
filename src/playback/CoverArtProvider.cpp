@@ -1,4 +1,5 @@
 #include "playback/CoverArtProvider.h"
+#include "playback/CacheMaintenance.h"
 
 #include <QCryptographicHash>
 #include <QDir>
@@ -12,6 +13,12 @@ namespace parvaz {
 CoverArtProvider::CoverArtProvider(QObject *parent)
     : QObject(parent)
 {
+    // Extracted covers accumulate one .jpg per audio file ever played; keep
+    // the directory bounded.
+    evictOldestCacheFiles(
+        QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+            + QStringLiteral("/covers"),
+        kMaxDiskCacheBytes);
 }
 
 CoverArtProvider::~CoverArtProvider()
