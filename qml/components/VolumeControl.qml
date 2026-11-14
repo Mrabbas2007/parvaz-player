@@ -80,6 +80,12 @@ Row {
             onPositionChanged: (mouse) => {
                 if (pressed) updateVol(mouse)
             }
+            onWheel: (wheel) => {
+                if (wheel.angleDelta.y > 0)
+                    root.volumeChangeRequested(Math.min(100, root.volume + 5))
+                else if (wheel.angleDelta.y < 0)
+                    root.volumeChangeRequested(Math.max(0, root.volume - 5))
+            }
         }
 
         ToolTip {

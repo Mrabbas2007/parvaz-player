@@ -22,6 +22,7 @@ class MpvObject : public QObject {
     Q_PROPERTY(QString mediaTitle READ mediaTitle NOTIFY mediaTitleChanged)
     Q_PROPERTY(QString currentFile READ currentFile NOTIFY currentFileChanged)
     Q_PROPERTY(QString hwdec READ hwdec NOTIFY hwdecChanged)
+    Q_PROPERTY(bool hasVideo READ hasVideo NOTIFY hasVideoChanged)
     /// One QVariantMap per track: id, type, title, lang, codec, external,
     /// selected, default, forced. Derived from mpv's "track-list".
     Q_PROPERTY(QVariantList tracks READ tracks NOTIFY tracksChanged)
@@ -58,6 +59,7 @@ public:
     QString mediaTitle() const { return m_mediaTitle; }
     QString currentFile() const { return m_currentFile; }
     QString hwdec() const { return m_hwdec; }
+    bool hasVideo() const;
     QVariantList tracks() const { return m_tracks; }
     double subtitleDelay() const { return m_subtitleDelay; }
     bool subtitlesVisible() const { return m_subtitlesVisible; }
@@ -166,6 +168,7 @@ signals:
     void mediaTitleChanged();
     void currentFileChanged();
     void hwdecChanged();
+    void hasVideoChanged();
     void tracksChanged();
     void subtitleDelayChanged();
     void subtitlesVisibleChanged();

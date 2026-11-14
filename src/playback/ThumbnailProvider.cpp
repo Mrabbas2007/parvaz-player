@@ -64,7 +64,10 @@ ThumbnailResponse::ThumbnailResponse(const QString &id, const QSize &requestedSi
     const QString rawPath = (qIdx >= 0) ? m_id.left(qIdx) : m_id;
     const QString queryStr = (qIdx >= 0) ? m_id.mid(qIdx + 1) : QString();
 
-    QString path = QUrl::fromPercentEncoding(rawPath.toUtf8());
+    QString path = rawPath;
+    if (path.contains(QLatin1Char('%'))) {
+        path = QUrl::fromPercentEncoding(path.toUtf8());
+    }
     if (path.startsWith(QLatin1String("file://"))) {
         path = QUrl(path).toLocalFile();
     }
@@ -90,12 +93,21 @@ ThumbnailResponse::ThumbnailResponse(const QString &id, const QSize &requestedSi
 
 ThumbnailResponse::~ThumbnailResponse()
 {
-    delete m_texture;
+    // The engine takes ownership of the returned texture factory.
 }
 
 QQuickTextureFactory *ThumbnailResponse::textureFactory() const
 {
     return m_texture;
+}
+
+QString ThumbnailResponse::errorString() const
+{
+    if (!m_error.isEmpty())
+        return m_error;
+    if (!m_texture)
+        return QStringLiteral("No texture produced");
+    return QString();
 }
 
 void ThumbnailResponse::cancel()
@@ -106,6 +118,7 @@ void ThumbnailResponse::cancel()
 void ThumbnailResponse::run()
 {
     if (m_cancelled.load()) {
+        m_error = QStringLiteral("Cancelled");
         emit finished();
         return;
     }
@@ -114,7 +127,10 @@ void ThumbnailResponse::run()
     const QString rawPath = (qIdx >= 0) ? m_id.left(qIdx) : m_id;
     const QString queryStr = (qIdx >= 0) ? m_id.mid(qIdx + 1) : QString();
 
-    QString path = QUrl::fromPercentEncoding(rawPath.toUtf8());
+    QString path = rawPath;
+    if (path.contains(QLatin1Char('%'))) {
+        path = QUrl::fromPercentEncoding(path.toUtf8());
+    }
     if (path.startsWith(QLatin1String("file://"))) {
         path = QUrl(path).toLocalFile();
     }
@@ -166,6 +182,10 @@ void ThumbnailResponse::run()
     if (!resultImg.isNull() && !m_cancelled.load()) {
         m_provider->putCache(cacheKey, resultImg);
         m_texture = QQuickTextureFactory::textureFactoryForImage(resultImg);
+    }
+
+    if (!m_texture && m_error.isEmpty()) {
+        m_error = QStringLiteral("Failed to produce thumbnail texture");
     }
 
     emit finished();

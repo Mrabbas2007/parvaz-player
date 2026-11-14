@@ -11,328 +11,345 @@ Menu {
     signal windowSizeRequested(int w, int h)
     signal fullscreenToggled()
     signal alwaysOnTopToggled()
+    signal playlistToggled()
 
     property bool isAlwaysOnTop: false
 
+    delegate: StyledItem {}
+
     background: Rectangle {
-        implicitWidth: 220
-        color: Theme.bgGlass
-        border.color: Theme.borderGlass
+        implicitWidth: 230
+        color: "#14161F"
+        border.color: "#282D3E"
         border.width: 1
-        radius: Theme.radiusMedium
+        radius: 4
+    }
+
+    component StyledItem: MenuItem {
+        id: item
+        implicitWidth: 230
+        implicitHeight: 28
+        padding: 0
+        leftPadding: 6
+        rightPadding: 6
+        topPadding: 2
+        bottomPadding: 2
+
+        contentItem: Item {
+            anchors.fill: parent
+
+            Item {
+                id: chkContainer
+                anchors.left: parent.left
+                anchors.leftMargin: 2
+                anchors.verticalCenter: parent.verticalCenter
+                width: 14
+                height: 14
+                visible: item.checkable
+
+                Image {
+                    anchors.centerIn: parent
+                    width: 11
+                    height: 11
+                    source: "../icons/check.svg"
+                    sourceSize: Qt.size(11, 11)
+                    visible: item.checked
+                }
+            }
+
+            Text {
+                anchors.left: item.checkable ? chkContainer.right : parent.left
+                anchors.leftMargin: item.checkable ? 6 : 6
+                anchors.right: arrowIcon.visible ? arrowIcon.left : parent.right
+                anchors.rightMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+                text: item.text
+                color: !item.enabled ? "#555A6B" : (item.highlighted ? "#FFFFFF" : "#E2E4EC")
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontNormal
+                elide: Text.ElideRight
+            }
+
+            Image {
+                id: arrowIcon
+                anchors.right: parent.right
+                anchors.rightMargin: 2
+                anchors.verticalCenter: parent.verticalCenter
+                width: 10
+                height: 10
+                source: "../icons/chevron-right.svg"
+                sourceSize: Qt.size(10, 10)
+                visible: item.subMenu !== null && item.subMenu !== undefined
+            }
+        }
+
+        background: Rectangle {
+            implicitWidth: 230
+            implicitHeight: 28
+            color: item.highlighted ? "#2A3348" : "transparent"
+            radius: 3
+        }
+    }
+
+    component StyledMenu: Menu {
+        id: subMenu
+        delegate: StyledItem {}
+        background: Rectangle {
+            implicitWidth: 230
+            color: "#14161F"
+            border.color: "#282D3E"
+            border.width: 1
+            radius: 4
+        }
+    }
+
+    component StyledSeparator: MenuSeparator {
+        padding: 4
+        topPadding: 4
+        bottomPadding: 4
+        contentItem: Rectangle {
+            implicitHeight: 1
+            implicitWidth: 216
+            color: "#222736"
+        }
     }
 
     // 1. Open
-    Menu {
+    StyledMenu {
         title: "Open"
-        background: Rectangle {
-            implicitWidth: 220
-            color: Theme.bgGlass
-            border.color: Theme.borderGlass
-            border.width: 1
-            radius: Theme.radiusMedium
-        }
-        MenuItem {
+        StyledItem {
             text: "Open media…"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: root.openMediaRequested()
         }
-        MenuItem {
+        StyledItem {
             text: "Open subtitle file…"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: root.openSubtitleRequested()
         }
     }
 
-    MenuSeparator {}
+    StyledSeparator {}
 
     // 2. Playback
-    Menu {
+    StyledMenu {
         title: "Playback"
-        background: Rectangle {
-            implicitWidth: 220
-            color: Theme.bgGlass
-            border.color: Theme.borderGlass
-            border.width: 1
-            radius: Theme.radiusMedium
-        }
-        MenuItem {
+        StyledItem {
             text: Mpv.paused ? "Play" : "Pause"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.togglePause()
         }
-        MenuItem {
+        StyledItem {
             text: "Stop (to beginning)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: { Mpv.seekAbsolute(0); if (!Mpv.paused) Mpv.togglePause() }
         }
-        MenuSeparator {}
-        Menu {
+        StyledSeparator {}
+        StyledMenu {
             title: "Jump forward"
-            background: Rectangle {
-                implicitWidth: 220
-                color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-            }
-            MenuItem { text: "+5s (Right)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.seekRelative(5) }
-            MenuItem { text: "+30s (Ctrl+Right)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.seekRelative(30) }
-            MenuItem { text: "+1m (Shift+Right)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.seekRelative(60) }
-            MenuItem { text: "+5m (Ctrl+Shift+Right)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.seekRelative(300) }
+            StyledItem { text: "+5s (Right)"; onTriggered: Mpv.seekRelative(5) }
+            StyledItem { text: "+30s (Ctrl+Right)"; onTriggered: Mpv.seekRelative(30) }
+            StyledItem { text: "+1m (Shift+Right)"; onTriggered: Mpv.seekRelative(60) }
+            StyledItem { text: "+5m (Ctrl+Shift+Right)"; onTriggered: Mpv.seekRelative(300) }
         }
-        Menu {
+        StyledMenu {
             title: "Jump backward"
-            background: Rectangle {
-                implicitWidth: 220
-                color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-            }
-            MenuItem { text: "-5s (Left)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.seekRelative(-5) }
-            MenuItem { text: "-30s (Ctrl+Left)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.seekRelative(-30) }
-            MenuItem { text: "-1m (Shift+Left)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.seekRelative(-60) }
-            MenuItem { text: "-5m (Ctrl+Shift+Left)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.seekRelative(-300) }
+            StyledItem { text: "-5s (Left)"; onTriggered: Mpv.seekRelative(-5) }
+            StyledItem { text: "-30s (Ctrl+Left)"; onTriggered: Mpv.seekRelative(-30) }
+            StyledItem { text: "-1m (Shift+Left)"; onTriggered: Mpv.seekRelative(-60) }
+            StyledItem { text: "-5m (Ctrl+Shift+Left)"; onTriggered: Mpv.seekRelative(-300) }
         }
-        MenuSeparator {}
-        MenuItem { text: "Frame step forward (Period)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.frameStep(1) }
-        MenuItem { text: "Frame step backward (Comma)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.frameStep(-1) }
+        StyledSeparator {}
+        StyledItem { text: "Frame step forward (Period)"; onTriggered: Mpv.frameStep(1) }
+        StyledItem { text: "Frame step backward (Comma)"; onTriggered: Mpv.frameStep(-1) }
     }
 
     // 3. Speed
-    Menu {
+    StyledMenu {
         title: "Speed"
-        background: Rectangle {
-            implicitWidth: 220
-            color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-        }
-        MenuItem {
+        StyledItem {
             text: "Normal (1.0x)"
             checkable: true
             checked: Math.abs(Mpv.speed - 1.0) < 0.05
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.resetSpeed()
         }
-        MenuItem { text: "Faster +0.1x (C)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.adjustSpeed(0.1) }
-        MenuItem { text: "Slower -0.1x (X)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.adjustSpeed(-0.1) }
-        MenuSeparator {}
-        MenuItem { text: "0.5x"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.setSpeed(0.5) }
-        MenuItem { text: "0.75x"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.setSpeed(0.75) }
-        MenuItem { text: "1.0x"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.setSpeed(1.0) }
-        MenuItem { text: "1.25x"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.setSpeed(1.25) }
-        MenuItem { text: "1.5x"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.setSpeed(1.5) }
-        MenuItem { text: "2.0x"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.setSpeed(2.0) }
+        StyledItem { text: "Faster +0.1x (C)"; onTriggered: Mpv.adjustSpeed(0.1) }
+        StyledItem { text: "Slower -0.1x (X)"; onTriggered: Mpv.adjustSpeed(-0.1) }
+        StyledSeparator {}
+        StyledItem { text: "0.5x"; onTriggered: Mpv.setSpeed(0.5) }
+        StyledItem { text: "0.75x"; onTriggered: Mpv.setSpeed(0.75) }
+        StyledItem { text: "1.0x"; onTriggered: Mpv.setSpeed(1.0) }
+        StyledItem { text: "1.25x"; onTriggered: Mpv.setSpeed(1.25) }
+        StyledItem { text: "1.5x"; onTriggered: Mpv.setSpeed(1.5) }
+        StyledItem { text: "2.0x"; onTriggered: Mpv.setSpeed(2.0) }
     }
 
     // 4. Audio
-    Menu {
+    StyledMenu {
         title: "Audio"
-        background: Rectangle {
-            implicitWidth: 220
-            color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-        }
-        Menu {
+        StyledMenu {
             title: "Select track"
-            background: Rectangle {
-                implicitWidth: 220
-                color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-            }
             Repeater {
                 model: Mpv.tracksOfType("audio")
-                delegate: MenuItem {
+                delegate: StyledItem {
                     text: modelData.label
                     checkable: true
                     checked: modelData.selected
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
                     onTriggered: Mpv.selectTrack(modelData.id)
                 }
             }
         }
-        MenuItem { text: "Cycle audio track (A)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.cycleAudioTrack() }
-        MenuSeparator {}
-        MenuItem {
+        StyledItem { text: "Cycle audio track (A)"; onTriggered: Mpv.cycleAudioTrack() }
+        StyledSeparator {}
+        StyledItem {
             text: Mpv.muted ? "Unmute (M)" : "Mute (M)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: {
                 Mpv.setMuted(!Mpv.muted)
                 Mpv.showOsd(Mpv.muted ? "Mute" : "Unmute (" + Mpv.volume + "%)")
             }
         }
-        MenuItem {
+        StyledItem {
             text: "Volume +5% (Up)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.adjustVolume(5)
         }
-        MenuItem {
+        StyledItem {
             text: "Volume -5% (Down)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.adjustVolume(-5)
         }
     }
 
     // 5. Subtitles
-    Menu {
+    StyledMenu {
         title: "Subtitles"
-        background: Rectangle {
-            implicitWidth: 240
-            color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-        }
-        Menu {
+        StyledMenu {
             title: "Select track"
-            background: Rectangle {
-                implicitWidth: 220
-                color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-            }
             Repeater {
                 model: Mpv.tracksOfType("sub")
-                delegate: MenuItem {
+                delegate: StyledItem {
                     text: modelData.label
                     checkable: true
                     checked: modelData.selected
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
                     onTriggered: Mpv.selectTrack(modelData.id)
                 }
             }
         }
-        MenuItem { text: "Disable subtitles"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.disableSubtitles() }
-        MenuItem { text: "Cycle subtitle track (S)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: Mpv.cycleSubtitleTrack() }
-        MenuSeparator {}
-        MenuItem {
+        StyledItem { text: "Disable subtitles"; onTriggered: Mpv.disableSubtitles() }
+        StyledItem { text: "Cycle subtitle track (S)"; onTriggered: Mpv.cycleSubtitleTrack() }
+        StyledSeparator {}
+        StyledItem {
             text: "Subtitle delay +0.1s (])"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: {
                 Mpv.setSubtitleDelay(Mpv.subtitleDelay + 0.1)
                 Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
             }
         }
-        MenuItem {
+        StyledItem {
             text: "Subtitle delay -0.1s ([)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: {
                 Mpv.setSubtitleDelay(Mpv.subtitleDelay - 0.1)
                 Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
             }
         }
-        MenuItem {
+        StyledItem {
             text: "Subtitle font size + (Alt+PageUp)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.adjustSubtitleFontSize(2)
         }
-        MenuItem {
+        StyledItem {
             text: "Subtitle font size - (Alt+PageDown)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.adjustSubtitleFontSize(-2)
         }
-        MenuItem {
+        StyledItem {
             text: "Move subtitle up (Alt+Up)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.adjustSubtitlePosition(-2)
         }
-        MenuItem {
+        StyledItem {
             text: "Move subtitle down (Alt+Down)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.adjustSubtitlePosition(2)
         }
-        MenuItem {
+        StyledItem {
             text: "Show subtitles (V)"
             checkable: true
             checked: Mpv.subtitlesVisible
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: {
                 Mpv.setSubtitlesVisible(!Mpv.subtitlesVisible)
                 Mpv.showOsd(Mpv.subtitlesVisible ? "Subtitles: On" : "Subtitles: Off")
             }
         }
-        MenuSeparator {}
-        MenuItem {
+        StyledSeparator {}
+        StyledItem {
             text: "Persian legacy encoding (cp1256)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.setSubtitleCodepage("cp1256")
         }
-        MenuItem {
+        StyledItem {
             text: "UTF-8 encoding (default)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.setSubtitleCodepage("utf-8")
         }
-        MenuItem {
+        StyledItem {
             text: "Open subtitle file…"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: root.openSubtitleRequested()
         }
     }
 
     // 6. Video (Aspect ratio)
-    Menu {
+    StyledMenu {
         title: "Video"
-        background: Rectangle {
-            implicitWidth: 220
-            color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-        }
-        Menu {
+        StyledMenu {
             title: "Aspect ratio"
-            background: Rectangle {
-                implicitWidth: 220
-                color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-            }
-            MenuItem {
+            StyledItem {
                 text: "Original (Default)"
                 checkable: true
                 checked: Mpv.videoAspect === "default"
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
                 onTriggered: Mpv.setVideoAspect("default")
             }
-            MenuItem {
+            StyledItem {
                 text: "16:9"
                 checkable: true
                 checked: Mpv.videoAspect === "16:9"
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
                 onTriggered: Mpv.setVideoAspect("16:9")
             }
-            MenuItem {
+            StyledItem {
                 text: "4:3"
                 checkable: true
                 checked: Mpv.videoAspect === "4:3"
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
                 onTriggered: Mpv.setVideoAspect("4:3")
             }
-            MenuItem {
+            StyledItem {
                 text: "2.35:1 (Cinemascope)"
                 checkable: true
                 checked: Mpv.videoAspect === "2.35:1"
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
                 onTriggered: Mpv.setVideoAspect("2.35:1")
             }
         }
     }
 
-    // 7. Window
-    Menu {
+    // 7. Playlist
+    StyledItem {
+        text: "Playlist (F6)"
+        onTriggered: root.playlistToggled()
+    }
+
+    // 8. Window
+    StyledMenu {
         title: "Window"
-        background: Rectangle {
-            implicitWidth: 220
-            color: Theme.bgGlass; border.color: Theme.borderGlass; border.width: 1; radius: Theme.radiusMedium
-        }
-        MenuItem {
+        StyledItem {
             text: "Always on top (Ctrl+T)"
             checkable: true
             checked: root.isAlwaysOnTop
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: root.alwaysOnTopToggled()
         }
-        MenuSeparator {}
-        MenuItem { text: "50% size (1)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: root.windowSizeRequested(640, 360) }
-        MenuItem { text: "100% size (2)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: root.windowSizeRequested(1280, 720) }
-        MenuItem { text: "150% size (3)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: root.windowSizeRequested(1600, 900) }
-        MenuItem { text: "200% size (4)"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; onTriggered: root.windowSizeRequested(1920, 1080) }
-        MenuSeparator {}
-        MenuItem {
+        StyledSeparator {}
+        StyledItem { text: "50% size (1)"; onTriggered: root.windowSizeRequested(640, 360) }
+        StyledItem { text: "100% size (2)"; onTriggered: root.windowSizeRequested(1280, 720) }
+        StyledItem { text: "150% size (3)"; onTriggered: root.windowSizeRequested(1600, 900) }
+        StyledItem { text: "200% size (4)"; onTriggered: root.windowSizeRequested(1920, 1080) }
+        StyledSeparator {}
+        StyledItem {
             text: "Toggle fullscreen (F / Enter)"
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
             onTriggered: root.fullscreenToggled()
         }
     }
 
-    MenuSeparator {}
+    StyledSeparator {}
 
-    // 8. Exit
-    MenuItem {
+    // 9. Exit
+    StyledItem {
         text: "Exit (Ctrl+Q)"
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal
         onTriggered: Qt.quit()
     }
 }

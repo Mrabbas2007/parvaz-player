@@ -252,6 +252,9 @@ void MpvObject::drainEvents()
                 mpv_free(path);
                 emit currentFileChanged();
             }
+            refreshTracks();
+            hasTracks = true;
+            emit hasVideoChanged();
             refreshPlaylist();
             hasPlaylist = true;
             emit fileLoaded();
@@ -260,6 +263,7 @@ void MpvObject::drainEvents()
         case MPV_EVENT_END_FILE:
             m_position = 0.0;
             hasPos = true;
+            emit hasVideoChanged();
             break;
         default:
             break;
@@ -318,8 +322,12 @@ void MpvObject::refreshTracks()
     }
     mpv_free_node_contents(&node);
 
-    if (out != m_tracks)
+    const bool oldHasVideo = hasVideo();
+    if (out != m_tracks) {
         m_tracks = out;
+        if (hasVideo() != oldHasVideo)
+            emit hasVideoChanged();
+    }
 }
 
 void MpvObject::refreshPlaylist()
@@ -558,15 +566,38 @@ void MpvObject::setSpeed(double speed)
     mpv_set_property(m_mpv, "speed", MPV_FORMAT_DOUBLE, &s);
 }
 
+bool MpvObject::hasVideo() const
+{
+    for (const QVariant &v : m_tracks) {
+        if (v.toMap().value(QStringLiteral("type")).toString() == QLatin1String("video"))
+            return true;
+    }
+    // Fallback if tracks are still being decoded or track-list delayed:
+    if (m_duration > 0.0 && !m_currentFile.isEmpty()) {
+        const QString lower = m_currentFile.toLower();
+        if (!lower.endsWith(QLatin1String(".mp3")) &&
+            !lower.endsWith(QLatin1String(".flac")) &&
+            !lower.endsWith(QLatin1String(".ogg")) &&
+            !lower.endsWith(QLatin1String(".opus")) &&
+            !lower.endsWith(QLatin1String(".wav")) &&
+            !lower.endsWith(QLatin1String(".m4a")) &&
+            !lower.endsWith(QLatin1String(".aac"))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void MpvObject::setVolume(int volume)
 {
     if (!m_mpv)
         return;
     // mpv treats anything below 0 as 0; keep our own range at 0..100.
-    if (volume < 0)
-        volume = 0;
-    if (volume > 100)
-        volume = 100;
+    volume = qBound(0, volume, 100);
+    if (m_volume != volume) {
+        m_volume = volume;
+        emit volumeChanged();
+    }
     int64_t v = volume;
     mpv_set_property(m_mpv, "volume", MPV_FORMAT_INT64, &v);
 }
@@ -835,11 +866,11 @@ void MpvObject::resetSpeed()
 
 void MpvObject::adjustVolume(int delta)
 {
-    int newVol = qBound(0, m_volume + delta, 100);
     if (m_muted && delta > 0)
         setMuted(false);
+    int newVol = qBound(0, m_volume + delta, 100);
     setVolume(newVol);
-    showOsd(QStringLiteral("Volume: %1%").arg(m_volume));
+    showOsd(m_muted ? QStringLiteral("Mute") : QStringLiteral("Volume: %1%").arg(m_volume));
 }
 
 void MpvObject::adjustSubtitlePosition(double delta)

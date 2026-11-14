@@ -5,19 +5,18 @@ import ".."
 
 Item {
     id: root
-    width: Math.min(320, Math.round(parent.width * 0.75))
-    anchors.top: parent.top
-    anchors.bottom: parent.bottom
-    anchors.right: parent.right
+    width: Math.min(340, Math.round(parent.width * 0.75))
 
     property bool isOpen: false
     function toggle() { isOpen = !isOpen }
     function open() { isOpen = true }
     function close() { isOpen = false }
 
-    // Slide animation from right edge
-    x: isOpen ? parent.width - width : parent.width
-    visible: x < parent.width
+    signal addFilesRequested()
+
+    // Smooth slide animation from right edge (anchors.right intentionally omitted so x can animate freely)
+    x: isOpen ? (parent.width - width) : parent.width
+    visible: isOpen || x < parent.width
 
     Behavior on x {
         NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
@@ -25,25 +24,25 @@ Item {
 
     property string searchQuery: ""
 
-    // Left shadow for depth separation
+    // Left shadow for crisp depth separation
     Rectangle {
-        width: 12
+        width: 14
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.right: panelBg.left
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop { position: 0.0; color: "transparent" }
-            GradientStop { position: 1.0; color: "#40000000" }
+            GradientStop { position: 1.0; color: "#50000000" }
         }
     }
 
-    // Solid opaque desktop surface (prevents video stripes bleed-through)
+    // Solid opaque desktop surface (PotPlayer deep charcoal)
     Rectangle {
         id: panelBg
         anchors.fill: parent
-        color: "#0F1014"
-        border.color: "#222530"
+        color: "#111319"
+        border.color: "#222736"
         border.width: 1
 
         MouseArea {
@@ -57,19 +56,20 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // --- 1. Compact Desktop Header (34px) ------------------------------
+        // --- 1. PotPlayer Desktop Header (36px) ------------------------------
         Rectangle {
             width: parent.width
-            height: 34
-            color: "#13141B"
-            border.color: "#1C1F28"
+            height: 36
+            color: "#161822"
+            border.color: "#202534"
             border.width: 1
 
+            // Tab-like title
             Row {
                 anchors.left: parent.left
-                anchors.leftMargin: 10
+                anchors.leftMargin: 12
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
+                spacing: 7
 
                 Image {
                     width: 14
@@ -81,34 +81,44 @@ Item {
 
                 Text {
                     text: "لیست پخش"
-                    color: "#E2E4EC"
+                    color: "#FFFFFF"
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontNormal
                     font.weight: Font.DemiBold
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
-                Text {
-                    text: "(" + Mpv.playlistCount + ")"
-                    color: "#6E7385"
-                    font.family: Theme.fontDigits
-                    font.pixelSize: 11
+                Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
+                    width: countText.implicitWidth + 8
+                    height: 18
+                    radius: 3
+                    color: "#222736"
+
+                    Text {
+                        id: countText
+                        anchors.centerIn: parent
+                        text: String(Mpv.playlistCount)
+                        color: "#9EA4B8"
+                        font.family: Theme.fontDigits
+                        font.pixelSize: 11
+                    }
                 }
             }
 
+            // Quick actions (Shuffle, Clear, Close)
             Row {
                 anchors.right: parent.right
-                anchors.rightMargin: 6
+                anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 2
+                spacing: 3
 
                 // Shuffle button
                 Rectangle {
-                    width: 24
-                    height: 24
+                    width: 26
+                    height: 26
                     radius: 3
-                    color: shuffleMouse.containsMouse ? "#222634" : "transparent"
+                    color: shuffleMouse.containsMouse ? "#293044" : "transparent"
 
                     Image {
                         anchors.centerIn: parent
@@ -128,14 +138,22 @@ Item {
                             Mpv.showOsd("لیست پخش تصادفی شد")
                         }
                     }
+
+                    ToolTip {
+                        visible: shuffleMouse.containsMouse
+                        text: "تصادفی کردن لیست"
+                        delay: 400
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSmall
+                    }
                 }
 
                 // Clear button
                 Rectangle {
-                    width: 24
-                    height: 24
+                    width: 26
+                    height: 26
                     radius: 3
-                    color: clearMouse.containsMouse ? "#222634" : "transparent"
+                    color: clearMouse.containsMouse ? "#293044" : "transparent"
 
                     Image {
                         anchors.centerIn: parent
@@ -155,14 +173,22 @@ Item {
                             Mpv.showOsd("لیست پخش پاکسازی شد")
                         }
                     }
+
+                    ToolTip {
+                        visible: clearMouse.containsMouse
+                        text: "پاک کردن لیست"
+                        delay: 400
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSmall
+                    }
                 }
 
                 // Close button
                 Rectangle {
-                    width: 24
-                    height: 24
+                    width: 26
+                    height: 26
                     radius: 3
-                    color: closeMouse.containsMouse ? "#222634" : "transparent"
+                    color: closeMouse.containsMouse ? "#C53030" : "transparent"
 
                     Image {
                         anchors.centerIn: parent
@@ -179,41 +205,49 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.close()
                     }
+
+                    ToolTip {
+                        visible: closeMouse.containsMouse
+                        text: "بستن (Esc / F6)"
+                        delay: 400
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSmall
+                    }
                 }
             }
         }
 
-        // --- 2. Razor-flat Desktop Search Bar (30px) -----------------------
+        // --- 2. Razor-flat Desktop Search Bar (32px) -----------------------
         Rectangle {
             width: parent.width
-            height: 30
-            color: "#101115"
+            height: 32
+            color: "#12141C"
 
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: 4
-                color: "#08090C"
-                border.color: filterInput.activeFocus ? "#3A4259" : "#1C1F28"
+                color: "#0B0C10"
+                border.color: filterInput.activeFocus ? "#3B4663" : "#1E2230"
                 border.width: 1
-                radius: 2
+                radius: 3
 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: 6
-                    anchors.rightMargin: 6
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
                     spacing: 6
 
                     Image {
-                        width: 11
-                        height: 11
+                        width: 12
+                        height: 12
                         source: "../icons/search.svg"
-                        sourceSize: Qt.size(11, 11)
+                        sourceSize: Qt.size(12, 12)
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
                     TextInput {
                         id: filterInput
-                        width: parent.width - 32
+                        width: parent.width - 36
                         anchors.verticalCenter: parent.verticalCenter
                         color: "#FFFFFF"
                         font.family: Theme.fontFamily
@@ -223,7 +257,7 @@ Item {
 
                         Text {
                             text: "فیلتر کردن عناوین..."
-                            color: "#505465"
+                            color: "#5B6075"
                             font.family: Theme.fontFamily
                             font.pixelSize: 11
                             visible: !filterInput.text && !filterInput.activeFocus
@@ -257,7 +291,7 @@ Item {
         ListView {
             id: playlistView
             width: parent.width
-            height: parent.height - 34 - 30 - 22
+            height: parent.height - 36 - 32 - 30
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             model: Mpv.playlist
@@ -283,7 +317,7 @@ Item {
                                                    || itemTitle.toLowerCase().indexOf(root.searchQuery) !== -1
 
                 // Desktop row styling: subtle zebra stripes + clean hover/current highlight
-                color: isCurrent ? "#1E2333" : (rowMouse.containsMouse ? "#181B26" : (itemIdx % 2 === 0 ? "#0F1014" : "#121319"))
+                color: isCurrent ? "#202738" : (rowMouse.containsMouse ? "#181D2A" : (itemIdx % 2 === 0 ? "#111319" : "#13161E"))
 
                 // Active track 2px vertical accent bar on left edge
                 Rectangle {
@@ -327,7 +361,7 @@ Item {
 
                     // Track Title
                     Text {
-                        width: parent.width - 52
+                        width: parent.width - 54
                         anchors.verticalCenter: parent.verticalCenter
                         text: rowDelegate.itemTitle
                         color: rowDelegate.isCurrent ? "#FFFFFF" : (rowMouse.containsMouse ? "#EEEEEE" : "#AFB2C0")
@@ -375,25 +409,67 @@ Item {
             }
         }
 
-        // --- 4. Desktop Status Footer (22px) -------------------------------
+        // --- 4. Desktop Status Footer (30px) -------------------------------
         Rectangle {
             width: parent.width
-            height: 22
-            color: "#0C0D11"
-            border.color: "#181A22"
+            height: 30
+            color: "#0E1015"
+            border.color: "#1C202C"
             border.width: 1
 
             Row {
                 anchors.left: parent.left
-                anchors.leftMargin: 8
+                anchors.leftMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 8
 
                 Text {
                     text: Mpv.playlistCount + " آیتم در صف"
-                    color: "#555A6B"
+                    color: "#6B7286"
                     font.family: Theme.fontDigits
                     font.pixelSize: 10
+                }
+            }
+
+            Rectangle {
+                anchors.right: parent.right
+                anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                width: addBtnRow.implicitWidth + 12
+                height: 22
+                radius: 3
+                color: addMouse.containsMouse ? "#242A3B" : "#171B26"
+                border.color: "#282F42"
+                border.width: 1
+
+                Row {
+                    id: addBtnRow
+                    anchors.centerIn: parent
+                    spacing: 4
+
+                    Image {
+                        width: 11
+                        height: 11
+                        source: "../icons/list-plus.svg"
+                        sourceSize: Qt.size(11, 11)
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    Text {
+                        text: "افزودن فایل…"
+                        color: "#E2E4EC"
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                MouseArea {
+                    id: addMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.addFilesRequested()
                 }
             }
         }

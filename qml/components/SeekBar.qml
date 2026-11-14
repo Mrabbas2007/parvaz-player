@@ -63,12 +63,12 @@ Item {
         }
     }
 
-    readonly property bool hasVideo: Mpv.tracksOfType("video").length > 0
+    readonly property bool hasVideo: Mpv.hasVideo
     property int activeThumbSec: 0
 
     Timer {
         id: thumbDebounceTimer
-        interval: 40
+        interval: 30
         repeat: false
         onTriggered: {
             root.activeThumbSec = previewTooltip.hoverSec
@@ -85,7 +85,12 @@ Item {
         readonly property real hoverSeconds: hoverRatio * root.effectiveDuration
         readonly property int hoverSec: Math.max(0, Math.round(hoverSeconds))
 
-        onHoverSecChanged: thumbDebounceTimer.restart()
+        onHoverSecChanged: {
+            if (root.activeThumbSec === 0 && hoverSec > 0)
+                root.activeThumbSec = hoverSec;
+            else
+                thumbDebounceTimer.restart();
+        }
 
         width: root.hasVideo ? 164 : (previewText.implicitWidth + 14)
         height: root.hasVideo ? 116 : (previewText.implicitHeight + 6)
@@ -113,8 +118,9 @@ Item {
                     id: thumbImg
                     anchors.fill: parent
                     asynchronous: true
+                    cache: true
                     fillMode: Image.PreserveAspectFit
-                    source: (root.hasVideo && Mpv.currentFile.length > 0)
+                    source: (root.hasVideo && Mpv.currentFile.length > 0 && previewTooltip.visible)
                                 ? ("image://thumbnail/" + encodeURIComponent(Mpv.currentFile) + "?t=" + root.activeThumbSec)
                                 : ""
 

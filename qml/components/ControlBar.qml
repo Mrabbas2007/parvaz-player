@@ -201,8 +201,16 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     volume: Mpv.volume
                     muted: Mpv.muted
-                    onVolumeChangeRequested: (v) => Mpv.setVolume(v)
-                    onMuteToggled: Mpv.setMuted(!Mpv.muted)
+                    onVolumeChangeRequested: (v) => {
+                        if (Mpv.muted && v > 0)
+                            Mpv.setMuted(false);
+                        Mpv.setVolume(v);
+                        Mpv.showOsd("Volume: " + v + "%");
+                    }
+                    onMuteToggled: {
+                        Mpv.setMuted(!Mpv.muted);
+                        Mpv.showOsd(Mpv.muted ? "Mute" : "Unmute (" + Mpv.volume + "%)");
+                    }
                 }
 
                 Rectangle {

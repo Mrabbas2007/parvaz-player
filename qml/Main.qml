@@ -117,7 +117,19 @@ Window {
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
         onPositionChanged: root.poke()
+        onWheel: (wheel) => {
+            if (wheel.angleDelta.y > 0) {
+                Mpv.adjustVolume(5)
+            } else if (wheel.angleDelta.y < 0) {
+                Mpv.adjustVolume(-5)
+            }
+            root.poke()
+        }
         onClicked: (mouse) => {
+            if (playlistDrawer.isOpen) {
+                playlistDrawer.close()
+                return
+            }
             if (mouse.button === Qt.LeftButton) {
                 Mpv.togglePause()
             } else if (mouse.button === Qt.RightButton) {
@@ -220,12 +232,14 @@ Window {
     // --- PotPlayer Playlist Drawer (F6) -----------------------------------
     PlaylistDrawer {
         id: playlistDrawer
-        anchors.top: (titleBar.visible && root.chromeVisible) ? titleBar.bottom : parent.top
-        anchors.bottom: (controlBar.visible && root.chromeVisible) ? controlBar.top : parent.bottom
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        z: 20
         onIsOpenChanged: {
             if (isOpen)
                 root.poke()
         }
+        onAddFilesRequested: openDialog.open()
     }
 
     // --- Non-intrusive Top Corner OSD --------------------------------------
@@ -241,6 +255,7 @@ Window {
         onOpenSubtitleRequested: subDialog.open()
         onFullscreenToggled: root.toggleFullscreen()
         onAlwaysOnTopToggled: root.toggleAlwaysOnTop()
+        onPlaylistToggled: { playlistDrawer.toggle(); root.poke() }
         onWindowSizeRequested: (w, h) => {
             root.visibility = Window.Windowed
             root.width = w
@@ -297,7 +312,16 @@ Window {
     PlayerShortcut { sequence: "Enter"; onActivated: root.toggleFullscreen() }
     PlayerShortcut { sequence: "Return"; onActivated: root.toggleFullscreen() }
     PlayerShortcut { sequence: "F"; onActivated: root.toggleFullscreen() }
-    PlayerShortcut { sequence: "Escape"; onActivated: if (root.visibility === Window.FullScreen) root.visibility = Window.Windowed }
+    PlayerShortcut {
+        sequence: "Escape"
+        onActivated: {
+            if (playlistDrawer.isOpen) {
+                playlistDrawer.close()
+            } else if (root.visibility === Window.FullScreen) {
+                root.visibility = Window.Windowed
+            }
+        }
+    }
 
     // Subtitles & Audio tracks
     PlayerShortcut { sequence: "S"; onActivated: Mpv.cycleSubtitleTrack() }

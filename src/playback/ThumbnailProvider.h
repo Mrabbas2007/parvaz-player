@@ -43,6 +43,7 @@ public:
     ~ThumbnailResponse() override;
 
     QQuickTextureFactory *textureFactory() const override;
+    QString errorString() const override;
     void cancel() override;
     void run() override;
 
@@ -51,5 +52,6 @@ private:
     QSize m_requestedSize;
     ThumbnailProvider *m_provider;
     QQuickTextureFactory *m_texture = nullptr;
+    QString m_error;
     std::atomic<bool> m_cancelled{false};
 };
