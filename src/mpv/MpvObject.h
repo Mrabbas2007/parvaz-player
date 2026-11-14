@@ -30,6 +30,12 @@ class MpvObject : public QObject {
     /// One QVariantMap per track: id, type, title, lang, codec, external,
     /// selected, default, forced. Derived from mpv's "track-list".
     Q_PROPERTY(QVariantList tracks READ tracks NOTIFY tracksChanged)
+    /// Pre-filtered track lists for menus. Bindings must NOT call
+    /// tracksOfType(): a Q_INVOKABLE's internals are invisible to the QML
+    /// dependency tracker, so the binding would evaluate once at startup
+    /// (empty) and never refresh. Properties re-evaluate on tracksChanged.
+    Q_PROPERTY(QVariantList audioTracks READ audioTracks NOTIFY tracksChanged)
+    Q_PROPERTY(QVariantList subTracks READ subTracks NOTIFY tracksChanged)
     Q_PROPERTY(double subtitleDelay READ subtitleDelay WRITE setSubtitleDelay
                    NOTIFY subtitleDelayChanged)
     Q_PROPERTY(bool subtitlesVisible READ subtitlesVisible WRITE setSubtitlesVisible
@@ -86,6 +92,8 @@ public:
     QString trackGenre() const;
     QString coverArtUrl() const { return m_coverArtUrl; }
     QVariantList tracks() const { return m_tracks; }
+    QVariantList audioTracks() const { return tracksOfType(QStringLiteral("audio")); }
+    QVariantList subTracks() const { return tracksOfType(QStringLiteral("sub")); }
     double subtitleDelay() const { return m_subtitles.delay(); }
     bool subtitlesVisible() const { return m_subtitles.visible(); }
     double subtitlePosition() const { return m_subtitles.position(); }

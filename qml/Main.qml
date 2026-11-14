@@ -339,8 +339,9 @@ Window {
     PlayerShortcut {
         sequence: "M"
         onActivated: {
-            Mpv.setMuted(!Mpv.muted)
-            Mpv.showOsd(Mpv.muted ? "Mute" : "Unmute (" + Mpv.volume + "%)")
+            var newMuted = !Mpv.muted
+            Mpv.setMuted(newMuted)
+            Mpv.showOsd(newMuted ? "Mute" : "Unmute (" + Mpv.volume + "%)")
             root.poke()
         }
     }

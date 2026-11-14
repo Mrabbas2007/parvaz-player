@@ -187,7 +187,7 @@ Menu {
         StyledMenu {
             title: "Select track"
             Repeater {
-                model: Mpv.tracksOfType("audio")
+                model: Mpv.audioTracks
                 delegate: StyledItem {
                     text: modelData.label
                     checkable: true
@@ -208,8 +208,9 @@ Menu {
         StyledItem {
             text: Mpv.muted ? "Unmute (M)" : "Mute (M)"
             onTriggered: {
-                Mpv.setMuted(!Mpv.muted)
-                Mpv.showOsd(Mpv.muted ? "Mute" : "Unmute (" + Mpv.volume + "%)")
+                var newMuted = !Mpv.muted
+                Mpv.setMuted(newMuted)
+                Mpv.showOsd(newMuted ? "Mute" : "Unmute (" + Mpv.volume + "%)")
             }
         }
         StyledItem {
@@ -228,7 +229,7 @@ Menu {
         StyledMenu {
             title: "Select track"
             Repeater {
-                model: Mpv.tracksOfType("sub")
+                model: Mpv.subTracks
                 delegate: StyledItem {
                     text: modelData.label
                     checkable: true
@@ -237,7 +238,14 @@ Menu {
                 }
             }
         }
-        StyledItem { text: "Disable subtitles"; onTriggered: Mpv.disableSubtitles() }
+        StyledItem {
+            text: Mpv.subtitlesVisible ? "Disable subtitles" : "Enable subtitles"
+            onTriggered: {
+                var newVisible = !Mpv.subtitlesVisible
+                Mpv.setSubtitlesVisible(newVisible)
+                Mpv.showOsd(newVisible ? "Subtitles: On" : "Subtitles: Off")
+            }
+        }
         StyledItem { text: "Cycle subtitle track (S)"; onTriggered: Mpv.cycleSubtitleTrack() }
         StyledSeparator {}
         StyledMenu {
@@ -250,7 +258,7 @@ Menu {
             }
             StyledSeparator {}
             Repeater {
-                model: Mpv.tracksOfType("sub")
+                model: Mpv.subTracks
                 delegate: StyledItem {
                     text: modelData.label
                     checkable: true

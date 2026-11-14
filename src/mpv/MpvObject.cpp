@@ -230,8 +230,12 @@ void MpvObject::drainEvents()
                 m_volume = *static_cast<int64_t *>(prop->data);
                 hasVolume = true;
             } else if (name == QLatin1String("mute") && prop->format == MPV_FORMAT_FLAG) {
-                m_muted = *static_cast<int *>(prop->data) != 0;
-                hasMute = true;
+                // Echo of our own setMuted() is a no-op thanks to the check.
+                const bool val = *static_cast<int *>(prop->data) != 0;
+                if (val != m_muted) {
+                    m_muted = val;
+                    hasMute = true;
+                }
             } else if (name == QLatin1String("speed") && prop->format == MPV_FORMAT_DOUBLE) {
                 m_speed = *static_cast<double *>(prop->data);
                 hasSpeed = true;
@@ -789,6 +793,13 @@ void MpvObject::setMuted(bool muted)
 {
     if (!m_mpv)
         return;
+    // Update local state optimistically (like setVolume): the QML icon and
+    // the toggle logic must never depend on the mpv echo arriving. The echo
+    // below is filtered in drainEvents so no duplicate signal is emitted.
+    if (m_muted != muted) {
+        m_muted = muted;
+        emit mutedChanged();
+    }
     int flag = muted ? 1 : 0;
     mpv_set_property(m_mpv, "mute", MPV_FORMAT_FLAG, &flag);
 }

@@ -208,8 +208,11 @@ Item {
                         Mpv.showOsd("Volume: " + v + "%");
                     }
                     onMuteToggled: {
-                        Mpv.setMuted(!Mpv.muted);
-                        Mpv.showOsd(Mpv.muted ? "Mute" : "Unmute (" + Mpv.volume + "%)");
+                        // Compute the new state BEFORE the call: Mpv.muted
+                        // only updates through the async mpv echo.
+                        var newMuted = !Mpv.muted
+                        Mpv.setMuted(newMuted)
+                        Mpv.showOsd(newMuted ? "Mute" : "Unmute (" + Mpv.volume + "%)")
                     }
                 }
 
@@ -370,7 +373,7 @@ Item {
         }
 
         Repeater {
-            model: Mpv.tracksOfType("audio")
+            model: Mpv.audioTracks
             delegate: MenuItem {
                 text: modelData.label
                 checkable: true
@@ -406,7 +409,7 @@ Item {
         }
 
         Repeater {
-            model: Mpv.tracksOfType("sub")
+            model: Mpv.subTracks
             delegate: MenuItem {
                 text: modelData.label
                 checkable: true
