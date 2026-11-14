@@ -13,6 +13,8 @@ Item {
     property string tooltipText: ""
     property bool active: false
     property bool isRound: true
+    property color hoverColor: "#14FFFFFF"
+    property color pressedColor: "#33FFFFFF"
 
     signal clicked()
 
@@ -26,8 +28,8 @@ Item {
         color: root.active
                ? "#26FFFFFF"
                : (mouseArea.pressed
-                  ? "#33FFFFFF"
-                  : (mouseArea.containsMouse ? "#14FFFFFF" : "transparent"))
+                  ? root.pressedColor
+                  : (mouseArea.containsMouse ? root.hoverColor : "transparent"))
 
         Behavior on color { ColorAnimation { duration: Theme.animFast } }
     }

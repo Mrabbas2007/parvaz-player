@@ -30,7 +30,7 @@ Window {
     property bool chromeVisible: true
     property bool pointerOnBar: false
     property bool alwaysOnTop: false
-    flags: alwaysOnTop ? (Qt.Window | Qt.WindowStaysOnTopHint) : Qt.Window
+    flags: Qt.Window | Qt.FramelessWindowHint | (alwaysOnTop ? Qt.WindowStaysOnTopHint : 0)
 
     function toggleAlwaysOnTop() {
         alwaysOnTop = !alwaysOnTop
@@ -42,13 +42,20 @@ Window {
                            ? Window.Windowed : Window.FullScreen)
     }
 
+    function toggleMaximize() {
+        if (root.visibility === Window.Maximized)
+            root.showNormal()
+        else
+            root.showMaximized()
+    }
+
     // Auto-hide: 2.2s of no pointer motion hides chrome while playing.
     Timer {
         id: hideTimer
         interval: Theme.autoHideTimeout
         repeat: false
         onTriggered: {
-            if (!Mpv.paused && !root.pointerOnBar && !controlBar.isDraggingSeek && !playlistDrawer.isOpen) {
+            if (!Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen) {
                 root.chromeVisible = false
             }
         }
@@ -210,13 +217,25 @@ Window {
         }
         alwaysOnTop: root.alwaysOnTop
         isFullscreen: root.visibility === Window.FullScreen
-        opacity: root.chromeVisible ? 1.0 : 0.0
+        isMaximized: root.visibility === Window.Maximized
+        opacity: (root.visibility !== Window.FullScreen || root.chromeVisible) ? 1.0 : 0.0
         visible: opacity > 0.0
 
         Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
 
+        onPointerOnBarChanged: {
+            if (pointerOnBar)
+                hideTimer.stop()
+            else if (!Mpv.paused)
+                root.poke()
+        }
+
         onPinToggled: root.toggleAlwaysOnTop()
         onFullscreenExitClicked: root.toggleFullscreen()
+        onMinimizeClicked: root.showMinimized()
+        onMaximizeToggled: root.toggleMaximize()
+        onCloseClicked: root.close()
+        onStartWindowMove: root.startSystemMove()
     }
 
     // Source texture for docking blur
@@ -429,4 +448,67 @@ Window {
 
     PlayerShortcut { sequence: "Ctrl+T"; onActivated: root.toggleAlwaysOnTop() }
     PlayerShortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
+
+    // --- Window Border & Edge Resizing (Frameless windowed mode) ------------
+    Rectangle {
+        id: windowFrameBorder
+        anchors.fill: parent
+        color: "transparent"
+        border.color: Theme.borderGlass
+        border.width: 1
+        visible: root.visibility === Window.Windowed
+        z: 999
+    }
+
+    Item {
+        id: resizeEdges
+        anchors.fill: parent
+        visible: root.visibility === Window.Windowed
+        z: 998
+
+        MouseArea {
+            anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+            anchors.leftMargin: 8; anchors.rightMargin: 8; height: 5
+            cursorShape: Qt.SizeVerCursor
+            onPressed: root.startSystemResize(Qt.TopEdge)
+        }
+        MouseArea {
+            anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+            anchors.leftMargin: 8; anchors.rightMargin: 8; height: 5
+            cursorShape: Qt.SizeVerCursor
+            onPressed: root.startSystemResize(Qt.BottomEdge)
+        }
+        MouseArea {
+            anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.left: parent.left
+            anchors.topMargin: 8; anchors.bottomMargin: 8; width: 5
+            cursorShape: Qt.SizeHorCursor
+            onPressed: root.startSystemResize(Qt.LeftEdge)
+        }
+        MouseArea {
+            anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.right: parent.right
+            anchors.topMargin: 8; anchors.bottomMargin: 8; width: 5
+            cursorShape: Qt.SizeHorCursor
+            onPressed: root.startSystemResize(Qt.RightEdge)
+        }
+        MouseArea {
+            anchors.top: parent.top; anchors.left: parent.left; width: 8; height: 8
+            cursorShape: Qt.SizeFDiagCursor
+            onPressed: root.startSystemResize(Qt.TopEdge | Qt.LeftEdge)
+        }
+        MouseArea {
+            anchors.top: parent.top; anchors.right: parent.right; width: 8; height: 8
+            cursorShape: Qt.SizeBDiagCursor
+            onPressed: root.startSystemResize(Qt.TopEdge | Qt.RightEdge)
+        }
+        MouseArea {
+            anchors.bottom: parent.bottom; anchors.left: parent.left; width: 8; height: 8
+            cursorShape: Qt.SizeBDiagCursor
+            onPressed: root.startSystemResize(Qt.BottomEdge | Qt.LeftEdge)
+        }
+        MouseArea {
+            anchors.bottom: parent.bottom; anchors.right: parent.right; width: 8; height: 8
+            cursorShape: Qt.SizeFDiagCursor
+            onPressed: root.startSystemResize(Qt.BottomEdge | Qt.RightEdge)
+        }
+    }
 }
