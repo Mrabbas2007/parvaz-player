@@ -20,9 +20,68 @@ qt_add_executable(parvaz
     src/playback/ThumbnailProvider.h src/playback/ThumbnailProvider.cpp
 )
 
+# QML lives inside the binary: the executable must run from anywhere (install
+# tree, Flatpak) without a checkout next to it. Resource layout mirrors qml/:
+#   qrc:/Parvaz/qml/Main.qml, qrc:/Parvaz/qml/components/*.qml, qrc:/Parvaz/qmldir
+# so the existing relative imports ("components", "..") and relative asset
+# paths ("../icons/x.svg", "fonts/…") keep working unchanged.
+#
+# NOTE: qt_add_qml_module must stay in THIS directory scope. Calling it from a
+# qml/CMakeLists.txt subdirectory silently drops the moc --collect-json /
+# cmake_automoc_parser rules from the build graph (broken registrar
+# dependency on an empty metatypes json), reproducible with Qt 6.11 /
+# CMake 4.3.
+set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
+qt_add_qml_module(parvaz
+    URI Parvaz
+    VERSION 1.0
+    NO_PLUGIN                    # C++ types are registered at runtime (main.cpp)
+    RESOURCE_PREFIX "/"
+    QML_FILES
+        qml/Main.qml
+        qml/Theme.qml
+        qml/components/ContextMenu.qml
+        qml/components/ControlBar.qml
+        qml/components/DropOverlay.qml
+        qml/components/IconButton.qml
+        qml/components/MusicPlayerView.qml
+        qml/components/OsdOverlay.qml
+        qml/components/PlaylistDrawer.qml
+        qml/components/SeekBar.qml
+        qml/components/TechnicalInfoOverlay.qml
+        qml/components/TitleBar.qml
+        qml/components/VolumeControl.qml
+)
+
+# Fonts and icons as resources under the module's qml/ subtree, relative paths
+# preserved via BASE (qrc:/Parvaz/qml/fonts/…, qrc:/Parvaz/qml/icons/…).
+file(GLOB PARVAZ_ICONS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/qml/icons/*.svg)
+qt_add_resources(parvaz "parvaz-assets"
+    PREFIX "/Parvaz/qml"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+    FILES
+        qml/fonts/Vazirmatn.ttf
+        qml/fonts/JetBrainsMono-Medium.otf
+        qml/fonts/JetBrainsMono-Regular.otf
+        ${PARVAZ_ICONS}
+)
+
+# Fonts and icons as resources under the same module prefix, relative paths
+# preserved via BASE (qrc:/Parvaz/fonts/…, qrc:/Parvaz/icons/…).
+file(GLOB PARVAZ_ICONS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/qml/icons/*.svg)
+qt_add_resources(parvaz "parvaz-assets"
+    PREFIX "/Parvaz"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+    FILES
+        qml/fonts/Vazirmatn.ttf
+        qml/fonts/JetBrainsMono-Medium.otf
+        qml/fonts/JetBrainsMono-Regular.otf
+        ${PARVAZ_ICONS}
+)
+
 target_include_directories(parvaz PRIVATE src)
 target_compile_definitions(parvaz PRIVATE
-    PARVAZ_QML_DIR="${CMAKE_CURRENT_SOURCE_DIR}/qml"
     PARVAZ_TESTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests"
 )
 

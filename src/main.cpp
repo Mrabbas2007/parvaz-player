@@ -447,14 +447,17 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("thumbnail"), new ThumbnailProvider());
-    engine.addImportPath(QStringLiteral(PARVAZ_QML_DIR));
+    // The QML module is embedded as resources under qrc:/Parvaz (see
+    // qt_add_qml_module in CMakeLists.txt); expose the resource root as an
+    // import path so `import Parvaz 1.0` resolves without any on-disk files.
+    engine.addImportPath(QStringLiteral("qrc:/"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
                      &app, []() {
                          std::fprintf(stderr, "parvaz: QML root object creation failed\n");
                          QCoreApplication::exit(1);
                      }, Qt::QueuedConnection);
 
-    engine.load(QUrl(QStringLiteral(PARVAZ_QML_DIR "/Main.qml")));
+    engine.load(QUrl(QStringLiteral("qrc:/Parvaz/qml/Main.qml")));
     if (engine.rootObjects().isEmpty()) {
         std::fprintf(stderr, "parvaz: could not load QML\n");
         return 1;
