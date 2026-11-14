@@ -10,6 +10,9 @@ Item {
     property real duration: 0
     property bool isDragging: false
     property real dragPosition: 0
+    // Last value actually committed to the player. Mouse moves only repaint;
+    // a drag would otherwise issue a seek command on every position change.
+    property real lastSentPosition: -1
 
     signal seekRequested(real targetSeconds)
     signal seekingStarted()
@@ -194,31 +197,52 @@ Item {
         }
     }
 
+    Timer {
+        id: seekThrottle
+        interval: 150
+        onTriggered: root.commitSeek(root.dragPosition)
+    }
+
+    function commitSeek(target) {
+        if (target === lastSentPosition)
+            return
+        lastSentPosition = target
+        root.seekRequested(target)
+    }
+
     MouseArea {
         id: mouseArea
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton
 
-        function updateSeek(mouse) {
+        function updateSeek(mouse, immediate) {
             var ratio = Math.max(0.0, Math.min(1.0, mouse.x / Math.max(1, root.width)))
             var target = ratio * root.effectiveDuration
             root.dragPosition = target
-            root.seekRequested(target)
+            if (immediate)
+                root.commitSeek(target)
+            else
+                seekThrottle.restart()
         }
 
         onPressed: (mouse) => {
             root.isDragging = true
             root.seekingStarted()
-            updateSeek(mouse)
+            updateSeek(mouse, true)
         }
 
         onPositionChanged: (mouse) => {
             if (root.isDragging)
-                updateSeek(mouse)
+                updateSeek(mouse, false)
         }
 
         onReleased: {
+            seekThrottle.stop()
+            // The pending throttle window may hold a position newer than the
+            // last commit; flush it so release always lands where the thumb is.
+            if (root.isDragging)
+                root.commitSeek(root.dragPosition)
             root.isDragging = false
             root.seekingFinished()
         }
