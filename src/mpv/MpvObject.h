@@ -7,8 +7,7 @@
 #include <atomic>
 
 #include <mpv/client.h>
-
-class QProcess;
+#include <playback/CoverArtProvider.h>
 
 namespace parvaz { class PlaybackHistory; }
 
@@ -250,10 +249,6 @@ private:
     void refreshChapters();
     void refreshMetadata();
     void refreshCoverArt();
-    /// Starts one async ffmpeg extraction pass for cover art. `fallbackFrame`
-    /// picks between copying the embedded picture and transcoding the first
-    /// video frame; each pass chains the other one on failure.
-    void startCoverExtraction(const QString &file, const QString &outPath, bool fallbackFrame);
     void setCoverArtUrl(const QString &url);
     QStringList expandAndSortPaths(const QStringList &rawPaths);
     void applySubtitlePosition();
@@ -290,9 +285,8 @@ private:
     QVariantMap m_metadata;
     QString m_coverArtUrl;
     bool m_isAudioOnly = false;
-    /// Cover-art extraction runs on an external ffmpeg process; at most one
-    /// is in flight. A new refreshCoverArt() kills it and takes over.
-    QProcess *m_coverProcess = nullptr;
+    /// Cover-art lookup and extraction (see playback/CoverArtProvider.h).
+    parvaz::CoverArtProvider m_coverArt;
 
     QVariantList m_tracks;
     double m_subtitleDelay = 0.0;

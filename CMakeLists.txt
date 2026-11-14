@@ -18,6 +18,7 @@ qt_add_executable(parvaz
     src/platform/MprisService.h  src/platform/MprisService.cpp
     src/playback/PlaybackHistory.h src/playback/PlaybackHistory.cpp
     src/playback/ThumbnailProvider.h src/playback/ThumbnailProvider.cpp
+    src/playback/CoverArtProvider.h src/playback/CoverArtProvider.cpp
 )
 
 # QML lives inside the binary: the executable must run from anywhere (install

@@ -9,9 +9,6 @@
 #include <QCollator>
 #include <QSet>
 #include <QUrl>
-#include <QStandardPaths>
-#include <QCryptographicHash>
-#include <QProcess>
 #include <QDebug>
 #include <QVariantMap>
 
@@ -131,6 +128,15 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "chapter-list",   MPV_FORMAT_NONE);
     mpv_observe_property(m_mpv, 0, "secondary-sid",  MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, 0, "metadata",       MPV_FORMAT_NONE);
+
+    // Apply cover-art extraction results to the current file only; the file
+    // identity check here is the final guard against stale async results.
+    connect(&m_coverArt, &parvaz::CoverArtProvider::extracted, this,
+            [this](const QString &file, const QString &url) {
+        if (url.isEmpty() || m_currentFile != file || !isAudioOnly())
+            return;
+        setCoverArtUrl(url);
+    });
 
     drainEvents();
 }
@@ -753,110 +759,24 @@ void MpvObject::setCoverArtUrl(const QString &url)
 
 void MpvObject::refreshCoverArt()
 {
-    // A new request always supersedes any in-flight extraction.
-    if (m_coverProcess) {
-        m_coverProcess->kill();
-        m_coverProcess->deleteLater();
-        m_coverProcess = nullptr;
-    }
-
     if (m_currentFile.isEmpty() || !isAudioOnly()) {
+        // Stop a stale extraction for a previous file before clearing.
+        m_coverArt.cancel();
         setCoverArtUrl(QString());
         return;
     }
 
-    // 1. Check parent folder for cover images. Stat calls only, cheap enough
-    //    to stay synchronous on the GUI thread.
-    QFileInfo fi(m_currentFile);
-    QDir dir = fi.absoluteDir();
-    const QString baseName = fi.completeBaseName();
-
-    const QStringList candidates = {
-        QStringLiteral("cover.jpg"), QStringLiteral("cover.png"), QStringLiteral("cover.jpeg"), QStringLiteral("cover.webp"),
-        QStringLiteral("folder.jpg"), QStringLiteral("folder.png"), QStringLiteral("folder.jpeg"),
-        QStringLiteral("front.jpg"), QStringLiteral("front.png"), QStringLiteral("front.jpeg"),
-        QStringLiteral("album.jpg"), QStringLiteral("album.png"), QStringLiteral("album.jpeg"),
-        baseName + QStringLiteral(".jpg"), baseName + QStringLiteral(".png"), baseName + QStringLiteral(".jpeg")
-    };
-
-    for (const QString &candidate : candidates) {
-        if (dir.exists(candidate)) {
-            setCoverArtUrl(QUrl::fromLocalFile(dir.absoluteFilePath(candidate)).toString());
-            return;
-        }
-    }
-
-    // 2. Disk cache for previously extracted embedded art (fast, sync).
-    const QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/covers");
-    const QByteArray hash = QCryptographicHash::hash(m_currentFile.toUtf8(), QCryptographicHash::Sha1).toHex();
-    const QString cachedFile = cacheDir + QStringLiteral("/") + QString::fromLatin1(hash) + QStringLiteral(".jpg");
-
-    if (QFileInfo(cachedFile).isReadable() && QFileInfo(cachedFile).size() > 0) {
-        setCoverArtUrl(QUrl::fromLocalFile(cachedFile).toString());
+    const QString url = m_coverArt.localCoverUrl(m_currentFile);
+    if (!url.isEmpty()) {
+        setCoverArtUrl(url);
         return;
     }
 
-    // 3. No cover found: extract asynchronously. Waiting here with
-    //    waitForFinished() would freeze the GUI thread for up to ~2.5s on
-    //    every audio file without a folder cover, so the ffmpeg passes run in
-    //    the background and the URL is set from their finished() handler.
-    startCoverExtraction(m_currentFile, cachedFile, false);
-}
-
-void MpvObject::startCoverExtraction(const QString &file, const QString &outPath, bool fallbackFrame)
-{
-    QDir().mkpath(QFileInfo(outPath).absolutePath());
-
-    auto *proc = new QProcess(this);
-    m_coverProcess = proc;
-
-    QStringList args;
-    if (fallbackFrame) {
-        // Copying the attached picture failed (e.g. PNG cover into a .jpg
-        // container): transcode the first frame of the video stream instead.
-        args << QStringLiteral("-y")
-             << QStringLiteral("-i") << file
-             << QStringLiteral("-map") << QStringLiteral("0:v:0")
-             << QStringLiteral("-frames:v") << QStringLiteral("1")
-             << QStringLiteral("-q:v") << QStringLiteral("2")
-             << outPath;
-    } else {
-        args << QStringLiteral("-y")
-             << QStringLiteral("-i") << file
-             << QStringLiteral("-an")
-             << QStringLiteral("-vcodec") << QStringLiteral("copy")
-             << outPath;
-    }
-
-    // Capture the request identity: a finished() from a killed or superseded
-    // process must never touch the *current* request's output.
-    connect(proc, &QProcess::finished, this,
-            [this, proc, file, outPath, fallbackFrame](int, QProcess::ExitStatus status) {
-        proc->deleteLater();
-        if (m_coverProcess == proc)
-            m_coverProcess = nullptr;
-
-        // A killed ffmpeg leaves a partial file behind; keeping it would let
-        // the disk-cache check above serve a corrupt image later.
-        if (status == QProcess::CrashExit)
-            QFile::remove(outPath);
-
-        // Superseded by a newer file load: drop the result untouched.
-        if (m_currentFile != file)
-            return;
-
-        if (QFileInfo(outPath).size() > 0) {
-            if (isAudioOnly())
-                setCoverArtUrl(QUrl::fromLocalFile(outPath).toString());
-            return;
-        }
-        QFile::remove(outPath);
-
-        if (!fallbackFrame)
-            startCoverExtraction(file, outPath, true);
-    });
-
-    proc->start(QStringLiteral("ffmpeg"), args);
+    // Nothing cached: the provider extracts asynchronously (an in-flight
+    // ffmpeg pass would otherwise freeze the GUI thread for up to ~2.5s on
+    // every audio file without a folder cover). The extracted() connection
+    // in the constructor applies the result to the current file.
+    m_coverArt.requestExtraction(m_currentFile);
 }
 
 void MpvObject::setVolume(int volume)
