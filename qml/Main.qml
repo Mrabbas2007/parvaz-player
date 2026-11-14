@@ -220,6 +220,8 @@ Window {
     // --- PotPlayer Playlist Drawer (F6) -----------------------------------
     PlaylistDrawer {
         id: playlistDrawer
+        anchors.top: (titleBar.visible && root.chromeVisible) ? titleBar.bottom : parent.top
+        anchors.bottom: (controlBar.visible && root.chromeVisible) ? controlBar.top : parent.bottom
         onIsOpenChanged: {
             if (isOpen)
                 root.poke()

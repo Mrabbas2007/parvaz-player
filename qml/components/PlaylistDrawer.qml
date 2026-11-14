@@ -5,7 +5,7 @@ import ".."
 
 Item {
     id: root
-    width: Math.min(380, parent.width * 0.85)
+    width: Math.min(320, Math.round(parent.width * 0.75))
     anchors.top: parent.top
     anchors.bottom: parent.bottom
     anchors.right: parent.right
@@ -20,21 +20,34 @@ Item {
     visible: x < parent.width
 
     Behavior on x {
-        NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
     }
 
     property string searchQuery: ""
 
-    // Background frosted glass panel
+    // Left shadow for depth separation
     Rectangle {
+        width: 12
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: panelBg.left
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: "transparent" }
+            GradientStop { position: 1.0; color: "#40000000" }
+        }
+    }
+
+    // Solid opaque desktop surface (prevents video stripes bleed-through)
+    Rectangle {
+        id: panelBg
         anchors.fill: parent
-        color: "#E60E1017"
-        border.color: Theme.borderGlass
+        color: "#0F1014"
+        border.color: "#222530"
         border.width: 1
 
         MouseArea {
             anchors.fill: parent
-            // Prevent clicks from penetrating to video underneath
             hoverEnabled: true
             onWheel: (wheel) => wheel.accepted = true
         }
@@ -42,103 +55,98 @@ Item {
 
     Column {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 12
+        spacing: 0
 
-        // --- Header --------------------------------------------------------
-        Item {
+        // --- 1. Compact Desktop Header (34px) ------------------------------
+        Rectangle {
             width: parent.width
-            height: 32
+            height: 34
+            color: "#13141B"
+            border.color: "#1C1F28"
+            border.width: 1
 
             Row {
                 anchors.left: parent.left
+                anchors.leftMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
+                spacing: 6
 
                 Image {
-                    width: 18
-                    height: 18
+                    width: 14
+                    height: 14
                     source: "../icons/list.svg"
-                    sourceSize: Qt.size(18, 18)
+                    sourceSize: Qt.size(14, 14)
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
                 Text {
                     text: "لیست پخش"
-                    color: Theme.textPrimary
+                    color: "#E2E4EC"
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontMedium
+                    font.pixelSize: Theme.fontNormal
                     font.weight: Font.DemiBold
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
-                Rectangle {
-                    height: 20
-                    width: countText.implicitWidth + 12
-                    radius: 10
-                    color: "#222736"
+                Text {
+                    text: "(" + Mpv.playlistCount + ")"
+                    color: "#6E7385"
+                    font.family: Theme.fontDigits
+                    font.pixelSize: 11
                     anchors.verticalCenter: parent.verticalCenter
-
-                    Text {
-                        id: countText
-                        anchors.centerIn: parent
-                        text: Mpv.playlistCount + " فایل"
-                        color: Theme.textSecondary
-                        font.family: Theme.fontDigits
-                        font.pixelSize: 11
-                    }
                 }
             }
 
             Row {
                 anchors.right: parent.right
+                anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
+                spacing: 2
 
                 // Shuffle button
                 Rectangle {
-                    width: 28
-                    height: 28
-                    radius: Theme.radiusSmall
-                    color: shuffleArea.containsMouse ? "#2A3042" : "transparent"
+                    width: 24
+                    height: 24
+                    radius: 3
+                    color: shuffleMouse.containsMouse ? "#222634" : "transparent"
 
                     Image {
                         anchors.centerIn: parent
-                        width: 15
-                        height: 15
+                        width: 13
+                        height: 13
                         source: "../icons/rotate-ccw.svg"
-                        sourceSize: Qt.size(15, 15)
+                        sourceSize: Qt.size(13, 13)
                     }
 
                     MouseArea {
-                        id: shuffleArea
+                        id: shuffleMouse
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             Mpv.shufflePlaylist()
-                            Mpv.showOsd("لیست پخش تصادفی شد (Shuffle)")
+                            Mpv.showOsd("لیست پخش تصادفی شد")
                         }
                     }
                 }
 
                 // Clear button
                 Rectangle {
-                    width: 28
-                    height: 28
-                    radius: Theme.radiusSmall
-                    color: clearArea.containsMouse ? "#2A3042" : "transparent"
+                    width: 24
+                    height: 24
+                    radius: 3
+                    color: clearMouse.containsMouse ? "#222634" : "transparent"
 
                     Image {
                         anchors.centerIn: parent
-                        width: 15
-                        height: 15
+                        width: 13
+                        height: 13
                         source: "../icons/trash-2.svg"
-                        sourceSize: Qt.size(15, 15)
+                        sourceSize: Qt.size(13, 13)
                     }
 
                     MouseArea {
-                        id: clearArea
+                        id: clearMouse
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
@@ -151,21 +159,21 @@ Item {
 
                 // Close button
                 Rectangle {
-                    width: 28
-                    height: 28
-                    radius: Theme.radiusSmall
-                    color: closeArea.containsMouse ? "#2A3042" : "transparent"
+                    width: 24
+                    height: 24
+                    radius: 3
+                    color: closeMouse.containsMouse ? "#222634" : "transparent"
 
                     Image {
                         anchors.centerIn: parent
-                        width: 16
-                        height: 16
+                        width: 13
+                        height: 13
                         source: "../icons/x.svg"
-                        sourceSize: Qt.size(16, 16)
+                        sourceSize: Qt.size(13, 13)
                     }
 
                     MouseArea {
-                        id: closeArea
+                        id: closeMouse
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
@@ -175,89 +183,96 @@ Item {
             }
         }
 
-        // --- Search / Filter Box --------------------------------------------
+        // --- 2. Razor-flat Desktop Search Bar (30px) -----------------------
         Rectangle {
             width: parent.width
-            height: 34
-            radius: Theme.radiusSmall
-            color: "#141721"
-            border.color: searchInput.activeFocus ? "#505870" : Theme.borderGlass
-            border.width: 1
+            height: 30
+            color: "#101115"
 
-            Row {
+            Rectangle {
                 anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
+                anchors.margins: 4
+                color: "#08090C"
+                border.color: filterInput.activeFocus ? "#3A4259" : "#1C1F28"
+                border.width: 1
+                radius: 2
 
-                Image {
-                    width: 14
-                    height: 14
-                    source: "../icons/search.svg"
-                    sourceSize: Qt.size(14, 14)
-                    anchors.verticalCenter: parent.verticalCenter
-                }
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 6
+                    spacing: 6
 
-                TextInput {
-                    id: searchInput
-                    width: parent.width - 44
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: Theme.textPrimary
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontNormal
-                    selectByMouse: true
-                    clip: true
-
-                    Text {
-                        text: "جستجو در لیست..."
-                        color: Theme.textMuted
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontNormal
-                        visible: !searchInput.text && !searchInput.activeFocus
+                    Image {
+                        width: 11
+                        height: 11
+                        source: "../icons/search.svg"
+                        sourceSize: Qt.size(11, 11)
+                        anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    onTextChanged: root.searchQuery = text.trim().toLowerCase()
-                }
+                    TextInput {
+                        id: filterInput
+                        width: parent.width - 32
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: "#FFFFFF"
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 11
+                        selectByMouse: true
+                        clip: true
 
-                Image {
-                    visible: searchInput.text.length > 0
-                    width: 14
-                    height: 14
-                    source: "../icons/x.svg"
-                    sourceSize: Qt.size(14, 14)
-                    anchors.verticalCenter: parent.verticalCenter
+                        Text {
+                            text: "فیلتر کردن عناوین..."
+                            color: "#505465"
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 11
+                            visible: !filterInput.text && !filterInput.activeFocus
+                        }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            searchInput.text = ""
-                            root.searchQuery = ""
+                        onTextChanged: root.searchQuery = text.trim().toLowerCase()
+                    }
+
+                    Image {
+                        visible: filterInput.text.length > 0
+                        width: 11
+                        height: 11
+                        source: "../icons/x.svg"
+                        sourceSize: Qt.size(11, 11)
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                filterInput.text = ""
+                                root.searchQuery = ""
+                            }
                         }
                     }
                 }
             }
         }
 
-        // --- Virtualized Track List -----------------------------------------
+        // --- 3. High-Density Tabular Track List -----------------------------
         ListView {
             id: playlistView
             width: parent.width
-            height: parent.height - 90
+            height: parent.height - 34 - 30 - 22
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             model: Mpv.playlist
-            spacing: 2
+            spacing: 0
 
             ScrollBar.vertical: ScrollBar {
                 active: true
                 policy: ScrollBar.AsNeeded
+                width: 6
             }
 
             delegate: Rectangle {
-                id: itemDelegate
+                id: rowDelegate
                 width: playlistView.width
-                height: isMatching ? 38 : 0
+                height: isMatching ? 28 : 0
                 visible: isMatching
 
                 readonly property var entry: modelData
@@ -267,89 +282,118 @@ Item {
                 readonly property bool isMatching: root.searchQuery.length === 0
                                                    || itemTitle.toLowerCase().indexOf(root.searchQuery) !== -1
 
-                radius: Theme.radiusSmall
-                color: isCurrent ? "#242A3D" : (itemMouseArea.containsMouse ? "#181B26" : "transparent")
-                border.color: isCurrent ? "#3A4565" : "transparent"
-                border.width: isCurrent ? 1 : 0
+                // Desktop row styling: subtle zebra stripes + clean hover/current highlight
+                color: isCurrent ? "#1E2333" : (rowMouse.containsMouse ? "#181B26" : (itemIdx % 2 === 0 ? "#0F1014" : "#121319"))
 
-                Behavior on color { ColorAnimation { duration: 100 } }
+                // Active track 2px vertical accent bar on left edge
+                Rectangle {
+                    width: 2
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    color: "#FFFFFF"
+                    visible: rowDelegate.isCurrent
+                }
 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
-                    spacing: 8
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 6
+                    spacing: 6
 
-                    // Playing indicator or index
+                    // Track Index or Playing status
                     Item {
                         width: 24
                         height: parent.height
 
                         Image {
                             anchors.centerIn: parent
-                            visible: itemDelegate.isCurrent
-                            width: 14
-                            height: 14
+                            visible: rowDelegate.isCurrent
+                            width: 11
+                            height: 11
                             source: Mpv.paused ? "../icons/pause.svg" : "../icons/play.svg"
-                            sourceSize: Qt.size(14, 14)
+                            sourceSize: Qt.size(11, 11)
                         }
 
                         Text {
                             anchors.centerIn: parent
-                            visible: !itemDelegate.isCurrent
-                            text: String(itemDelegate.itemIdx + 1).padStart(2, "0")
-                            color: Theme.textMuted
+                            visible: !rowDelegate.isCurrent
+                            text: String(rowDelegate.itemIdx + 1).padStart(2, "0") + "."
+                            color: "#5C6073"
                             font.family: Theme.fontDigits
-                            font.pixelSize: 11
+                            font.pixelSize: 10
                         }
                     }
 
-                    // Title
+                    // Track Title
                     Text {
-                        width: parent.width - 64
+                        width: parent.width - 52
                         anchors.verticalCenter: parent.verticalCenter
-                        text: itemDelegate.itemTitle
-                        color: itemDelegate.isCurrent ? Theme.textPrimary : (itemMouseArea.containsMouse ? Theme.textPrimary : Theme.textSecondary)
+                        text: rowDelegate.itemTitle
+                        color: rowDelegate.isCurrent ? "#FFFFFF" : (rowMouse.containsMouse ? "#EEEEEE" : "#AFB2C0")
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontNormal
-                        font.weight: itemDelegate.isCurrent ? Font.Medium : Font.Normal
+                        font.pixelSize: 11
+                        font.weight: rowDelegate.isCurrent ? Font.Medium : Font.Normal
                         elide: Text.ElideRight
                     }
 
-                    // Remove item button
+                    // Remove icon (visible on hover)
                     Rectangle {
-                        width: 22
-                        height: 22
+                        width: 18
+                        height: 18
                         anchors.verticalCenter: parent.verticalCenter
-                        radius: Theme.radiusSmall
-                        color: removeArea.containsMouse ? "#3A435C" : "transparent"
-                        visible: itemMouseArea.containsMouse
+                        radius: 2
+                        color: removeMouse.containsMouse ? "#303548" : "transparent"
+                        visible: rowMouse.containsMouse
 
                         Image {
                             anchors.centerIn: parent
-                            width: 12
-                            height: 12
+                            width: 10
+                            height: 10
                             source: "../icons/x.svg"
-                            sourceSize: Qt.size(12, 12)
+                            sourceSize: Qt.size(10, 10)
                         }
 
                         MouseArea {
-                            id: removeArea
+                            id: removeMouse
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: Mpv.removeIndex(itemDelegate.itemIdx)
+                            onClicked: Mpv.removeIndex(rowDelegate.itemIdx)
                         }
                     }
                 }
 
                 MouseArea {
-                    id: itemMouseArea
+                    id: rowMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton
-                    onClicked: Mpv.playIndex(itemDelegate.itemIdx)
+                    onClicked: Mpv.playIndex(rowDelegate.itemIdx)
+                }
+            }
+        }
+
+        // --- 4. Desktop Status Footer (22px) -------------------------------
+        Rectangle {
+            width: parent.width
+            height: 22
+            color: "#0C0D11"
+            border.color: "#181A22"
+            border.width: 1
+
+            Row {
+                anchors.left: parent.left
+                anchors.leftMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 8
+
+                Text {
+                    text: Mpv.playlistCount + " آیتم در صف"
+                    color: "#555A6B"
+                    font.family: Theme.fontDigits
+                    font.pixelSize: 10
                 }
             }
         }
