@@ -70,19 +70,6 @@ qt_add_resources(parvaz "parvaz-assets"
         ${PARVAZ_ICONS}
 )
 
-# Fonts and icons as resources under the same module prefix, relative paths
-# preserved via BASE (qrc:/Parvaz/fonts/…, qrc:/Parvaz/icons/…).
-file(GLOB PARVAZ_ICONS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/qml/icons/*.svg)
-qt_add_resources(parvaz "parvaz-assets"
-    PREFIX "/Parvaz"
-    BASE "${CMAKE_CURRENT_SOURCE_DIR}/qml"
-    FILES
-        qml/fonts/Vazirmatn.ttf
-        qml/fonts/JetBrainsMono-Medium.otf
-        qml/fonts/JetBrainsMono-Regular.otf
-        ${PARVAZ_ICONS}
-)
-
 target_include_directories(parvaz PRIVATE src)
 target_compile_definitions(parvaz PRIVATE
     PARVAZ_TESTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests"
