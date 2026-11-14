@@ -152,10 +152,10 @@ Item {
         // In Windowed / Maximized: Maximize / Restore button
         IconButton {
             visible: !root.isFullscreen
-            iconName: root.isMaximized ? "minimize-2" : "square"
+            iconName: root.isMaximized ? "restore" : "square"
             tooltipText: root.isMaximized ? "Restore" : "Maximize"
             buttonSize: 28
-            iconSize: 13
+            iconSize: 14
             onClicked: root.maximizeToggled()
         }
 
