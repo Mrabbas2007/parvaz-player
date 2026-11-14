@@ -856,6 +856,11 @@ QString MpvObject::formatTime(double seconds) const
         .arg(s, 2, 10, QLatin1Char('0'));
 }
 
+QString MpvObject::urlToLocalPath(const QUrl &url)
+{
+    return url.isLocalFile() ? url.toLocalFile() : url.toString();
+}
+
 // ---- subtitle / track control ----------------------------------------------
 // Subtitle state and mpv calls live in SubtitleController; these are the
 // QML-facing delegates (plus OSD announcements).

@@ -144,6 +144,11 @@ public:
 
     Q_INVOKABLE QString formatTime(double seconds) const;
 
+    /// file:// URL (or plain path) → local filesystem path; non-file URLs
+    /// pass through unchanged. Single source of truth for the file dialogs
+    /// and the drop overlay (used to be duplicated JS in QML).
+    Q_INVOKABLE static QString urlToLocalPath(const QUrl &url);
+
     /// Selects an audio ("aid") or subtitle ("sid") track by its track-list id.
     /// The id alone is ambiguous, so the type is looked up in the track list.
     Q_INVOKABLE void selectTrack(qint64 id);

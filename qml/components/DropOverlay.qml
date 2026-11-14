@@ -11,21 +11,12 @@ Item {
     readonly property bool isDragging: topDrop.containsDrag || botDrop.containsDrag
     readonly property real topHeight: Math.max(90, Math.round(parent.height * 0.26))
 
-    function extractPaths(urls) {
-        var paths = []
-        for (var i = 0; i < urls.length; ++i) {
-            var s = urls[i].toString()
-            if (s.startsWith("file://"))
-                s = s.substring(7)
-            paths.push(decodeURIComponent(s))
-        }
-        return paths
-    }
-
     function handleDrop(drop, mode) {
         if (!drop.hasUrls || drop.urls.length === 0)
             return
-        var paths = extractPaths(drop.urls)
+        var paths = []
+        for (var i = 0; i < drop.urls.length; ++i)
+            paths.push(Mpv.urlToLocalPath(drop.urls[i]))
         if (paths.length === 0)
             return
 

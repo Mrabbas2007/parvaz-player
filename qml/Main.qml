@@ -86,13 +86,6 @@ Window {
         Mpv.setBottomBarOffset(chromeVisible, controlBar.height, root.height)
     }
 
-    function localPath(u) {
-        var s = u.toString()
-        if (s.startsWith("file://"))
-            s = s.substring(7)
-        return decodeURIComponent(s)
-    }
-
     FileDialog {
         id: openDialog
         title: "Open media"
@@ -100,7 +93,7 @@ Window {
             "Media (*.mkv *.mp4 *.webm *.avi *.mov *.flv *.ts *.ogm *.mp3 *.flac *.ogg *.opus *.wav)",
             "All files (*)"
         ]
-        onAccepted: Mpv.loadFile(root.localPath(openDialog.selectedFile))
+        onAccepted: Mpv.loadFile(Mpv.urlToLocalPath(openDialog.selectedFile))
     }
 
     FileDialog {
@@ -111,7 +104,7 @@ Window {
         onAccepted: {
             var paths = []
             for (var i = 0; i < selectedFiles.length; ++i) {
-                paths.push(root.localPath(selectedFiles[i]))
+                paths.push(Mpv.urlToLocalPath(selectedFiles[i]))
             }
             if (paths.length > 0) {
                 Mpv.loadFiles(paths, "append")
@@ -127,7 +120,7 @@ Window {
             "Subtitles (*.srt *.ass *.ssa *.sub *.vtt *.sup)",
             "All files (*)"
         ]
-        onAccepted: Mpv.addSubtitleFile(root.localPath(subDialog.selectedFile))
+        onAccepted: Mpv.addSubtitleFile(Mpv.urlToLocalPath(subDialog.selectedFile))
     }
 
     // --- Video Viewport (libmpv direct FBO) --------------------------------
