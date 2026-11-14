@@ -361,6 +361,17 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("technicalStats has audioCodec", stats.contains(QStringLiteral("audioCodec")));
             mpv.selectSecondarySubtitleTrack(0);
             check("secondarySubtitleTrack <= 0", mpv.secondarySubtitleTrack() <= 0);
+            // Load music file with attached picture to test music mode & cover art
+            mpv.loadFile(QStringLiteral(PARVAZ_TESTS_DIR "/../build/music_test.mp3"));
+            break;
+        }
+        case 37: {
+            check("isAudioOnly is true for mp3 with cover", mpv.isAudioOnly() == true);
+            check("hasVideo is false for music with attached pic", mpv.hasVideo() == false);
+            check("trackTitle is 'Test Music'", mpv.trackTitle() == QLatin1String("Test Music"));
+            check("trackArtist is 'Antigravity'", mpv.trackArtist() == QLatin1String("Antigravity"));
+            check("trackAlbum is 'Parvaz Album'", mpv.trackAlbum() == QLatin1String("Parvaz Album"));
+            check("coverArtUrl is non-empty", !mpv.coverArtUrl().isEmpty());
             break;
         }
         default: {
@@ -378,7 +389,8 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         // get a longer beat before the assertion on the next turn.
         const int delay = (step == 7 || step == 8 || step == 14 || step == 18 || step == 19 || step == 21 || step == 23
                                || step == 24 || step == 25 || step == 26 || step == 27 || step == 28 || step == 29
-                               || step == 30 || step == 31 || step == 32 || step == 33 || step == 34 || step == 35)
+                               || step == 30 || step == 31 || step == 32 || step == 33 || step == 34 || step == 35
+                               || step == 36)
                               ? 500 : 250;
         QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };

@@ -172,6 +172,12 @@ MprisService::MprisService(MpvObject *mpv, QObject *parent)
         notifyPropertiesChanged({QStringLiteral("Metadata"),
                                  QStringLiteral("PlaybackStatus")});
     });
+    connect(m_mpv, &MpvObject::metadataChanged, this, [this] {
+        notifyPropertiesChanged({QStringLiteral("Metadata")});
+    });
+    connect(m_mpv, &MpvObject::coverArtUrlChanged, this, [this] {
+        notifyPropertiesChanged({QStringLiteral("Metadata")});
+    });
     connect(m_mpv, &MpvObject::playlistChanged, this, [this] {
         notifyPropertiesChanged({QStringLiteral("CanGoNext"),
                                  QStringLiteral("CanGoPrevious")});
@@ -297,9 +303,18 @@ QVariantMap MprisService::Metadata() const
     // MPRIS length is microseconds; mpv duration is seconds.
     m.insert(QStringLiteral("mpris:length"),
              QVariant::fromValue(static_cast<qlonglong>(duration * 1e6)));
-    const QString title = m_mpv->mediaTitle();
+    const QString title = m_mpv->trackTitle();
     if (!title.isEmpty())
         m.insert(QStringLiteral("xesam:title"), title);
+    const QString artist = m_mpv->trackArtist();
+    if (!artist.isEmpty())
+        m.insert(QStringLiteral("xesam:artist"), QStringList{artist});
+    const QString album = m_mpv->trackAlbum();
+    if (!album.isEmpty())
+        m.insert(QStringLiteral("xesam:album"), album);
+    const QString artUrl = m_mpv->coverArtUrl();
+    if (!artUrl.isEmpty())
+        m.insert(QStringLiteral("mpris:artUrl"), artUrl);
     return m;
 }
 

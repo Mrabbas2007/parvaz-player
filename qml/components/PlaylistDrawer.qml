@@ -311,7 +311,7 @@ Item {
 
                 readonly property var entry: modelData
                 readonly property int itemIdx: entry.index !== undefined ? entry.index : index
-                readonly property string itemTitle: entry.title || entry.filename || ("فایل " + (itemIdx + 1))
+                readonly property string itemTitle: entry.title || entry.filename || ("Item " + (itemIdx + 1))
                 readonly property bool isCurrent: itemIdx === Mpv.playlistIndex
                 readonly property bool isMatching: root.searchQuery.length === 0
                                                    || itemTitle.toLowerCase().indexOf(root.searchQuery) !== -1

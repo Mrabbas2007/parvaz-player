@@ -40,6 +40,15 @@ add_custom_target(check
             -f lavfi -i "sine=frequency=440:duration=3"
             -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest
             ${CMAKE_BINARY_DIR}/test.mp4
+    COMMAND ffmpeg -y
+            -f lavfi -i "sine=frequency=440:duration=2"
+            -f lavfi -i "testsrc=size=300x300:duration=1"
+            -map 0:a -map 1:v -c:a mp3 -b:a 128k -c:v png
+            -metadata "title=Test Music"
+            -metadata "artist=Antigravity"
+            -metadata "album=Parvaz Album"
+            -disposition:v attached_pic -shortest
+            ${CMAKE_BINARY_DIR}/music_test.mp3
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/fa.srt ${CMAKE_BINARY_DIR}/test.srt
     COMMAND ${CMAKE_BINARY_DIR}/parvaz --smoke ${CMAKE_BINARY_DIR}/test.mp4

@@ -9,6 +9,9 @@
 #include <QCollator>
 #include <QSet>
 #include <QUrl>
+#include <QStandardPaths>
+#include <QCryptographicHash>
+#include <QProcess>
 #include <QDebug>
 #include <QVariantMap>
 
@@ -127,6 +130,7 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "chapter",        MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, 0, "chapter-list",   MPV_FORMAT_NONE);
     mpv_observe_property(m_mpv, 0, "secondary-sid",  MPV_FORMAT_INT64);
+    mpv_observe_property(m_mpv, 0, "metadata",       MPV_FORMAT_NONE);
 
     drainEvents();
 }
@@ -261,6 +265,8 @@ void MpvObject::drainEvents()
             } else if (name == QLatin1String("secondary-sid") && prop->format == MPV_FORMAT_INT64) {
                 m_secondarySubtitleTrack = *static_cast<int64_t *>(prop->data);
                 hasSecondarySub = true;
+            } else if (name == QLatin1String("metadata")) {
+                refreshMetadata();
             }
             break;
         }
@@ -274,11 +280,14 @@ void MpvObject::drainEvents()
             refreshTracks();
             hasTracks = true;
             emit hasVideoChanged();
+            emit isAudioOnlyChanged();
             refreshPlaylist();
             hasPlaylist = true;
             refreshChapters();
             hasChapters = true;
             refreshBookmarks();
+            refreshMetadata();
+            refreshCoverArt();
             emit fileLoaded();
             break;
         }
@@ -348,10 +357,13 @@ void MpvObject::refreshTracks()
     mpv_free_node_contents(&node);
 
     const bool oldHasVideo = hasVideo();
+    const bool oldIsAudioOnly = isAudioOnly();
     if (out != m_tracks) {
         m_tracks = out;
         if (hasVideo() != oldHasVideo)
             emit hasVideoChanged();
+        if (isAudioOnly() != oldIsAudioOnly)
+            emit isAudioOnlyChanged();
     }
 }
 
@@ -591,26 +603,228 @@ void MpvObject::setSpeed(double speed)
     mpv_set_property(m_mpv, "speed", MPV_FORMAT_DOUBLE, &s);
 }
 
+bool MpvObject::isAudioOnly() const
+{
+    bool hasRealVideo = false;
+    bool hasAudio = false;
+
+    for (const QVariant &v : m_tracks) {
+        const QVariantMap m = v.toMap();
+        const QString type = m.value(QStringLiteral("type")).toString();
+        if (type == QLatin1String("video")) {
+            const bool isAlbumArt = m.value(QStringLiteral("albumart")).toBool() ||
+                                   m.value(QStringLiteral("image")).toBool();
+            if (!isAlbumArt)
+                hasRealVideo = true;
+        } else if (type == QLatin1String("audio")) {
+            hasAudio = true;
+        }
+    }
+
+    if (hasRealVideo)
+        return false;
+
+    if (hasAudio)
+        return true;
+
+    if (!m_currentFile.isEmpty()) {
+        const QString lower = m_currentFile.toLower();
+        return lower.endsWith(QLatin1String(".mp3")) ||
+               lower.endsWith(QLatin1String(".flac")) ||
+               lower.endsWith(QLatin1String(".ogg")) ||
+               lower.endsWith(QLatin1String(".opus")) ||
+               lower.endsWith(QLatin1String(".wav")) ||
+               lower.endsWith(QLatin1String(".m4a")) ||
+               lower.endsWith(QLatin1String(".aac")) ||
+               lower.endsWith(QLatin1String(".wma"));
+    }
+
+    return false;
+}
+
 bool MpvObject::hasVideo() const
 {
+    if (isAudioOnly())
+        return false;
+
     for (const QVariant &v : m_tracks) {
-        if (v.toMap().value(QStringLiteral("type")).toString() == QLatin1String("video"))
-            return true;
-    }
-    // Fallback if tracks are still being decoded or track-list delayed:
-    if (m_duration > 0.0 && !m_currentFile.isEmpty()) {
-        const QString lower = m_currentFile.toLower();
-        if (!lower.endsWith(QLatin1String(".mp3")) &&
-            !lower.endsWith(QLatin1String(".flac")) &&
-            !lower.endsWith(QLatin1String(".ogg")) &&
-            !lower.endsWith(QLatin1String(".opus")) &&
-            !lower.endsWith(QLatin1String(".wav")) &&
-            !lower.endsWith(QLatin1String(".m4a")) &&
-            !lower.endsWith(QLatin1String(".aac"))) {
-            return true;
+        const QVariantMap m = v.toMap();
+        if (m.value(QStringLiteral("type")).toString() == QLatin1String("video")) {
+            if (!m.value(QStringLiteral("albumart")).toBool() && !m.value(QStringLiteral("image")).toBool())
+                return true;
         }
     }
     return false;
+}
+
+QString MpvObject::trackTitle() const
+{
+    if (m_metadata.contains(QStringLiteral("title"))) {
+        const QString t = m_metadata.value(QStringLiteral("title")).toString().trimmed();
+        if (!t.isEmpty())
+            return t;
+    }
+    if (!m_mediaTitle.isEmpty()) {
+        return m_mediaTitle;
+    }
+    if (!m_currentFile.isEmpty()) {
+        return QFileInfo(m_currentFile).completeBaseName();
+    }
+    return QString();
+}
+
+QString MpvObject::trackArtist() const
+{
+    if (m_metadata.contains(QStringLiteral("artist"))) {
+        const QString a = m_metadata.value(QStringLiteral("artist")).toString().trimmed();
+        if (!a.isEmpty())
+            return a;
+    }
+    if (m_metadata.contains(QStringLiteral("album_artist"))) {
+        return m_metadata.value(QStringLiteral("album_artist")).toString().trimmed();
+    }
+    return QString();
+}
+
+QString MpvObject::trackAlbum() const
+{
+    if (m_metadata.contains(QStringLiteral("album"))) {
+        return m_metadata.value(QStringLiteral("album")).toString().trimmed();
+    }
+    return QString();
+}
+
+QString MpvObject::trackYear() const
+{
+    if (m_metadata.contains(QStringLiteral("date"))) {
+        const QString d = m_metadata.value(QStringLiteral("date")).toString().trimmed();
+        if (!d.isEmpty())
+            return d.left(4);
+    }
+    if (m_metadata.contains(QStringLiteral("year"))) {
+        return m_metadata.value(QStringLiteral("year")).toString().trimmed();
+    }
+    return QString();
+}
+
+QString MpvObject::trackGenre() const
+{
+    if (m_metadata.contains(QStringLiteral("genre"))) {
+        return m_metadata.value(QStringLiteral("genre")).toString().trimmed();
+    }
+    return QString();
+}
+
+void MpvObject::refreshMetadata()
+{
+    if (!m_mpv)
+        return;
+
+    QVariantMap meta;
+    mpv_node node;
+    if (mpv_get_property(m_mpv, "metadata", MPV_FORMAT_NODE, &node) >= 0) {
+        if (node.format == MPV_FORMAT_NODE_MAP && node.u.list) {
+            mpv_node_list *list = node.u.list;
+            for (int i = 0; i < list->num; ++i) {
+                const char *key = list->keys ? list->keys[i] : nullptr;
+                if (!key)
+                    continue;
+                const QVariant v = nodeToVariant(list->values[i]);
+                if (v.isValid()) {
+                    meta.insert(QString::fromUtf8(key).toLower(), v);
+                }
+            }
+        }
+        mpv_free_node_contents(&node);
+    }
+    if (meta != m_metadata) {
+        m_metadata = meta;
+        emit metadataChanged();
+    }
+}
+
+void MpvObject::refreshCoverArt()
+{
+    if (m_currentFile.isEmpty() || !isAudioOnly()) {
+        if (!m_coverArtUrl.isEmpty()) {
+            m_coverArtUrl.clear();
+            emit coverArtUrlChanged();
+        }
+        return;
+    }
+
+    QString foundCover;
+
+    // 1. Check parent folder for cover images
+    QFileInfo fi(m_currentFile);
+    QDir dir = fi.absoluteDir();
+    const QString baseName = fi.completeBaseName();
+
+    const QStringList candidates = {
+        QStringLiteral("cover.jpg"), QStringLiteral("cover.png"), QStringLiteral("cover.jpeg"), QStringLiteral("cover.webp"),
+        QStringLiteral("folder.jpg"), QStringLiteral("folder.png"), QStringLiteral("folder.jpeg"),
+        QStringLiteral("front.jpg"), QStringLiteral("front.png"), QStringLiteral("front.jpeg"),
+        QStringLiteral("album.jpg"), QStringLiteral("album.png"), QStringLiteral("album.jpeg"),
+        baseName + QStringLiteral(".jpg"), baseName + QStringLiteral(".png"), baseName + QStringLiteral(".jpeg")
+    };
+
+    for (const QString &candidate : candidates) {
+        if (dir.exists(candidate)) {
+            foundCover = dir.absoluteFilePath(candidate);
+            break;
+        }
+    }
+
+    // 2. If no folder image found, check disk cache for extracted embedded art
+    if (foundCover.isEmpty()) {
+        const QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/covers");
+        QDir().mkpath(cacheDir);
+
+        const QByteArray hash = QCryptographicHash::hash(m_currentFile.toUtf8(), QCryptographicHash::Sha1).toHex();
+        const QString cachedFile = cacheDir + QStringLiteral("/") + QString::fromLatin1(hash) + QStringLiteral(".jpg");
+
+        if (QFile::exists(cachedFile)) {
+            foundCover = cachedFile;
+        } else {
+            // Extract with ffmpeg
+            QProcess proc;
+            QStringList args;
+            args << QStringLiteral("-y")
+                 << QStringLiteral("-i") << m_currentFile
+                 << QStringLiteral("-an")
+                 << QStringLiteral("-vcodec") << QStringLiteral("copy")
+                 << cachedFile;
+            proc.start(QStringLiteral("ffmpeg"), args);
+            if (!proc.waitForFinished(1000) || !QFile::exists(cachedFile) || QFileInfo(cachedFile).size() == 0) {
+                // If copy failed, try transcoding first frame of video stream
+                QFile::remove(cachedFile);
+                QProcess proc2;
+                QStringList args2;
+                args2 << QStringLiteral("-y")
+                      << QStringLiteral("-i") << m_currentFile
+                      << QStringLiteral("-map") << QStringLiteral("0:v:0")
+                      << QStringLiteral("-frames:v") << QStringLiteral("1")
+                      << QStringLiteral("-q:v") << QStringLiteral("2")
+                      << cachedFile;
+                proc2.start(QStringLiteral("ffmpeg"), args2);
+                proc2.waitForFinished(1500);
+            }
+
+            if (QFile::exists(cachedFile) && QFileInfo(cachedFile).size() > 0) {
+                foundCover = cachedFile;
+            }
+        }
+    }
+
+    QString newUrl;
+    if (!foundCover.isEmpty()) {
+        newUrl = QUrl::fromLocalFile(foundCover).toString();
+    }
+
+    if (m_coverArtUrl != newUrl) {
+        m_coverArtUrl = newUrl;
+        emit coverArtUrlChanged();
+    }
 }
 
 void MpvObject::setVolume(int volume)

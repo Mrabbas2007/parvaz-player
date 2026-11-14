@@ -49,6 +49,14 @@ class MpvObject : public QObject {
     Q_PROPERTY(QVariantList bookmarks READ bookmarks NOTIFY bookmarksChanged)
     Q_PROPERTY(bool audioNormalizer READ audioNormalizer WRITE setAudioNormalizer NOTIFY audioNormalizerChanged)
     Q_PROPERTY(qint64 secondarySubtitleTrack READ secondarySubtitleTrack NOTIFY secondarySubtitleTrackChanged)
+    Q_PROPERTY(bool isAudioOnly READ isAudioOnly NOTIFY isAudioOnlyChanged)
+    Q_PROPERTY(QVariantMap metadata READ metadata NOTIFY metadataChanged)
+    Q_PROPERTY(QString trackTitle READ trackTitle NOTIFY metadataChanged)
+    Q_PROPERTY(QString trackArtist READ trackArtist NOTIFY metadataChanged)
+    Q_PROPERTY(QString trackAlbum READ trackAlbum NOTIFY metadataChanged)
+    Q_PROPERTY(QString trackYear READ trackYear NOTIFY metadataChanged)
+    Q_PROPERTY(QString trackGenre READ trackGenre NOTIFY metadataChanged)
+    Q_PROPERTY(QString coverArtUrl READ coverArtUrl NOTIFY coverArtUrlChanged)
 
 public:
     explicit MpvObject(QObject *parent = nullptr);
@@ -67,6 +75,14 @@ public:
     QString currentFile() const { return m_currentFile; }
     QString hwdec() const { return m_hwdec; }
     bool hasVideo() const;
+    bool isAudioOnly() const;
+    QVariantMap metadata() const { return m_metadata; }
+    QString trackTitle() const;
+    QString trackArtist() const;
+    QString trackAlbum() const;
+    QString trackYear() const;
+    QString trackGenre() const;
+    QString coverArtUrl() const { return m_coverArtUrl; }
     QVariantList tracks() const { return m_tracks; }
     double subtitleDelay() const { return m_subtitleDelay; }
     bool subtitlesVisible() const { return m_subtitlesVisible; }
@@ -216,6 +232,9 @@ signals:
     void audioNormalizerChanged();
     void secondarySubtitleTrackChanged();
     void technicalStatsChanged();
+    void isAudioOnlyChanged();
+    void metadataChanged();
+    void coverArtUrlChanged();
     void fileLoaded();
     void osdRequested(const QString &text);
 
@@ -227,6 +246,8 @@ private:
     void refreshTracks();
     void refreshPlaylist();
     void refreshChapters();
+    void refreshMetadata();
+    void refreshCoverArt();
     QStringList expandAndSortPaths(const QStringList &rawPaths);
     void applySubtitlePosition();
     static void wakeupCallback(void *ctx);
@@ -259,6 +280,9 @@ private:
     QVariantList m_bookmarks;
     bool m_audioNormalizer = false;
     qint64 m_secondarySubtitleTrack = -1;
+    QVariantMap m_metadata;
+    QString m_coverArtUrl;
+    bool m_isAudioOnly = false;
 
     QVariantList m_tracks;
     double m_subtitleDelay = 0.0;

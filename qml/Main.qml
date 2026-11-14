@@ -13,7 +13,15 @@ Window {
     minimumHeight: 200
     visible: true
     color: Theme.bgBase
-    title: Mpv.mediaTitle.length > 0 ? Mpv.mediaTitle + " — Parvaz" : "Parvaz Player"
+    title: {
+        if (Mpv.isAudioOnly) {
+            var art = Mpv.trackArtist;
+            var tit = Mpv.trackTitle;
+            if (tit.length > 0)
+                return (art.length > 0 ? (art + " - ") : "") + tit + " — Parvaz";
+        }
+        return Mpv.mediaTitle.length > 0 ? Mpv.mediaTitle + " — Parvaz" : "Parvaz Player";
+    }
 
     FontLoader { id: vazirFont; source: "fonts/Vazirmatn.ttf" }
     FontLoader { id: monoMediumFont; source: "fonts/JetBrainsMono-Medium.otf" }
@@ -126,6 +134,13 @@ Window {
     MpvFboItem {
         id: video
         anchors.fill: parent
+        visible: !Mpv.isAudioOnly
+    }
+
+    // --- Dedicated Music Player View (Cover Art / Poster / Vinyl) ----------
+    MusicPlayerView {
+        id: musicPlayerView
+        anchors.fill: parent
     }
 
     // Mouse interactions over the video area
@@ -191,7 +206,15 @@ Window {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        mediaTitle: Mpv.mediaTitle
+        mediaTitle: {
+            if (Mpv.isAudioOnly) {
+                var art = Mpv.trackArtist;
+                var tit = Mpv.trackTitle;
+                if (tit.length > 0)
+                    return (art.length > 0 ? (art + " - ") : "") + tit;
+            }
+            return Mpv.mediaTitle;
+        }
         alwaysOnTop: root.alwaysOnTop
         isFullscreen: root.visibility === Window.FullScreen
         opacity: root.chromeVisible ? 1.0 : 0.0
@@ -206,7 +229,7 @@ Window {
     // Source texture for docking blur
     ShaderEffectSource {
         id: dockBlurSource
-        sourceItem: video
+        sourceItem: Mpv.isAudioOnly ? musicPlayerView : video
         sourceRect: Qt.rect(controlBar.x, controlBar.y, controlBar.width, controlBar.height)
         live: root.chromeVisible
         visible: false
