@@ -273,11 +273,19 @@ Window {
         onFullscreenToggled: root.toggleFullscreen()
         onAlwaysOnTopToggled: root.toggleAlwaysOnTop()
         onPlaylistToggled: { playlistDrawer.toggle(); root.poke() }
+        onTechnicalInfoRequested: technicalInfoOverlay.toggle()
         onWindowSizeRequested: (w, h) => {
             root.visibility = Window.Windowed
             root.width = w
             root.height = h
         }
+    }
+
+    // --- Technical Media Info Overlay (Tab) -------------------------------
+    TechnicalInfoOverlay {
+        id: technicalInfoOverlay
+        anchors.fill: parent
+        z: 25
     }
 
     // --- Keyboard Shortcuts (PotPlayer Standard) ---------------------------
@@ -332,7 +340,9 @@ Window {
     PlayerShortcut {
         sequence: "Escape"
         onActivated: {
-            if (playlistDrawer.isOpen) {
+            if (technicalInfoOverlay.isOpen) {
+                technicalInfoOverlay.close()
+            } else if (playlistDrawer.isOpen) {
                 playlistDrawer.close()
             } else if (root.visibility === Window.FullScreen) {
                 root.visibility = Window.Windowed
@@ -340,9 +350,19 @@ Window {
         }
     }
 
+    // Technical info overlay (PotPlayer Tab)
+    PlayerShortcut { sequence: "Tab"; onActivated: technicalInfoOverlay.toggle() }
+
+    // Bookmarks & Chapters (PotPlayer standard)
+    PlayerShortcut { sequence: "P"; onActivated: Mpv.addBookmark() }
+    PlayerShortcut { sequence: "Shift+]"; onActivated: Mpv.nextChapter() }
+    PlayerShortcut { sequence: "Shift+["; onActivated: Mpv.previousChapter() }
+
     // Subtitles & Audio tracks
     PlayerShortcut { sequence: "S"; onActivated: Mpv.cycleSubtitleTrack() }
+    PlayerShortcut { sequence: "Alt+S"; onActivated: Mpv.cycleSecondarySubtitleTrack() }
     PlayerShortcut { sequence: "A"; onActivated: Mpv.cycleAudioTrack() }
+    PlayerShortcut { sequence: "N"; onActivated: Mpv.toggleAudioNormalizer() }
     PlayerShortcut {
         sequence: "V"
         onActivated: {

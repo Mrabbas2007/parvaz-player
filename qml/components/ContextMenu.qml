@@ -12,6 +12,7 @@ Menu {
     signal fullscreenToggled()
     signal alwaysOnTopToggled()
     signal playlistToggled()
+    signal technicalInfoRequested()
 
     property bool isAlwaysOnTop: false
 
@@ -198,6 +199,13 @@ Menu {
         StyledItem { text: "Cycle audio track (A)"; onTriggered: Mpv.cycleAudioTrack() }
         StyledSeparator {}
         StyledItem {
+            text: "Night mode (Normalizer) (N)"
+            checkable: true
+            checked: Mpv.audioNormalizer
+            onTriggered: Mpv.toggleAudioNormalizer()
+        }
+        StyledSeparator {}
+        StyledItem {
             text: Mpv.muted ? "Unmute (M)" : "Mute (M)"
             onTriggered: {
                 Mpv.setMuted(!Mpv.muted)
@@ -231,6 +239,27 @@ Menu {
         }
         StyledItem { text: "Disable subtitles"; onTriggered: Mpv.disableSubtitles() }
         StyledItem { text: "Cycle subtitle track (S)"; onTriggered: Mpv.cycleSubtitleTrack() }
+        StyledSeparator {}
+        StyledMenu {
+            title: "Secondary subtitle (Top)"
+            StyledItem {
+                text: "None"
+                checkable: true
+                checked: Mpv.secondarySubtitleTrack <= 0
+                onTriggered: Mpv.selectSecondarySubtitleTrack(0)
+            }
+            StyledSeparator {}
+            Repeater {
+                model: Mpv.tracksOfType("sub")
+                delegate: StyledItem {
+                    text: modelData.label
+                    checkable: true
+                    checked: modelData.id === Mpv.secondarySubtitleTrack
+                    onTriggered: Mpv.selectSecondarySubtitleTrack(modelData.id)
+                }
+            }
+        }
+        StyledItem { text: "Cycle secondary subtitle (Alt+S)"; onTriggered: Mpv.cycleSecondarySubtitleTrack() }
         StyledSeparator {}
         StyledItem {
             text: "Subtitle delay +0.1s (])"
@@ -318,13 +347,63 @@ Menu {
         }
     }
 
-    // 7. Playlist
+    // 7. Bookmarks & Chapters
+    StyledMenu {
+        title: "Bookmarks & Chapters"
+        StyledItem {
+            text: "Add bookmark (P)"
+            onTriggered: Mpv.addBookmark()
+        }
+        StyledItem {
+            text: "Clear all bookmarks"
+            enabled: Mpv.bookmarks.length > 0
+            onTriggered: Mpv.clearBookmarks()
+        }
+        StyledSeparator {}
+        StyledItem {
+            text: "Next chapter (Shift+])"
+            enabled: Mpv.chapters.length > 0
+            onTriggered: Mpv.nextChapter()
+        }
+        StyledItem {
+            text: "Previous chapter (Shift+[)"
+            enabled: Mpv.chapters.length > 0
+            onTriggered: Mpv.previousChapter()
+        }
+        StyledSeparator {}
+        StyledMenu {
+            title: "Chapters (" + Mpv.chapters.length + ")"
+            enabled: Mpv.chapters.length > 0
+            Repeater {
+                model: Mpv.chapters
+                delegate: StyledItem {
+                    text: modelData.title + " (" + Mpv.formatTime(modelData.time) + ")"
+                    checkable: true
+                    checked: Mpv.currentChapter === modelData.index
+                    onTriggered: Mpv.setChapter(modelData.index)
+                }
+            }
+        }
+        StyledMenu {
+            title: "Bookmarks (" + Mpv.bookmarks.length + ")"
+            enabled: Mpv.bookmarks.length > 0
+            Repeater {
+                model: Mpv.bookmarks
+                delegate: StyledItem {
+                    text: "★ " + modelData.title + " (" + Mpv.formatTime(modelData.position) + ")"
+                    onTriggered: Mpv.seekAbsolute(modelData.position)
+                }
+            }
+        }
+    }
+
+    // 8. Playlist
     StyledItem {
         text: "Playlist (F6)"
         onTriggered: root.playlistToggled()
     }
 
-    // 8. Window
+    // 9. Window
     StyledMenu {
         title: "Window"
         StyledItem {
@@ -332,6 +411,10 @@ Menu {
             checkable: true
             checked: root.isAlwaysOnTop
             onTriggered: root.alwaysOnTopToggled()
+        }
+        StyledItem {
+            text: "Technical info overlay (Tab)"
+            onTriggered: root.technicalInfoRequested()
         }
         StyledSeparator {}
         StyledItem { text: "50% size (1)"; onTriggered: root.windowSizeRequested(640, 360) }

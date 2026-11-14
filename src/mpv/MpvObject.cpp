@@ -1,4 +1,5 @@
 #include "mpv/MpvObject.h"
+#include "playback/PlaybackHistory.h"
 
 #include <QMetaObject>
 #include <QFile>
@@ -94,6 +95,9 @@ MpvObject::MpvObject(QObject *parent)
     mpv_set_option_string(m_mpv, "input-vo-keyboard", "no");
     mpv_set_option_string(m_mpv, "terminal", "no");
     mpv_set_option_string(m_mpv, "audio-pitch-correction", "yes");
+    mpv_set_option_string(m_mpv, "volume-max", "150");
+    // Place secondary subtitles at top of video (10% from top)
+    mpv_set_option_string(m_mpv, "secondary-sub-pos", "10");
 
     if (mpv_initialize(m_mpv) < 0) {
         qFatal("parvaz: mpv_initialize failed");
@@ -120,6 +124,9 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "playlist-pos",   MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, 0, "playlist-count", MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, 0, "playlist",       MPV_FORMAT_NONE);
+    mpv_observe_property(m_mpv, 0, "chapter",        MPV_FORMAT_INT64);
+    mpv_observe_property(m_mpv, 0, "chapter-list",   MPV_FORMAT_NONE);
+    mpv_observe_property(m_mpv, 0, "secondary-sid",  MPV_FORMAT_INT64);
 
     drainEvents();
 }
@@ -169,6 +176,9 @@ void MpvObject::drainEvents()
     bool hasSubFontSize = false;
     bool hasAspect = false;
     bool hasPlaylist = false;
+    bool hasChapter = false;
+    bool hasChapters = false;
+    bool hasSecondarySub = false;
 
     for (;;) {
         mpv_event *ev = mpv_wait_event(m_mpv, 0.0);
@@ -242,6 +252,15 @@ void MpvObject::drainEvents()
             } else if (name == QLatin1String("playlist")) {
                 refreshPlaylist();
                 hasPlaylist = true;
+            } else if (name == QLatin1String("chapter") && prop->format == MPV_FORMAT_INT64) {
+                m_currentChapter = static_cast<int>(*static_cast<int64_t *>(prop->data));
+                hasChapter = true;
+            } else if (name == QLatin1String("chapter-list")) {
+                refreshChapters();
+                hasChapters = true;
+            } else if (name == QLatin1String("secondary-sid") && prop->format == MPV_FORMAT_INT64) {
+                m_secondarySubtitleTrack = *static_cast<int64_t *>(prop->data);
+                hasSecondarySub = true;
             }
             break;
         }
@@ -257,6 +276,9 @@ void MpvObject::drainEvents()
             emit hasVideoChanged();
             refreshPlaylist();
             hasPlaylist = true;
+            refreshChapters();
+            hasChapters = true;
+            refreshBookmarks();
             emit fileLoaded();
             break;
         }
@@ -285,6 +307,9 @@ void MpvObject::drainEvents()
     if (hasSubFontSize)  emit subtitleFontSizeChanged();
     if (hasAspect)       emit videoAspectChanged();
     if (hasPlaylist)     emit playlistChanged();
+    if (hasChapter)      emit currentChapterChanged();
+    if (hasChapters)     emit chaptersChanged();
+    if (hasSecondarySub) emit secondarySubtitleTrackChanged();
 }
 
 /// Reads "track-list" as an mpv_node, walks the node_list (keys is NULL for
@@ -592,8 +617,8 @@ void MpvObject::setVolume(int volume)
 {
     if (!m_mpv)
         return;
-    // mpv treats anything below 0 as 0; keep our own range at 0..100.
-    volume = qBound(0, volume, 100);
+    // mpv supports volume boosting; allow range 0..150.
+    volume = qBound(0, volume, 150);
     if (m_volume != volume) {
         m_volume = volume;
         emit volumeChanged();
@@ -868,7 +893,7 @@ void MpvObject::adjustVolume(int delta)
 {
     if (m_muted && delta > 0)
         setMuted(false);
-    int newVol = qBound(0, m_volume + delta, 100);
+    int newVol = qBound(0, m_volume + delta, 150);
     setVolume(newVol);
     showOsd(m_muted ? QStringLiteral("Mute") : QStringLiteral("Volume: %1%").arg(m_volume));
 }
@@ -906,4 +931,251 @@ void MpvObject::setVideoAspect(const QString &aspect)
     m_videoAspect = aspectFromRatio(ratio);
     emit videoAspectChanged();
     showOsd(QStringLiteral("Aspect ratio: %1").arg(m_videoAspect));
+}
+
+void MpvObject::setHistory(parvaz::PlaybackHistory *history)
+{
+    m_history = history;
+    refreshBookmarks();
+}
+
+void MpvObject::addBookmark(const QString &title)
+{
+    if (m_currentFile.isEmpty() || !m_history)
+        return;
+
+    QString t = title;
+    if (t.isEmpty()) {
+        t = QStringLiteral("Bookmark (%1)").arg(formatTime(m_position));
+    }
+    m_history->addBookmark(m_currentFile, m_position, t);
+    refreshBookmarks();
+    showOsd(QStringLiteral("★ %1 added").arg(t));
+}
+
+void MpvObject::removeBookmark(int id)
+{
+    if (!m_history)
+        return;
+    m_history->removeBookmark(id);
+    refreshBookmarks();
+}
+
+void MpvObject::clearBookmarks()
+{
+    if (m_currentFile.isEmpty() || !m_history)
+        return;
+    m_history->clearBookmarks(m_currentFile);
+    refreshBookmarks();
+    showOsd(QStringLiteral("Bookmarks cleared"));
+}
+
+void MpvObject::refreshBookmarks()
+{
+    if (m_currentFile.isEmpty() || !m_history) {
+        if (!m_bookmarks.isEmpty()) {
+            m_bookmarks.clear();
+            emit bookmarksChanged();
+        }
+        return;
+    }
+
+    const QVariantList b = m_history->bookmarksForFile(m_currentFile);
+    if (b != m_bookmarks) {
+        m_bookmarks = b;
+        emit bookmarksChanged();
+    }
+}
+
+void MpvObject::refreshChapters()
+{
+    if (!m_mpv)
+        return;
+
+    mpv_node node;
+    if (mpv_get_property(m_mpv, "chapter-list", MPV_FORMAT_NODE, &node) < 0)
+        return;
+
+    QVariantList out;
+    if (node.format == MPV_FORMAT_NODE_ARRAY && node.u.list) {
+        mpv_node_list *list = node.u.list;
+        for (int i = 0; i < list->num; ++i) {
+            mpv_node &entry = list->values[i];
+            if (entry.format != MPV_FORMAT_NODE_MAP || !entry.u.list)
+                continue;
+            mpv_node_list *fields = entry.u.list;
+            QVariantMap ch;
+            ch.insert(QStringLiteral("index"), i);
+            for (int f = 0; f < fields->num; ++f) {
+                const char *key = fields->keys ? fields->keys[f] : nullptr;
+                if (!key)
+                    continue;
+                const QVariant v = nodeToVariant(fields->values[f]);
+                if (v.isValid())
+                    ch.insert(QString::fromUtf8(key), v);
+            }
+            if (!ch.contains(QStringLiteral("title")) || ch.value(QStringLiteral("title")).toString().isEmpty()) {
+                ch.insert(QStringLiteral("title"), QStringLiteral("Chapter %1").arg(i + 1));
+            }
+            out.append(ch);
+        }
+    }
+    mpv_free_node_contents(&node);
+
+    if (out != m_chapters) {
+        m_chapters = out;
+        emit chaptersChanged();
+    }
+}
+
+void MpvObject::nextChapter()
+{
+    if (!m_mpv)
+        return;
+    const char *cmd[] = {"add", "chapter", "1", nullptr};
+    mpv_command_async(m_mpv, 0, cmd);
+}
+
+void MpvObject::previousChapter()
+{
+    if (!m_mpv)
+        return;
+    const char *cmd[] = {"add", "chapter", "-1", nullptr};
+    mpv_command_async(m_mpv, 0, cmd);
+}
+
+void MpvObject::setChapter(int index)
+{
+    if (!m_mpv || index < 0)
+        return;
+    int64_t idx = index;
+    mpv_set_property_async(m_mpv, 0, "chapter", MPV_FORMAT_INT64, &idx);
+}
+
+void MpvObject::selectSecondarySubtitleTrack(qint64 id)
+{
+    if (!m_mpv)
+        return;
+    if (id <= 0) {
+        const char *cmd[] = {"set", "secondary-sid", "no", nullptr};
+        mpv_command_async(m_mpv, 0, cmd);
+        showOsd(QStringLiteral("Secondary sub: None"));
+    } else {
+        const QByteArray idStr = QByteArray::number(id);
+        const char *cmd[] = {"set", "secondary-sid", idStr.constData(), nullptr};
+        mpv_command_async(m_mpv, 0, cmd);
+        showOsd(QStringLiteral("Secondary sub track #%1").arg(id));
+    }
+}
+
+void MpvObject::cycleSecondarySubtitleTrack()
+{
+    if (!m_mpv)
+        return;
+    const char *cmd[] = {"cycle", "secondary-sid", nullptr};
+    mpv_command_async(m_mpv, 0, cmd);
+}
+
+void MpvObject::setAudioNormalizer(bool enabled)
+{
+    if (m_audioNormalizer == enabled)
+        return;
+    m_audioNormalizer = enabled;
+    emit audioNormalizerChanged();
+
+    if (!m_mpv)
+        return;
+    if (enabled) {
+        const char *cmd[] = {"af", "add", "@norm:lavfi=[dynaudnorm=f=250:g=31:p=0.95:m=10.0:r=0.9]", nullptr};
+        mpv_command_async(m_mpv, 0, cmd);
+        showOsd(QStringLiteral("Night Mode (Normalizer): ON"));
+    } else {
+        const char *cmd[] = {"af", "remove", "@norm", nullptr};
+        mpv_command_async(m_mpv, 0, cmd);
+        showOsd(QStringLiteral("Night Mode (Normalizer): OFF"));
+    }
+}
+
+void MpvObject::toggleAudioNormalizer()
+{
+    setAudioNormalizer(!m_audioNormalizer);
+}
+
+QVariantMap MpvObject::technicalStats() const
+{
+    QVariantMap map;
+    if (!m_mpv)
+        return map;
+
+    auto getString = [this](const char *name) -> QString {
+        char *s = mpv_get_property_string(m_mpv, name);
+        if (!s)
+            return QString();
+        QString res = QString::fromUtf8(s);
+        mpv_free(s);
+        return res;
+    };
+    auto getInt = [this](const char *name) -> qint64 {
+        int64_t v = 0;
+        if (mpv_get_property(m_mpv, name, MPV_FORMAT_INT64, &v) < 0)
+            return 0;
+        return v;
+    };
+    auto getDouble = [this](const char *name) -> double {
+        double v = 0.0;
+        if (mpv_get_property(m_mpv, name, MPV_FORMAT_DOUBLE, &v) < 0)
+            return 0.0;
+        return v;
+    };
+
+    // Video specs
+    QString vCodec = getString("video-codec");
+    if (vCodec.isEmpty())
+        vCodec = getString("video-format");
+    qint64 width = getInt("video-params/w");
+    qint64 height = getInt("video-params/h");
+    double aspect = getDouble("video-params/aspect");
+    double fps = getDouble("container-fps");
+    if (fps <= 0.0)
+        fps = getDouble("estimated-vf-fps");
+    double vBitrate = getDouble("video-bitrate");
+    QString hwdec = getString("hwdec-current");
+
+    // Audio specs
+    QString aCodec = getString("audio-codec-name");
+    if (aCodec.isEmpty())
+        aCodec = getString("audio-codec");
+    qint64 sampleRate = getInt("audio-params/samplerate");
+    qint64 channels = getInt("audio-params/channel-count");
+    double aBitrate = getDouble("audio-bitrate");
+
+    // Drops & Cache
+    qint64 voDrops = getInt("frame-drop-count");
+    qint64 decDrops = getInt("decoder-frame-drop-count");
+    double cacheSec = getDouble("demuxer-cache-duration");
+    double avsync = getDouble("avsync");
+
+    map.insert(QStringLiteral("videoCodec"), vCodec.isEmpty() ? QStringLiteral("N/A") : vCodec.toUpper());
+    map.insert(QStringLiteral("width"), width);
+    map.insert(QStringLiteral("height"), height);
+    map.insert(QStringLiteral("resolution"), (width > 0 && height > 0) ? QStringLiteral("%1x%2").arg(width).arg(height) : QStringLiteral("N/A"));
+    map.insert(QStringLiteral("aspect"), aspect > 0.0 ? QString::number(aspect, 'f', 2) : QStringLiteral("N/A"));
+    map.insert(QStringLiteral("fps"), fps > 0.0 ? QStringLiteral("%1 fps").arg(QString::number(fps, 'f', 3)) : QStringLiteral("N/A"));
+    map.insert(QStringLiteral("hwdec"), (hwdec.isEmpty() || hwdec == QLatin1String("no")) ? QStringLiteral("Software (CPU)") : hwdec.toUpper());
+    map.insert(QStringLiteral("isHwdec"), !hwdec.isEmpty() && hwdec != QLatin1String("no"));
+    map.insert(QStringLiteral("videoBitrate"), vBitrate > 0.0 ? QStringLiteral("%1 kbps").arg(static_cast<int>(vBitrate / 1000.0)) : QStringLiteral("N/A"));
+
+    map.insert(QStringLiteral("audioCodec"), aCodec.isEmpty() ? QStringLiteral("N/A") : aCodec.toUpper());
+    map.insert(QStringLiteral("audioChannels"), channels > 0 ? (channels == 2 ? QStringLiteral("2 ch (Stereo)") : (channels == 6 ? QStringLiteral("6 ch (5.1)") : QStringLiteral("%1 ch").arg(channels))) : QStringLiteral("N/A"));
+    map.insert(QStringLiteral("sampleRate"), sampleRate > 0 ? QStringLiteral("%1 Hz").arg(sampleRate) : QStringLiteral("N/A"));
+    map.insert(QStringLiteral("audioBitrate"), aBitrate > 0.0 ? QStringLiteral("%1 kbps").arg(static_cast<int>(aBitrate / 1000.0)) : QStringLiteral("N/A"));
+    map.insert(QStringLiteral("audioNormalizer"), m_audioNormalizer ? QStringLiteral("Active (dynaudnorm)") : QStringLiteral("Off"));
+
+    map.insert(QStringLiteral("voDrops"), voDrops);
+    map.insert(QStringLiteral("decDrops"), decDrops);
+    map.insert(QStringLiteral("cacheDuration"), cacheSec > 0.0 ? QStringLiteral("%1s").arg(QString::number(cacheSec, 'f', 1)) : QStringLiteral("0.0s"));
+    map.insert(QStringLiteral("avsync"), QStringLiteral("%1s").arg(QString::number(avsync, 'f', 3)));
+    map.insert(QStringLiteral("speed"), QStringLiteral("%1x").arg(QString::number(m_speed, 'f', 2)));
+
+    return map;
 }

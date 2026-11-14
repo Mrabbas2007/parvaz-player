@@ -288,6 +288,12 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             {
                 parvaz::PlaybackHistory history(&mpv, testDb);
                 check("resumePosition initially 0", history.resumePosition(QStringLiteral("/dummy/video.mkv")) == 0.0);
+                check("addBookmark works", history.addBookmark(QStringLiteral("/dummy/video.mkv"), 12.5, QStringLiteral("Intro")));
+                const QVariantList bms = history.bookmarksForFile(QStringLiteral("/dummy/video.mkv"));
+                check("bookmarksForFile returns 1 item", bms.size() == 1);
+                check("bookmark position is 12.5", qAbs(bms.first().toMap().value(QStringLiteral("position")).toDouble() - 12.5) < 0.001);
+                check("removeBookmark works", history.removeBookmark(bms.first().toMap().value(QStringLiteral("id")).toInt()));
+                check("bookmarksForFile returns 0 after remove", history.bookmarksForFile(QStringLiteral("/dummy/video.mkv")).isEmpty());
             }
             QFile::remove(testDb);
             mpv.setVideoAspect(QStringLiteral("16:9"));
@@ -338,7 +344,25 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
                   mpv.playlist().size() > 1 &&
                   mpv.playlist().at(1).toMap().value(QStringLiteral("title")).toString() == QLatin1String("01-Track 01.mp3"));
             QDir(QStringLiteral("/tmp/parvaz_album_test")).removeRecursively();
+            // Test volume boost up to 150%, night mode, and technical stats
+            mpv.setVolume(140);
+            mpv.setAudioNormalizer(true);
             break;
+        case 36: {
+            check("volume boosted to 140", mpv.volume() == 140);
+            mpv.setVolume(100);
+            check("volume reset to 100", mpv.volume() == 100);
+            check("audioNormalizer is true", mpv.audioNormalizer() == true);
+            mpv.setAudioNormalizer(false);
+            check("audioNormalizer is false", mpv.audioNormalizer() == false);
+            const QVariantMap stats = mpv.technicalStats();
+            check("technicalStats has resolution", stats.contains(QStringLiteral("resolution")));
+            check("technicalStats has videoCodec", stats.contains(QStringLiteral("videoCodec")));
+            check("technicalStats has audioCodec", stats.contains(QStringLiteral("audioCodec")));
+            mpv.selectSecondarySubtitleTrack(0);
+            check("secondarySubtitleTrack <= 0", mpv.secondarySubtitleTrack() <= 0);
+            break;
+        }
         default: {
             const QString hw = mpv.hwdec();
             std::fprintf(stderr,
@@ -354,7 +378,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         // get a longer beat before the assertion on the next turn.
         const int delay = (step == 7 || step == 8 || step == 14 || step == 18 || step == 19 || step == 21 || step == 23
                                || step == 24 || step == 25 || step == 26 || step == 27 || step == 28 || step == 29
-                               || step == 30 || step == 31 || step == 32 || step == 33 || step == 34)
+                               || step == 30 || step == 31 || step == 32 || step == 33 || step == 34 || step == 35)
                               ? 500 : 250;
         QTimer::singleShot(delay, app, [next, step]() { (*next)(step + 1); });
     };

@@ -8,6 +8,8 @@
 
 #include <mpv/client.h>
 
+namespace parvaz { class PlaybackHistory; }
+
 /// Thin, GUI-thread-owned wrapper around mpv_handle.
 /// All client-API calls happen on the Qt main thread.
 /// The render context lives in MpvFboItem's renderer (render thread).
@@ -42,6 +44,11 @@ class MpvObject : public QObject {
     Q_PROPERTY(bool hasNext READ hasNext NOTIFY playlistChanged)
     Q_PROPERTY(bool hasPrevious READ hasPrevious NOTIFY playlistChanged)
     Q_PROPERTY(QVariantList playlist READ playlist NOTIFY playlistChanged)
+    Q_PROPERTY(QVariantList chapters READ chapters NOTIFY chaptersChanged)
+    Q_PROPERTY(int currentChapter READ currentChapter NOTIFY currentChapterChanged)
+    Q_PROPERTY(QVariantList bookmarks READ bookmarks NOTIFY bookmarksChanged)
+    Q_PROPERTY(bool audioNormalizer READ audioNormalizer WRITE setAudioNormalizer NOTIFY audioNormalizerChanged)
+    Q_PROPERTY(qint64 secondarySubtitleTrack READ secondarySubtitleTrack NOTIFY secondarySubtitleTrackChanged)
 
 public:
     explicit MpvObject(QObject *parent = nullptr);
@@ -71,6 +78,14 @@ public:
     bool hasNext() const { return m_playlistCount > 0 && m_playlistIndex >= 0 && m_playlistIndex < m_playlistCount - 1; }
     bool hasPrevious() const { return m_playlistCount > 0 && m_playlistIndex > 0; }
     QVariantList playlist() const { return m_playlist; }
+    QVariantList chapters() const { return m_chapters; }
+    int currentChapter() const { return m_currentChapter; }
+    QVariantList bookmarks() const { return m_bookmarks; }
+    bool audioNormalizer() const { return m_audioNormalizer; }
+    qint64 secondarySubtitleTrack() const { return m_secondarySubtitleTrack; }
+
+    void setHistory(parvaz::PlaybackHistory *history);
+    void setAudioNormalizer(bool enabled);
 
     void setPaused(bool paused);
     void setVolume(int volume);
@@ -138,6 +153,25 @@ public:
 
     Q_INVOKABLE void cycleSubtitleTrack();
     Q_INVOKABLE void cycleAudioTrack();
+    Q_INVOKABLE void selectSecondarySubtitleTrack(qint64 id);
+    Q_INVOKABLE void cycleSecondarySubtitleTrack();
+
+    /// Chapters
+    Q_INVOKABLE void nextChapter();
+    Q_INVOKABLE void previousChapter();
+    Q_INVOKABLE void setChapter(int index);
+
+    /// Bookmarks
+    Q_INVOKABLE void addBookmark(const QString &title = QString());
+    Q_INVOKABLE void removeBookmark(int id);
+    Q_INVOKABLE void clearBookmarks();
+    Q_INVOKABLE void refreshBookmarks();
+
+    /// Audio normalizer (Night mode)
+    Q_INVOKABLE void toggleAudioNormalizer();
+
+    /// Technical specs (for OSD with Tab key)
+    Q_INVOKABLE QVariantMap technicalStats() const;
 
     /// The tracks of one type ("audio" / "video" / "sub"), each reduced to
     /// { id, label, selected } so QML needs no filtering logic.
@@ -176,6 +210,12 @@ signals:
     void subtitleFontSizeChanged();
     void videoAspectChanged();
     void playlistChanged();
+    void chaptersChanged();
+    void currentChapterChanged();
+    void bookmarksChanged();
+    void audioNormalizerChanged();
+    void secondarySubtitleTrackChanged();
+    void technicalStatsChanged();
     void fileLoaded();
     void osdRequested(const QString &text);
 
@@ -186,12 +226,14 @@ private:
     void drainEvents();
     void refreshTracks();
     void refreshPlaylist();
+    void refreshChapters();
     QStringList expandAndSortPaths(const QStringList &rawPaths);
     void applySubtitlePosition();
     static void wakeupCallback(void *ctx);
 
     static MpvObject *s_instance;
     mpv_handle *m_mpv = nullptr;
+    parvaz::PlaybackHistory *m_history = nullptr;
     std::atomic_bool m_wakeupPending{false};
 
     bool m_renderReady = false;
@@ -211,6 +253,12 @@ private:
     int m_playlistCount = 0;
     int m_playlistIndex = -1;
     QVariantList m_playlist;
+
+    QVariantList m_chapters;
+    int m_currentChapter = -1;
+    QVariantList m_bookmarks;
+    bool m_audioNormalizer = false;
+    qint64 m_secondarySubtitleTrack = -1;
 
     QVariantList m_tracks;
     double m_subtitleDelay = 0.0;

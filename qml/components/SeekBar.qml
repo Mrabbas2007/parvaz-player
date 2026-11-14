@@ -48,6 +48,37 @@ Item {
             color: Theme.timelinePlayed
         }
 
+        // Chapter notches
+        Repeater {
+            model: Mpv.chapters
+            delegate: Rectangle {
+                required property var modelData
+                visible: modelData.time > 0 && modelData.time < root.duration
+                x: (trackArea.width * (modelData.time / root.effectiveDuration)) - (width / 2)
+                anchors.verticalCenter: parent.verticalCenter
+                width: 1.5
+                height: trackArea.height + 3
+                color: "#90FFFFFF"
+                z: 2
+            }
+        }
+
+        // Bookmark notches
+        Repeater {
+            model: Mpv.bookmarks
+            delegate: Rectangle {
+                required property var modelData
+                visible: modelData.position > 0 && modelData.position < root.duration
+                x: (trackArea.width * (modelData.position / root.effectiveDuration)) - (width / 2)
+                anchors.verticalCenter: parent.verticalCenter
+                width: 2.5
+                height: trackArea.height + 5
+                radius: 1
+                color: "#FFAA00"
+                z: 3
+            }
+        }
+
         // Scrubber Thumb Handle (only visible on hover or dragging)
         Rectangle {
             id: thumb
@@ -85,6 +116,24 @@ Item {
         readonly property real hoverSeconds: hoverRatio * root.effectiveDuration
         readonly property int hoverSec: Math.max(0, Math.round(hoverSeconds))
 
+        function matchMark(sec) {
+            var bmList = Mpv.bookmarks;
+            for (var i = 0; i < bmList.length; ++i) {
+                if (Math.abs(bmList[i].position - sec) <= Math.max(2.5, root.duration * 0.015)) {
+                    return "★ " + bmList[i].title;
+                }
+            }
+            var chList = Mpv.chapters;
+            for (var j = 0; j < chList.length; ++j) {
+                if (Math.abs(chList[j].time - sec) <= Math.max(2.5, root.duration * 0.015)) {
+                    return chList[j].title;
+                }
+            }
+            return "";
+        }
+
+        readonly property string markLabel: matchMark(hoverSeconds)
+
         onHoverSecChanged: {
             if (root.activeThumbSec === 0 && hoverSec > 0)
                 root.activeThumbSec = hoverSec;
@@ -92,7 +141,7 @@ Item {
                 thumbDebounceTimer.restart();
         }
 
-        width: root.hasVideo ? 164 : (previewText.implicitWidth + 14)
+        width: Math.max(root.hasVideo ? 164 : (previewText.implicitWidth + 14), previewText.implicitWidth + 16)
         height: root.hasVideo ? 116 : (previewText.implicitHeight + 6)
         radius: Theme.radiusSmall
         color: "#0F1015"
@@ -133,11 +182,14 @@ Item {
             Text {
                 id: previewText
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Mpv.formatTime(previewTooltip.hoverSeconds)
+                text: Mpv.formatTime(previewTooltip.hoverSeconds) + (previewTooltip.markLabel.length > 0 ? (" • " + previewTooltip.markLabel) : "")
                 color: Theme.textPrimary
                 font.family: Theme.fontDigits
                 font.pixelSize: Theme.fontSmall
                 font.bold: true
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                width: Math.min(220, implicitWidth)
             }
         }
     }

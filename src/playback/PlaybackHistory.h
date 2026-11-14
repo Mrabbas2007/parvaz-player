@@ -4,6 +4,7 @@
 #include <QString>
 #include <QSqlDatabase>
 #include <QTimer>
+#include <QVariantList>
 
 class MpvObject;
 
@@ -25,6 +26,12 @@ public:
 
     /// Clears saved position for the given file.
     void clearState(const QString &filePath);
+
+    /// Bookmarks management
+    bool addBookmark(const QString &filePath, double position, const QString &title = QString());
+    bool removeBookmark(int bookmarkId);
+    bool clearBookmarks(const QString &filePath);
+    QVariantList bookmarksForFile(const QString &filePath) const;
 
     /// Minimum seconds played before a position is remembered.
     static constexpr double kMinResumeSeconds = 5.0;
