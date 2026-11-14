@@ -360,6 +360,11 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("technicalStats has resolution", stats.contains(QStringLiteral("resolution")));
             check("technicalStats has videoCodec", stats.contains(QStringLiteral("videoCodec")));
             check("technicalStats has audioCodec", stats.contains(QStringLiteral("audioCodec")));
+            check("currentAudioTrack > 0", mpv.currentAudioTrack() > 0);
+            mpv.selectAudioTrack(0);
+            check("currentAudioTrack <= 0 after selectAudioTrack(0)", mpv.currentAudioTrack() <= 0);
+            mpv.selectAudioTrack(1);
+            check("currentAudioTrack == 1 after restore", mpv.currentAudioTrack() == 1);
             mpv.selectSecondarySubtitleTrack(0);
             check("secondarySubtitleTrack <= 0", mpv.secondarySubtitleTrack() <= 0);
             // Load music file with attached picture to test music mode & cover art

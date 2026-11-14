@@ -361,6 +361,22 @@ void MpvObject::refreshTracks()
     const bool oldIsAudioOnly = isAudioOnly();
     if (out != m_tracks) {
         m_tracks = out;
+
+        qint64 curAudio = 0;
+        qint64 curSub = 0;
+        for (const QVariant &v : out) {
+            const QVariantMap t = v.toMap();
+            if (t.value(QStringLiteral("selected")).toBool()) {
+                const QString type = t.value(QStringLiteral("type")).toString();
+                if (type == QLatin1String("audio"))
+                    curAudio = t.value(QStringLiteral("id")).toLongLong();
+                else if (type == QLatin1String("sub"))
+                    curSub = t.value(QStringLiteral("id")).toLongLong();
+            }
+        }
+        m_currentAudioTrack = curAudio;
+        m_currentSubtitleTrack = curSub;
+
         if (hasVideo() != oldHasVideo)
             emit hasVideoChanged();
         if (isAudioOnly() != oldIsAudioOnly)
@@ -878,23 +894,129 @@ QString MpvObject::urlToLocalPath(const QUrl &url)
 // Subtitle state and mpv calls live in SubtitleController; these are the
 // QML-facing delegates (plus OSD announcements).
 
+void MpvObject::selectAudioTrack(qint64 id)
+{
+    if (!m_mpv)
+        return;
+
+    const qint64 targetId = id <= 0 ? 0 : id;
+    if (m_currentAudioTrack != targetId) {
+        m_currentAudioTrack = targetId;
+        for (QVariant &v : m_tracks) {
+            QVariantMap t = v.toMap();
+            if (t.value(QStringLiteral("type")).toString() == QLatin1String("audio")) {
+                t[QStringLiteral("selected")] = (t.value(QStringLiteral("id")).toLongLong() == targetId);
+                v = t;
+            }
+        }
+        emit tracksChanged();
+    }
+
+    if (id <= 0) {
+        mpv_set_property_string(m_mpv, "aid", "no");
+        showOsd(QStringLiteral("Audio: Disabled"));
+        return;
+    }
+
+    mpv_set_property(m_mpv, "aid", MPV_FORMAT_INT64, &id);
+
+    QString label;
+    for (const QVariant &v : m_tracks) {
+        const QVariantMap t = v.toMap();
+        if (t.value(QStringLiteral("type")).toString() == QLatin1String("audio") &&
+            t.value(QStringLiteral("id")).toLongLong() == id) {
+            const QString title = t.value(QStringLiteral("title")).toString();
+            const QString lang = t.value(QStringLiteral("lang")).toString();
+            if (title.isEmpty())
+                label = lang.isEmpty() ? QStringLiteral("Track %1").arg(id)
+                                       : QStringLiteral("%1").arg(lang);
+            else if (!lang.isEmpty())
+                label = QStringLiteral("%1 [%2]").arg(title, lang);
+            else
+                label = title;
+            break;
+        }
+    }
+    if (label.isEmpty())
+        label = QStringLiteral("Track %1").arg(id);
+    showOsd(QStringLiteral("Audio: %1").arg(label));
+}
+
+void MpvObject::selectSubtitleTrack(qint64 id)
+{
+    if (!m_mpv)
+        return;
+
+    const qint64 targetId = id <= 0 ? 0 : id;
+    if (m_currentSubtitleTrack != targetId) {
+        m_currentSubtitleTrack = targetId;
+        for (QVariant &v : m_tracks) {
+            QVariantMap t = v.toMap();
+            if (t.value(QStringLiteral("type")).toString() == QLatin1String("sub")) {
+                t[QStringLiteral("selected")] = (t.value(QStringLiteral("id")).toLongLong() == targetId);
+                v = t;
+            }
+        }
+        emit tracksChanged();
+    }
+
+    if (id <= 0) {
+        m_subtitles.deselect();
+        showOsd(QStringLiteral("Subtitles: Off"));
+        return;
+    }
+
+    mpv_set_property(m_mpv, "sid", MPV_FORMAT_INT64, &id);
+    if (!m_subtitles.visible())
+        m_subtitles.setVisible(true);
+
+    QString label;
+    for (const QVariant &v : m_tracks) {
+        const QVariantMap t = v.toMap();
+        if (t.value(QStringLiteral("type")).toString() == QLatin1String("sub") &&
+            t.value(QStringLiteral("id")).toLongLong() == id) {
+            const QString title = t.value(QStringLiteral("title")).toString();
+            const QString lang = t.value(QStringLiteral("lang")).toString();
+            if (title.isEmpty())
+                label = lang.isEmpty() ? QStringLiteral("Track %1").arg(id)
+                                       : QStringLiteral("%1").arg(lang);
+            else if (!lang.isEmpty())
+                label = QStringLiteral("%1 [%2]").arg(title, lang);
+            else
+                label = title;
+            break;
+        }
+    }
+    if (label.isEmpty())
+        label = QStringLiteral("Track %1").arg(id);
+    showOsd(QStringLiteral("Subtitles: %1").arg(label));
+}
+
+void MpvObject::selectTrack(const QString &type, qint64 id)
+{
+    if (type == QLatin1String("audio"))
+        selectAudioTrack(id);
+    else if (type == QLatin1String("sub"))
+        selectSubtitleTrack(id);
+}
+
 void MpvObject::selectTrack(qint64 id)
 {
     if (!m_mpv)
         return;
 
-    // The id is only unique within its own track type, so find out which
-    // property ("aid" or "sid") it belongs to.
     for (const QVariant &v : m_tracks) {
         const QVariantMap t = v.toMap();
         if (t.value(QStringLiteral("id")).toLongLong() != id)
             continue;
         const QString type = t.value(QStringLiteral("type")).toString();
-        if (type == QLatin1String("audio"))
-            mpv_set_property(m_mpv, "aid", MPV_FORMAT_INT64, &id);
-        else if (type == QLatin1String("sub"))
-            mpv_set_property(m_mpv, "sid", MPV_FORMAT_INT64, &id);
-        return;
+        if (type == QLatin1String("sub")) {
+            selectSubtitleTrack(id);
+            return;
+        } else if (type == QLatin1String("audio")) {
+            selectAudioTrack(id);
+            return;
+        }
     }
 }
 

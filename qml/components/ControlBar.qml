@@ -231,8 +231,13 @@ Item {
                     tooltipText: "Subtitles & Options (V / S)"
                     buttonSize: 30
                     iconSize: 17
-                    active: Mpv.subtitlesVisible
-                    onClicked: subsMenu.open()
+                    active: Mpv.subtitlesVisible && Mpv.currentSubtitleTrack > 0
+                    onClicked: {
+                        var p = subsBtn.mapToItem(root, 0, 0);
+                        subsMenu.x = Math.max(8, Math.min(root.width - subsMenu.implicitWidth - 8, p.x + (subsBtn.width - subsMenu.implicitWidth) / 2));
+                        subsMenu.y = p.y - subsMenu.implicitHeight - 8;
+                        subsMenu.open();
+                    }
                 }
 
                 // Audio tracks button
@@ -243,7 +248,13 @@ Item {
                     tooltipText: "Audio tracks (A)"
                     buttonSize: 30
                     iconSize: 17
-                    onClicked: audioMenu.open()
+                    active: Mpv.currentAudioTrack > 0 && !Mpv.muted
+                    onClicked: {
+                        var p = audioBtn.mapToItem(root, 0, 0);
+                        audioMenu.x = Math.max(8, Math.min(root.width - audioMenu.implicitWidth - 8, p.x + (audioBtn.width - audioMenu.implicitWidth) / 2));
+                        audioMenu.y = p.y - audioMenu.implicitHeight - 8;
+                        audioMenu.open();
+                    }
                 }
 
                 // Clean text speed control (No bordered pill!)
@@ -358,143 +369,192 @@ Item {
         }
     }
 
+    component ControlMenuItem: MenuItem {
+        id: cItem
+        implicitWidth: 240
+        implicitHeight: 28
+        padding: 0
+        leftPadding: 6
+        rightPadding: 6
+        topPadding: 2
+        bottomPadding: 2
+
+        contentItem: Item {
+            anchors.fill: parent
+
+            Item {
+                id: chkContainer
+                anchors.left: parent.left
+                anchors.leftMargin: 2
+                anchors.verticalCenter: parent.verticalCenter
+                width: 14
+                height: 14
+                visible: cItem.checkable
+
+                Image {
+                    anchors.centerIn: parent
+                    width: 11
+                    height: 11
+                    source: "../icons/check.svg"
+                    sourceSize: Qt.size(11, 11)
+                    visible: cItem.checked
+                }
+            }
+
+            Text {
+                anchors.left: cItem.checkable ? chkContainer.right : parent.left
+                anchors.leftMargin: cItem.checkable ? 6 : 6
+                anchors.right: parent.right
+                anchors.rightMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
+                text: cItem.text
+                color: !cItem.enabled ? "#555A6B" : (cItem.highlighted ? "#FFFFFF" : "#E2E4EC")
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontNormal
+                elide: Text.ElideRight
+            }
+        }
+
+        background: Rectangle {
+            implicitWidth: 240
+            implicitHeight: 28
+            color: cItem.highlighted ? "#2A3348" : "transparent"
+            radius: 3
+        }
+    }
+
+    component ControlMenuSeparator: MenuSeparator {
+        padding: 4
+        topPadding: 4
+        bottomPadding: 4
+        contentItem: Rectangle {
+            implicitHeight: 1
+            implicitWidth: 226
+            color: "#222736"
+        }
+    }
+
     // Audio Menu
     Menu {
         id: audioMenu
-        x: audioBtn.x - 60
-        y: audioBtn.y - height - 8
 
         background: Rectangle {
-            implicitWidth: 210
-            color: Theme.bgGlass
-            border.color: Theme.borderGlass
+            implicitWidth: 240
+            color: "#14161F"
+            border.color: "#282D3E"
             border.width: 1
-            radius: Theme.radiusMedium
+            radius: 4
         }
 
         Repeater {
             model: Mpv.audioTracks
-            delegate: MenuItem {
+            delegate: ControlMenuItem {
                 text: modelData.label
                 checkable: true
                 checked: modelData.selected
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontNormal
-                onTriggered: Mpv.selectTrack(modelData.id)
+                onTriggered: Mpv.selectAudioTrack(modelData.id)
             }
         }
 
-        MenuSeparator {}
+        ControlMenuSeparator { visible: Mpv.audioTracks.length > 0 }
 
-        MenuItem {
+        ControlMenuItem {
             text: "Next audio track (A)"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.cycleAudioTrack()
+        }
+
+        ControlMenuItem {
+            text: "Night mode (Normalizer) (N)"
+            checkable: true
+            checked: Mpv.audioNormalizer
+            onTriggered: Mpv.toggleAudioNormalizer()
         }
     }
 
     // Subtitle Menu
     Menu {
         id: subsMenu
-        x: subsBtn.x - 80
-        y: subsBtn.y - height - 8
 
         background: Rectangle {
-            implicitWidth: 230
-            color: Theme.bgGlass
-            border.color: Theme.borderGlass
+            implicitWidth: 240
+            color: "#14161F"
+            border.color: "#282D3E"
             border.width: 1
-            radius: Theme.radiusMedium
+            radius: 4
         }
+
+        ControlMenuItem {
+            text: "None (Disable subtitles)"
+            checkable: true
+            checked: Mpv.currentSubtitleTrack <= 0
+            onTriggered: Mpv.selectSubtitleTrack(0)
+        }
+
+        ControlMenuSeparator { visible: Mpv.subTracks.length > 0 }
 
         Repeater {
             model: Mpv.subTracks
-            delegate: MenuItem {
+            delegate: ControlMenuItem {
                 text: modelData.label
                 checkable: true
                 checked: modelData.selected
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontNormal
-                onTriggered: Mpv.selectTrack(modelData.id)
+                onTriggered: Mpv.selectSubtitleTrack(modelData.id)
             }
         }
 
-        MenuItem {
-            text: "Disable subtitles"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
-            onTriggered: Mpv.disableSubtitles()
-        }
+        ControlMenuSeparator {}
 
-        MenuSeparator {}
-
-        MenuItem {
+        ControlMenuItem {
             text: "Visible (V)"
             checkable: true
             checked: Mpv.subtitlesVisible
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: {
-                Mpv.setSubtitlesVisible(!Mpv.subtitlesVisible)
-                Mpv.showOsd(Mpv.subtitlesVisible ? "Subtitles: On" : "Subtitles: Off")
+                var newVisible = !Mpv.subtitlesVisible
+                Mpv.setSubtitlesVisible(newVisible)
+                Mpv.showOsd(newVisible ? "Subtitles: On" : "Subtitles: Off")
             }
         }
 
-        MenuItem {
+        ControlMenuItem {
             text: "Delay −0.1s ([)"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: {
                 Mpv.setSubtitleDelay(Mpv.subtitleDelay - 0.1)
                 Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
             }
         }
 
-        MenuItem {
+        ControlMenuItem {
             text: "Delay +0.1s (])"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: {
                 Mpv.setSubtitleDelay(Mpv.subtitleDelay + 0.1)
                 Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
             }
         }
 
-        MenuItem {
+        ControlMenuItem {
             text: "Font size − (Alt+PageDown)"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.adjustSubtitleFontSize(-2)
         }
 
-        MenuItem {
+        ControlMenuItem {
             text: "Font size + (Alt+PageUp)"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.adjustSubtitleFontSize(2)
         }
 
-        MenuSeparator {}
+        ControlMenuSeparator {}
 
-        MenuItem {
+        ControlMenuItem {
             text: "Persian legacy encoding (cp1256)"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.setSubtitleCodepage("cp1256")
         }
 
-        MenuItem {
+        ControlMenuItem {
             text: "UTF-8 encoding (default)"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: Mpv.setSubtitleCodepage("utf-8")
         }
 
-        MenuItem {
+        ControlMenuItem {
             text: "Open subtitle file…"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
             onTriggered: root.openSubClicked()
         }
     }

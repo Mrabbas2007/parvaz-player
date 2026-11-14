@@ -36,6 +36,8 @@ class MpvObject : public QObject {
     /// (empty) and never refresh. Properties re-evaluate on tracksChanged.
     Q_PROPERTY(QVariantList audioTracks READ audioTracks NOTIFY tracksChanged)
     Q_PROPERTY(QVariantList subTracks READ subTracks NOTIFY tracksChanged)
+    Q_PROPERTY(qint64 currentAudioTrack READ currentAudioTrack NOTIFY tracksChanged)
+    Q_PROPERTY(qint64 currentSubtitleTrack READ currentSubtitleTrack NOTIFY tracksChanged)
     Q_PROPERTY(double subtitleDelay READ subtitleDelay WRITE setSubtitleDelay
                    NOTIFY subtitleDelayChanged)
     Q_PROPERTY(bool subtitlesVisible READ subtitlesVisible WRITE setSubtitlesVisible
@@ -94,6 +96,8 @@ public:
     QVariantList tracks() const { return m_tracks; }
     QVariantList audioTracks() const { return tracksOfType(QStringLiteral("audio")); }
     QVariantList subTracks() const { return tracksOfType(QStringLiteral("sub")); }
+    qint64 currentAudioTrack() const { return m_currentAudioTrack; }
+    qint64 currentSubtitleTrack() const { return m_currentSubtitleTrack; }
     double subtitleDelay() const { return m_subtitles.delay(); }
     bool subtitlesVisible() const { return m_subtitles.visible(); }
     double subtitlePosition() const { return m_subtitles.position(); }
@@ -161,8 +165,16 @@ public:
     /// and the drop overlay (used to be duplicated JS in QML).
     Q_INVOKABLE static QString urlToLocalPath(const QUrl &url);
 
-    /// Selects an audio ("aid") or subtitle ("sid") track by its track-list id.
-    /// The id alone is ambiguous, so the type is looked up in the track list.
+    /// Selects an audio ("aid") track by track id (or <= 0 for "no" / disable).
+    Q_INVOKABLE void selectAudioTrack(qint64 id);
+
+    /// Selects a subtitle ("sid") track by track id (or <= 0 for "no" / disable).
+    Q_INVOKABLE void selectSubtitleTrack(qint64 id);
+
+    /// Selects a track by explicit type ("audio", "sub") and id.
+    Q_INVOKABLE void selectTrack(const QString &type, qint64 id);
+
+    /// Legacy fallback: selects track by id. Prefer selectAudioTrack/selectSubtitleTrack.
     Q_INVOKABLE void selectTrack(qint64 id);
 
     /// Deselects subtitles ("sid" = "no"). The track stays loaded.
@@ -311,5 +323,7 @@ private:
     SubtitleController m_subtitles;
 
     QVariantList m_tracks;
+    qint64 m_currentAudioTrack = 0;
+    qint64 m_currentSubtitleTrack = 0;
     QString m_videoAspect = QStringLiteral("default");
 };

@@ -192,7 +192,7 @@ Menu {
                     text: modelData.label
                     checkable: true
                     checked: modelData.selected
-                    onTriggered: Mpv.selectTrack(modelData.id)
+                    onTriggered: Mpv.selectAudioTrack(modelData.id)
                 }
             }
         }
@@ -228,13 +228,20 @@ Menu {
         title: "Subtitles"
         StyledMenu {
             title: "Select track"
+            StyledItem {
+                text: "None"
+                checkable: true
+                checked: Mpv.currentSubtitleTrack <= 0
+                onTriggered: Mpv.selectSubtitleTrack(0)
+            }
+            StyledSeparator { visible: Mpv.subTracks.length > 0 }
             Repeater {
                 model: Mpv.subTracks
                 delegate: StyledItem {
                     text: modelData.label
                     checkable: true
                     checked: modelData.selected
-                    onTriggered: Mpv.selectTrack(modelData.id)
+                    onTriggered: Mpv.selectSubtitleTrack(modelData.id)
                 }
             }
         }
