@@ -96,6 +96,23 @@ Window {
     }
 
     FileDialog {
+        id: addPlaylistDialog
+        title: "Add files to playlist"
+        fileMode: FileDialog.OpenFiles
+        nameFilters: openDialog.nameFilters
+        onAccepted: {
+            var paths = []
+            for (var i = 0; i < selectedFiles.length; ++i) {
+                paths.push(root.localPath(selectedFiles[i]))
+            }
+            if (paths.length > 0) {
+                Mpv.loadFiles(paths, "append")
+                Mpv.showOsd(paths.length === 1 ? "1 file queued" : paths.length + " files queued")
+            }
+        }
+    }
+
+    FileDialog {
         id: subDialog
         title: "Open subtitle file"
         nameFilters: [
@@ -239,7 +256,7 @@ Window {
             if (isOpen)
                 root.poke()
         }
-        onAddFilesRequested: openDialog.open()
+        onAddFilesRequested: addPlaylistDialog.open()
     }
 
     // --- Non-intrusive Top Corner OSD --------------------------------------

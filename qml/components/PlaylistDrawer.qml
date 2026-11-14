@@ -80,7 +80,7 @@ Item {
                 }
 
                 Text {
-                    text: "لیست پخش"
+                    text: "Playlist"
                     color: "#FFFFFF"
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontNormal
@@ -135,13 +135,13 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             Mpv.shufflePlaylist()
-                            Mpv.showOsd("لیست پخش تصادفی شد")
+                            Mpv.showOsd("Playlist shuffled")
                         }
                     }
 
                     ToolTip {
                         visible: shuffleMouse.containsMouse
-                        text: "تصادفی کردن لیست"
+                        text: "Shuffle playlist"
                         delay: 400
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSmall
@@ -170,13 +170,13 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             Mpv.clearPlaylist()
-                            Mpv.showOsd("لیست پخش پاکسازی شد")
+                            Mpv.showOsd("Playlist cleared")
                         }
                     }
 
                     ToolTip {
                         visible: clearMouse.containsMouse
-                        text: "پاک کردن لیست"
+                        text: "Clear playlist"
                         delay: 400
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSmall
@@ -208,7 +208,7 @@ Item {
 
                     ToolTip {
                         visible: closeMouse.containsMouse
-                        text: "بستن (Esc / F6)"
+                        text: "Close (Esc / F6)"
                         delay: 400
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSmall
@@ -256,7 +256,7 @@ Item {
                         clip: true
 
                         Text {
-                            text: "فیلتر کردن عناوین..."
+                            text: "Filter titles..."
                             color: "#5B6075"
                             font.family: Theme.fontFamily
                             font.pixelSize: 11
@@ -424,7 +424,7 @@ Item {
                 spacing: 8
 
                 Text {
-                    text: Mpv.playlistCount + " آیتم در صف"
+                    text: Mpv.playlistCount + (Mpv.playlistCount === 1 ? " item in queue" : " items in queue")
                     color: "#6B7286"
                     font.family: Theme.fontDigits
                     font.pixelSize: 10
@@ -456,7 +456,7 @@ Item {
                     }
 
                     Text {
-                        text: "افزودن فایل…"
+                        text: "Add files…"
                         color: "#E2E4EC"
                         font.family: Theme.fontFamily
                         font.pixelSize: 10

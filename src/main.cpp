@@ -364,6 +364,10 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
 
 int main(int argc, char *argv[])
 {
+    // Use native desktop portal file dialogs (GNOME 45 dark portal) and force dark theme
+    qputenv("QT_USE_PORTAL", "1");
+    qputenv("GTK_THEME", "Adwaita:dark");
+
     // libmpv's public render API speaks OpenGL (or software), and
     // QQuickFramebufferObject needs the OpenGL RHI backend. Must be set
     // before any QQuickWindow is created.

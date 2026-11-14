@@ -68,7 +68,7 @@ Item {
 
     Timer {
         id: thumbDebounceTimer
-        interval: 30
+        interval: 80
         repeat: false
         onTriggered: {
             root.activeThumbSec = previewTooltip.hoverSec

@@ -7,13 +7,9 @@ Item {
     id: root
     anchors.fill: parent
 
+    // DropAreas must remain visible at all times so Wayland delivers drag events.
     readonly property bool isDragging: topDrop.containsDrag || botDrop.containsDrag
-    opacity: isDragging ? 1.0 : 0.0
-    visible: opacity > 0.0
-
-    Behavior on opacity {
-        NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
-    }
+    readonly property real topHeight: Math.max(90, Math.round(parent.height * 0.26))
 
     function extractPaths(urls) {
         var paths = []
@@ -37,56 +33,106 @@ Item {
 
         if (mode === "append") {
             var msg = paths.length === 1
-                ? "۱ فایل به صف اضافه شد"
-                : paths.length + " فایل به صف اضافه شد"
+                ? "1 file queued to playlist"
+                : paths.length + " files queued to playlist"
             Mpv.showOsd(msg)
         } else {
-            Mpv.showOsd("پخش فوری آغاز شد")
+            Mpv.showOsd("Playing: " + (paths.length > 0 ? paths[0].split('/').pop() : ""))
         }
     }
 
-    // Translucent dark veil over video (PotPlayer signature look)
-    Rectangle {
+    // Visual overlay container: only visible while dragging over the window
+    Item {
+        id: visualOverlay
         anchors.fill: parent
-        color: "#80000000"
+        opacity: root.isDragging ? 1.0 : 0.0
+        visible: opacity > 0.0
+
+        Behavior on opacity {
+            NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
+        }
+
+        // Translucent dark veil over video (PotPlayer signature look)
+        Rectangle {
+            anchors.fill: parent
+            color: "#8A000000"
+        }
+
+        // --- Top Section Visual: Play later (~26% height) ---------------------
+        Item {
+            id: topVisual
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: root.topHeight
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 10
+                color: topDrop.containsDrag ? "#22FFFFFF" : "transparent"
+                border.color: topDrop.containsDrag ? "#FFFFFF" : "#50FFFFFF"
+                border.width: topDrop.containsDrag ? 2 : 1
+                radius: 4
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: "Play later"
+                color: "#FFFFFF"
+                font.family: Theme.fontFamily
+                font.pixelSize: Math.round(Math.min(parent.height * 0.40, 32))
+                font.weight: Font.DemiBold
+                style: Text.Outline
+                styleColor: "#80000000"
+            }
+        }
+
+        // --- Bottom Section Visual: Play now (~74% height) --------------------
+        Item {
+            anchors.top: topVisual.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 10
+                color: botDrop.containsDrag ? "#22FFFFFF" : "transparent"
+                border.color: (botDrop.containsDrag || !topDrop.containsDrag) ? "#FFFFFF" : "#50FFFFFF"
+                border.width: (botDrop.containsDrag || !topDrop.containsDrag) ? 2 : 1
+                radius: 4
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: "Play now"
+                color: "#FFFFFF"
+                font.family: Theme.fontFamily
+                font.pixelSize: Math.round(Math.min(parent.height * 0.24, 52))
+                font.weight: Font.DemiBold
+                style: Text.Outline
+                styleColor: "#80000000"
+            }
+        }
     }
 
-    // --- Top Section: Play later (~26% height) -----------------------------
+    // --- Active Drop Targets (Always active in scene graph to accept drags) ---
     Item {
         id: topSection
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: Math.max(90, Math.round(parent.height * 0.26))
-
-        // PotPlayer wireframe highlight outline
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 10
-            color: topDrop.containsDrag ? "#1AFFFFFF" : "transparent"
-            border.color: topDrop.containsDrag ? "#FFFFFF" : "transparent"
-            border.width: 2
-        }
-
-        Text {
-            anchors.centerIn: parent
-            text: "Play later"
-            color: "#FFFFFF"
-            font.family: Theme.fontFamily
-            font.pixelSize: Math.round(Math.min(parent.height * 0.40, 32))
-            font.weight: Font.DemiBold
-            style: Text.Outline
-            styleColor: "#80000000"
-        }
+        height: root.topHeight
 
         DropArea {
             id: topDrop
             anchors.fill: parent
+            onEntered: (drag) => drag.acceptProposedAction()
+            onPositionChanged: (drag) => drag.acceptProposedAction()
             onDropped: (drop) => root.handleDrop(drop, "append")
         }
     }
 
-    // --- Bottom Section: Play now (~74% height) ----------------------------
     Item {
         id: botSection
         anchors.top: topSection.bottom
@@ -94,29 +140,11 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
 
-        // PotPlayer wireframe highlight outline (active when hovering bottom or entering)
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 10
-            color: botDrop.containsDrag ? "#1AFFFFFF" : "transparent"
-            border.color: (botDrop.containsDrag || !topDrop.containsDrag) ? "#FFFFFF" : "transparent"
-            border.width: 2
-        }
-
-        Text {
-            anchors.centerIn: parent
-            text: "Play now"
-            color: "#FFFFFF"
-            font.family: Theme.fontFamily
-            font.pixelSize: Math.round(Math.min(parent.height * 0.24, 52))
-            font.weight: Font.DemiBold
-            style: Text.Outline
-            styleColor: "#80000000"
-        }
-
         DropArea {
             id: botDrop
             anchors.fill: parent
+            onEntered: (drag) => drag.acceptProposedAction()
+            onPositionChanged: (drag) => drag.acceptProposedAction()
             onDropped: (drop) => root.handleDrop(drop, "replace")
         }
     }

@@ -113,6 +113,10 @@ QString ThumbnailResponse::errorString() const
 void ThumbnailResponse::cancel()
 {
     m_cancelled.store(true);
+    QMutexLocker locker(&m_procMutex);
+    if (m_process) {
+        m_process->kill();
+    }
 }
 
 void ThumbnailResponse::run()
@@ -160,10 +164,22 @@ void ThumbnailResponse::run()
         QDir().mkpath(subDir);
 
         QProcess proc;
+        {
+            QMutexLocker locker(&m_procMutex);
+            if (m_cancelled.load()) {
+                m_error = QStringLiteral("Cancelled");
+                emit finished();
+                return;
+            }
+            m_process = &proc;
+        }
+
         QStringList args;
-        args << QStringLiteral("-ss") << QString::number(sec)
-             << QStringLiteral("-noaccurate_seek")
+        args << QStringLiteral("-skip_frame") << QStringLiteral("nokey")
+             << QStringLiteral("-ss") << QString::number(sec)
              << QStringLiteral("-i") << path
+             << QStringLiteral("-map") << QStringLiteral("0:v:0")
+             << QStringLiteral("-an") << QStringLiteral("-sn") << QStringLiteral("-dn")
              << QStringLiteral("-frames:v") << QStringLiteral("1")
              << QStringLiteral("-update") << QStringLiteral("1")
              << QStringLiteral("-vf") << QStringLiteral("scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2:black")
@@ -172,10 +188,15 @@ void ThumbnailResponse::run()
              << QStringLiteral("-y") << diskFile;
 
         proc.start(QStringLiteral("ffmpeg"), args);
-        if (proc.waitForFinished(1500)) {
-            if (!m_cancelled.load() && QFile::exists(diskFile)) {
-                resultImg.load(diskFile);
-            }
+        proc.waitForFinished(1200);
+
+        {
+            QMutexLocker locker(&m_procMutex);
+            m_process = nullptr;
+        }
+
+        if (!m_cancelled.load() && QFile::exists(diskFile)) {
+            resultImg.load(diskFile);
         }
     }
 

@@ -10,6 +10,7 @@
 #include <atomic>
 
 class ThumbnailResponse;
+class QProcess;
 
 class ThumbnailProvider : public QQuickAsyncImageProvider
 {
@@ -54,4 +55,6 @@ private:
     QQuickTextureFactory *m_texture = nullptr;
     QString m_error;
     std::atomic<bool> m_cancelled{false};
+    QMutex m_procMutex;
+    QProcess *m_process = nullptr;
 };
