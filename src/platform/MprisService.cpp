@@ -182,6 +182,18 @@ MprisService::MprisService(MpvObject *mpv, QObject *parent)
         notifyPropertiesChanged({QStringLiteral("CanGoNext"),
                                  QStringLiteral("CanGoPrevious")});
     });
+    // MPRIS requires Seeked after every abrupt position change so external
+    // clients resync their position display.
+    connect(m_mpv, &MpvObject::seeked, this, [this](double position) {
+        if (!m_registered)
+            return;
+        QDBusMessage msg = QDBusMessage::createSignal(
+            QStringLiteral("/org/mpris/MediaPlayer2"),
+            QStringLiteral("org.mpris.MediaPlayer2.Player"),
+            QStringLiteral("Seeked"));
+        msg.setArguments({static_cast<qlonglong>(std::max(0.0, position) * 1e6)});
+        m_bus.send(msg);
+    });
 }
 
 MprisService::~MprisService()

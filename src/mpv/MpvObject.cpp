@@ -584,7 +584,8 @@ void MpvObject::seekRelative(double seconds)
         return;
     const QByteArray arg = QByteArray::number(seconds, 'f', 3);
     const char *cmd[] = {"seek", arg.constData(), "relative", nullptr};
-    mpv_command(m_mpv, cmd);
+    if (mpv_command(m_mpv, cmd) >= 0)
+        emit seeked(m_position + seconds);
 }
 
 void MpvObject::setSpeed(double speed)
@@ -800,7 +801,8 @@ void MpvObject::seekAbsolute(double seconds)
         seconds = 0.0;
     const QByteArray arg = QByteArray::number(seconds, 'f', 3);
     const char *cmd[] = {"seek", arg.constData(), "absolute", nullptr};
-    mpv_command(m_mpv, cmd);
+    if (mpv_command(m_mpv, cmd) >= 0)
+        emit seeked(seconds);
 }
 
 void MpvObject::frameStep(int n)

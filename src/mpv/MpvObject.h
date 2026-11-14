@@ -244,6 +244,9 @@ signals:
     void coverArtUrlChanged();
     void fileLoaded();
     void osdRequested(const QString &text);
+    /// Emitted when playback jumps abruptly (user seek or resume). MPRIS
+    /// clients need this to resync their position display ("Seeked").
+    void seeked(double position);
 
 private slots:
     void onWakeup();
