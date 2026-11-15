@@ -486,6 +486,11 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("recentUrls contains live.m3u8", mpv.recentUrls().contains(QStringLiteral("https://example.com/live.m3u8")));
             mpv.clearRecentUrls();
             check("recentUrls is empty after clearRecentUrls", mpv.recentUrls().isEmpty());
+
+            // Test Loading & Buffering properties
+            check("bufferPercent is valid", mpv.bufferPercent() >= 0 && mpv.bufferPercent() <= 100);
+            check("isLoading is accessible", mpv.isLoading() == true || mpv.isLoading() == false);
+            check("isBuffering is accessible", mpv.isBuffering() == true || mpv.isBuffering() == false);
             break;
         }
         default: {

@@ -159,6 +159,10 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "hue",           MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "gamma",         MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "video-rotate",   MPV_FORMAT_INT64);
+    mpv_observe_property(m_mpv, 0, "paused-for-cache",      MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "cache-buffering-state", MPV_FORMAT_INT64);
+    mpv_observe_property(m_mpv, 0, "seeking",               MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "core-idle",             MPV_FORMAT_FLAG);
 
     // Apply cover-art extraction results to the current file only; the file
     // identity check here is the final guard against stale async results.
@@ -233,6 +237,7 @@ void MpvObject::drainEvents()
     bool hasPlaylist = false;
     bool hasChapter = false;
     bool hasChapters = false;
+    const bool wasBuffering = isBuffering();
 
     for (;;) {
         mpv_event *ev = mpv_wait_event(m_mpv, 0.0);
@@ -351,10 +356,30 @@ void MpvObject::drainEvents()
                     m_videoRotate = r;
                     emit videoRotateChanged();
                 }
+            } else if (name == QLatin1String("paused-for-cache") && prop->format == MPV_FORMAT_FLAG) {
+                m_pausedForCache = *static_cast<int *>(prop->data) != 0;
+            } else if (name == QLatin1String("cache-buffering-state") && prop->format == MPV_FORMAT_INT64) {
+                const int pct = static_cast<int>(*static_cast<int64_t *>(prop->data));
+                if (m_bufferPercent != pct) {
+                    m_bufferPercent = pct;
+                    emit bufferPercentChanged();
+                }
+            } else if (name == QLatin1String("seeking") && prop->format == MPV_FORMAT_FLAG) {
+                m_seeking = *static_cast<int *>(prop->data) != 0;
+            } else if (name == QLatin1String("core-idle") && prop->format == MPV_FORMAT_FLAG) {
+                m_coreIdle = *static_cast<int *>(prop->data) != 0;
             }
             break;
         }
+        case MPV_EVENT_START_FILE:
+            m_isLoading = true;
+            m_bufferPercent = 0;
+            emit loadingChanged();
+            break;
         case MPV_EVENT_FILE_LOADED: {
+            m_isLoading = false;
+            m_bufferPercent = 100;
+            emit loadingChanged();
             char *path = mpv_get_property_string(m_mpv, "path");
             if (path) {
                 m_currentFile = QString::fromUtf8(path);
@@ -380,6 +405,11 @@ void MpvObject::drainEvents()
             break;
         }
         case MPV_EVENT_END_FILE:
+            m_isLoading = false;
+            m_pausedForCache = false;
+            m_seeking = false;
+            m_bufferPercent = 100;
+            emit loadingChanged();
             m_position = 0.0;
             hasPos = true;
             m_abLoopA = -1.0;
@@ -405,6 +435,7 @@ void MpvObject::drainEvents()
     if (hasPlaylist)     emit playlistChanged();
     if (hasChapter)      emit currentChapterChanged();
     if (hasChapters)     emit chaptersChanged();
+    if (isBuffering() != wasBuffering) emit bufferingChanged();
 }
 
 /// Reads "track-list" as an mpv_node, walks the node_list (keys is NULL for
@@ -598,6 +629,13 @@ void MpvObject::loadFiles(const QStringList &paths, const QString &mode)
 
     const bool isAppend = (mode == QLatin1String("append"));
     bool firstItemHandled = false;
+
+    if (!isAppend) {
+        m_isLoading = true;
+        m_bufferPercent = 0;
+        emit loadingChanged();
+        emit bufferingChanged();
+    }
 
     for (int i = 0; i < expanded.size(); ++i) {
         const QString &file = expanded[i];

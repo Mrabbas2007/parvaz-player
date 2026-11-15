@@ -53,6 +53,7 @@ qt_add_qml_module(parvaz
         qml/components/ControlCenter.qml
         qml/components/DropOverlay.qml
         qml/components/IconButton.qml
+        qml/components/LoadingSpinner.qml
         qml/components/MusicPlayerView.qml
         qml/components/OpenUrlDialog.qml
         qml/components/OsdOverlay.qml

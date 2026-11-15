@@ -96,6 +96,11 @@ class MpvObject : public QObject {
     Q_PROPERTY(QStringList recentUrls READ recentUrls NOTIFY recentUrlsChanged)
     Q_PROPERTY(bool hasYtdl READ hasYtdl CONSTANT)
 
+    // Loading & Buffering State (for UX spinner / network & 4K media loading)
+    Q_PROPERTY(bool loading READ isLoading NOTIFY loadingChanged)
+    Q_PROPERTY(bool buffering READ isBuffering NOTIFY bufferingChanged)
+    Q_PROPERTY(int bufferPercent READ bufferPercent NOTIFY bufferPercentChanged)
+
 public:
     explicit MpvObject(QObject *parent = nullptr);
     ~MpvObject() override;
@@ -169,6 +174,11 @@ public:
     Q_INVOKABLE bool isValidStreamUrl(const QString &url) const;
     Q_INVOKABLE void openUrl(const QString &url);
     Q_INVOKABLE void clearRecentUrls();
+
+    /// Loading & Buffering State
+    bool isLoading() const { return m_isLoading; }
+    bool isBuffering() const { return m_isLoading || m_pausedForCache || (m_seeking && m_coreIdle); }
+    int bufferPercent() const { return m_bufferPercent; }
 
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
@@ -358,6 +368,9 @@ signals:
     void secondarySubtitleTrackChanged();
     void technicalStatsChanged();
     void isAudioOnlyChanged();
+    void loadingChanged();
+    void bufferingChanged();
+    void bufferPercentChanged();
     void metadataChanged();
     void coverArtUrlChanged();
     void fileLoaded();
@@ -449,4 +462,11 @@ private:
                                      QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0)};
 
     QStringList m_recentUrls;
+
+    // Loading & Buffering state
+    bool m_isLoading = false;
+    bool m_pausedForCache = false;
+    bool m_seeking = false;
+    bool m_coreIdle = false;
+    int m_bufferPercent = 100;
 };

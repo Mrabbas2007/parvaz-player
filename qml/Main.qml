@@ -206,7 +206,7 @@ Window {
 
     // Drop file placeholder (shown when idle / no file playing)
     Rectangle {
-        visible: Mpv.duration <= 0
+        visible: Mpv.duration <= 0 && !loadingSpinner.showSpinner
         anchors.centerIn: parent
         width: dropText.implicitWidth + 32
         height: 38
@@ -228,6 +228,13 @@ Window {
     // Dual-Zone Drop Target: Play later (top 28%) & Play now (bottom 72%)
     DropOverlay {
         id: dropOverlay
+    }
+
+    // --- Loading & Buffering Spinner (Network stream, 4K seeking, media decode) ---
+    LoadingSpinner {
+        id: loadingSpinner
+        anchors.fill: parent
+        z: 15
     }
 
     // --- Top Title Bar -----------------------------------------------------
