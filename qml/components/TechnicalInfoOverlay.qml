@@ -220,6 +220,38 @@ Item {
                         font.bold: true
                         font.family: Theme.fontDigits
                     }
+
+                    // Row: Profile Mode
+                    Text { text: "Profile:"; color: "#6A748C"; font.pixelSize: 11; font.family: Theme.fontFamily }
+                    Row {
+                        spacing: 6
+                        Text {
+                            text: (root.stats.performanceProfile ? root.stats.performanceProfile.toUpperCase() : "AUTO")
+                            color: "#E2E5F0"
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: Theme.fontDigits
+                        }
+                        Rectangle {
+                            radius: 3
+                            color: root.stats.isLowSpecActive ? "#3E2612" : "#1A2234"
+                            border.color: root.stats.isLowSpecActive ? "#F59E0B" : "#2D3952"
+                            border.width: 1
+                            implicitWidth: optBadge.implicitWidth + 8
+                            implicitHeight: 16
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            Text {
+                                id: optBadge
+                                anchors.centerIn: parent
+                                text: root.stats.isLowSpecActive ? "ECO OPTIMIZED" : "STANDARD"
+                                color: root.stats.isLowSpecActive ? "#FBBF24" : "#9BA5BC"
+                                font.pixelSize: 9
+                                font.bold: true
+                                font.family: Theme.fontDigits
+                            }
+                        }
+                    }
                 }
             }
 

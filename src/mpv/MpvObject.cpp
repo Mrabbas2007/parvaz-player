@@ -99,6 +99,11 @@ MpvObject::MpvObject(QObject *parent)
     // Place secondary subtitles at top of video (10% from top)
     mpv_set_option_string(m_mpv, "secondary-sub-pos", "10");
 
+    // Memory & CPU optimizations for low-end systems
+    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "32MiB");
+    mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "16MiB");
+    mpv_set_option_string(m_mpv, "vd-lavc-threads", "0"); // auto detect all available CPU cores
+
     if (mpv_initialize(m_mpv) < 0) {
         qFatal("parvaz: mpv_initialize failed");
         return;
@@ -248,6 +253,7 @@ void MpvObject::drainEvents()
                 const char *s = *static_cast<char **>(prop->data);
                 m_hwdec = s ? QString::fromUtf8(s) : QString();
                 hasHwdec = true;
+                applyPerformanceProfile();
             } else if (name == QLatin1String("track-list")) {
                 // Observed with MPV_FORMAT_NONE, so prop->data is unset; the
                 // value has to be fetched explicitly.
@@ -294,6 +300,7 @@ void MpvObject::drainEvents()
             refreshBookmarks();
             refreshMetadata();
             refreshCoverArt();
+            applyPerformanceProfile();
             emit fileLoaded();
             break;
         }
@@ -1406,6 +1413,61 @@ QVariantMap MpvObject::technicalStats() const
     map.insert(QStringLiteral("cacheDuration"), cacheSec > 0.0 ? QStringLiteral("%1s").arg(QString::number(cacheSec, 'f', 1)) : QStringLiteral("0.0s"));
     map.insert(QStringLiteral("avsync"), QStringLiteral("%1s").arg(QString::number(avsync, 'f', 3)));
     map.insert(QStringLiteral("speed"), QStringLiteral("%1x").arg(QString::number(m_speed, 'f', 2)));
+    map.insert(QStringLiteral("performanceProfile"), m_performanceProfile);
+    map.insert(QStringLiteral("isLowSpecActive"), m_lowSpecActive);
 
     return map;
+}
+
+void MpvObject::setPerformanceProfile(const QString &profile)
+{
+    const QString p = profile.toLower().trimmed();
+    if (m_performanceProfile == p)
+        return;
+
+    m_performanceProfile = p;
+    applyPerformanceProfile();
+    emit performanceProfileChanged();
+}
+
+void MpvObject::applyPerformanceProfile()
+{
+    if (!m_mpv)
+        return;
+
+    bool enableLowSpec = false;
+    if (m_performanceProfile == QLatin1String("low-spec")) {
+        enableLowSpec = true;
+    } else if (m_performanceProfile == QLatin1String("high-quality")) {
+        enableLowSpec = false;
+    } else { // "auto"
+        // If hwdec is absent or disabled, activate low-spec optimizations automatically
+        enableLowSpec = (m_hwdec.isEmpty() || m_hwdec == QLatin1String("no"));
+    }
+
+    if (enableLowSpec != m_lowSpecActive) {
+        m_lowSpecActive = enableLowSpec;
+        if (m_lowSpecActive) {
+            // Low-spec / Software-fallback mode: Bilinear scaling, disable deband, reduce demuxer limits
+            mpv_set_property_string(m_mpv, "scale", "bilinear");
+            mpv_set_property_string(m_mpv, "cscale", "bilinear");
+            mpv_set_property_string(m_mpv, "dscale", "bilinear");
+            mpv_set_property_string(m_mpv, "deband", "no");
+            mpv_set_property_string(m_mpv, "vd-lavc-fast", "yes");
+            mpv_set_property_string(m_mpv, "vd-lavc-skiploopfilter", "nonref"); // Skip deblocking filter for non-reference frames on slow CPUs
+            mpv_set_property_string(m_mpv, "demuxer-max-bytes", "24MiB");
+            mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "8MiB");
+        } else {
+            // High-quality mode: Spline scaling, deband enabled, normal fast decode
+            mpv_set_property_string(m_mpv, "scale", "spline36");
+            mpv_set_property_string(m_mpv, "cscale", "spline36");
+            mpv_set_property_string(m_mpv, "dscale", "mitchell");
+            mpv_set_property_string(m_mpv, "deband", "auto");
+            mpv_set_property_string(m_mpv, "vd-lavc-fast", "no");
+            mpv_set_property_string(m_mpv, "vd-lavc-skiploopfilter", "default");
+            mpv_set_property_string(m_mpv, "demuxer-max-bytes", "64MiB");
+            mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "32MiB");
+        }
+        emit technicalStatsChanged();
+    }
 }

@@ -16,9 +16,10 @@ ThumbnailProvider *ThumbnailProvider::s_instance = nullptr;
 ThumbnailProvider::ThumbnailProvider()
 {
     s_instance = this;
-    // Cost is measured in KB (see putCache); 16MB of decoded thumbnails.
-    m_memCache.setMaxCost(16 * 1024);
-    m_threadPool.setMaxThreadCount(2);
+    // Cost is measured in KB (see putCache); 8MB of decoded thumbnails for lower RAM footprint.
+    m_memCache.setMaxCost(8 * 1024);
+    // 1 worker thread to avoid saturating low-end / no-GPU CPUs with parallel FFmpeg spawns.
+    m_threadPool.setMaxThreadCount(1);
 
     const QString cacheBase = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
     m_diskCacheDir = cacheBase.isEmpty()

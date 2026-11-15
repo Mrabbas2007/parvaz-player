@@ -58,6 +58,7 @@ class MpvObject : public QObject {
     Q_PROPERTY(int currentChapter READ currentChapter NOTIFY currentChapterChanged)
     Q_PROPERTY(QVariantList bookmarks READ bookmarks NOTIFY bookmarksChanged)
     Q_PROPERTY(bool audioNormalizer READ audioNormalizer WRITE setAudioNormalizer NOTIFY audioNormalizerChanged)
+    Q_PROPERTY(QString performanceProfile READ performanceProfile WRITE setPerformanceProfile NOTIFY performanceProfileChanged)
     Q_PROPERTY(qint64 secondarySubtitleTrack READ secondarySubtitleTrack NOTIFY secondarySubtitleTrackChanged)
     Q_PROPERTY(bool isAudioOnly READ isAudioOnly NOTIFY isAudioOnlyChanged)
     Q_PROPERTY(QVariantMap metadata READ metadata NOTIFY metadataChanged)
@@ -112,10 +113,12 @@ public:
     int currentChapter() const { return m_currentChapter; }
     QVariantList bookmarks() const { return m_bookmarks; }
     bool audioNormalizer() const { return m_audioNormalizer; }
+    QString performanceProfile() const { return m_performanceProfile; }
     qint64 secondarySubtitleTrack() const { return m_subtitles.secondaryTrack(); }
 
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
+    Q_INVOKABLE void setPerformanceProfile(const QString &profile);
 
     // Q_PROPERTY WRITE setters, also Q_INVOKABLE so QML can call them as
     // functions (Mpv.setMuted(...)). Plain WRITE accessors are NOT callable
@@ -261,6 +264,7 @@ signals:
     void currentChapterChanged();
     void bookmarksChanged();
     void audioNormalizerChanged();
+    void performanceProfileChanged();
     void secondarySubtitleTrackChanged();
     void technicalStatsChanged();
     void isAudioOnlyChanged();
@@ -283,6 +287,7 @@ private:
     void refreshMetadata();
     void refreshCoverArt();
     void setCoverArtUrl(const QString &url);
+    void applyPerformanceProfile();
     QStringList expandAndSortPaths(const QStringList &rawPaths);
     static void wakeupCallback(void *ctx);
 
@@ -313,6 +318,8 @@ private:
     int m_currentChapter = -1;
     QVariantList m_bookmarks;
     bool m_audioNormalizer = false;
+    QString m_performanceProfile = QStringLiteral("auto"); // "auto", "low-spec", "high-quality"
+    bool m_lowSpecActive = false;
     QVariantMap m_metadata;
     QString m_coverArtUrl;
     bool m_isAudioOnly = false;

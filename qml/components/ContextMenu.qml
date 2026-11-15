@@ -418,7 +418,30 @@ Menu {
         onTriggered: root.playlistToggled()
     }
 
-    // 9. Window
+    // 9. Performance Profile
+    StyledMenu {
+        title: "Performance Profile"
+        StyledItem {
+            text: "Auto (Adapt to hardware)"
+            checkable: true
+            checked: Mpv.performanceProfile === "auto"
+            onTriggered: Mpv.setPerformanceProfile("auto")
+        }
+        StyledItem {
+            text: "Low-Spec / Eco (Bilinear & Low RAM)"
+            checkable: true
+            checked: Mpv.performanceProfile === "low-spec"
+            onTriggered: Mpv.setPerformanceProfile("low-spec")
+        }
+        StyledItem {
+            text: "High Quality (Spline36 & Deband)"
+            checkable: true
+            checked: Mpv.performanceProfile === "high-quality"
+            onTriggered: Mpv.setPerformanceProfile("high-quality")
+        }
+    }
+
+    // 10. Window
     StyledMenu {
         title: "Window"
         StyledItem {
