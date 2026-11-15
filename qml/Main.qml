@@ -50,13 +50,13 @@ Window {
             root.showMaximized()
     }
 
-    // Auto-hide: 2.2s of no pointer motion hides chrome while playing.
+    // Auto-hide: 2.2s of no pointer motion hides chrome while playing video.
     Timer {
         id: hideTimer
         interval: Theme.autoHideTimeout
         repeat: false
         onTriggered: {
-            if (!Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen && !(controlCenter && controlCenter.isOpen) && !(subSearchDialog && subSearchDialog.isOpen) && !(openUrlDialog && openUrlDialog.isOpen)) {
+            if (!Mpv.isAudioOnly && !Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen && !(controlCenter && controlCenter.isOpen) && !(subSearchDialog && subSearchDialog.isOpen) && !(openUrlDialog && openUrlDialog.isOpen)) {
                 root.chromeVisible = false
             }
         }
@@ -64,7 +64,8 @@ Window {
 
     function poke() {
         root.chromeVisible = true
-        hideTimer.restart()
+        if (!Mpv.isAudioOnly)
+            hideTimer.restart()
     }
 
     onChromeVisibleChanged: {
@@ -106,6 +107,12 @@ Window {
 
     Connections {
         target: Mpv
+        function onIsAudioOnlyChanged() {
+            if (Mpv.isAudioOnly) {
+                root.chromeVisible = true
+                hideTimer.stop()
+            }
+        }
         function onPausedChanged() {
             if (!Mpv.paused)
                 poke()
@@ -177,7 +184,7 @@ Window {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
-        cursorShape: (!root.chromeVisible && !Mpv.paused && Mpv.duration > 0 && !(subSearchDialog && subSearchDialog.isOpen) && !(openUrlDialog && openUrlDialog.isOpen)) ? Qt.BlankCursor : Qt.ArrowCursor
+        cursorShape: (!root.chromeVisible && !Mpv.paused && !Mpv.isAudioOnly && Mpv.duration > 0 && !(subSearchDialog && subSearchDialog.isOpen) && !(openUrlDialog && openUrlDialog.isOpen)) ? Qt.BlankCursor : Qt.ArrowCursor
         onPositionChanged: root.poke()
         onWheel: (wheel) => {
             if (wheel.angleDelta.y > 0) {
@@ -228,6 +235,9 @@ Window {
     // Dual-Zone Drop Target: Play later (top 28%) & Play now (bottom 72%)
     DropOverlay {
         id: dropOverlay
+        z: 30
+        topInset: (titleBar && titleBar.visible && titleBar.opacity > 0) ? titleBar.height : 0
+        bottomInset: (controlBar && controlBar.visible && controlBar.opacity > 0) ? controlBar.height : 0
     }
 
     // --- Loading & Buffering Spinner (Network stream, 4K seeking, media decode) ---
@@ -255,7 +265,7 @@ Window {
         alwaysOnTop: root.alwaysOnTop
         isFullscreen: root.visibility === Window.FullScreen
         isMaximized: root.visibility === Window.Maximized
-        opacity: (root.visibility !== Window.FullScreen || root.chromeVisible) ? 1.0 : 0.0
+        opacity: (root.visibility !== Window.FullScreen || root.chromeVisible || Mpv.isAudioOnly) ? 1.0 : 0.0
         visible: opacity > 0.0
 
         Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
@@ -263,7 +273,7 @@ Window {
         onPointerOnBarChanged: {
             if (pointerOnBar)
                 hideTimer.stop()
-            else if (!Mpv.paused)
+            else if (!Mpv.paused && !Mpv.isAudioOnly)
                 root.poke()
         }
 
@@ -280,7 +290,7 @@ Window {
         id: dockBlurSource
         sourceItem: Mpv.isAudioOnly ? musicPlayerView : video
         sourceRect: Qt.rect(controlBar.x, controlBar.y, controlBar.width, controlBar.height)
-        live: root.chromeVisible
+        live: root.chromeVisible || Mpv.isAudioOnly
         visible: false
     }
 
@@ -292,7 +302,7 @@ Window {
         anchors.bottom: parent.bottom
         isFullscreen: root.visibility === Window.FullScreen
         blurSource: dockBlurSource
-        opacity: root.chromeVisible ? 1.0 : 0.0
+        opacity: (root.chromeVisible || Mpv.isAudioOnly) ? 1.0 : 0.0
         visible: opacity > 0.0
 
         Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
@@ -301,7 +311,7 @@ Window {
             root.pointerOnBar = pointerOnBar
             if (pointerOnBar) {
                 hideTimer.stop()
-            } else if (!Mpv.paused) {
+            } else if (!Mpv.paused && !Mpv.isAudioOnly) {
                 root.poke()
             }
         }

@@ -9,7 +9,11 @@ Item {
 
     // DropAreas must remain visible at all times so Wayland delivers drag events.
     readonly property bool isDragging: topDrop.containsDrag || botDrop.containsDrag
-    readonly property real topHeight: Math.max(90, Math.round(parent.height * 0.26))
+
+    property real topInset: 0
+    property real bottomInset: 0
+    readonly property real availableHeight: Math.max(120, height - topInset - bottomInset)
+    readonly property real topHeight: Math.max(80, Math.round(availableHeight * 0.28))
 
     function handleDrop(drop, mode) {
         if (!drop.hasUrls || drop.urls.length === 0)
@@ -49,10 +53,11 @@ Item {
             color: "#8A000000"
         }
 
-        // --- Top Section Visual: Play later (~26% height) ---------------------
+        // --- Top Section Visual: Play later ---------------------------------
         Item {
             id: topVisual
             anchors.top: parent.top
+            anchors.topMargin: root.topInset
             anchors.left: parent.left
             anchors.right: parent.right
             height: root.topHeight
@@ -78,12 +83,13 @@ Item {
             }
         }
 
-        // --- Bottom Section Visual: Play now (~74% height) --------------------
+        // --- Bottom Section Visual: Play now --------------------------------
         Item {
             anchors.top: topVisual.bottom
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
+            anchors.bottomMargin: root.bottomInset
 
             Rectangle {
                 anchors.fill: parent
@@ -113,7 +119,7 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: root.topHeight
+        height: root.topInset + root.topHeight
 
         DropArea {
             id: topDrop
