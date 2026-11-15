@@ -94,6 +94,7 @@ class MpvObject : public QObject {
 
     // Online Streaming & URLs (Ctrl+U)
     Q_PROPERTY(QStringList recentUrls READ recentUrls NOTIFY recentUrlsChanged)
+    Q_PROPERTY(bool hasYtdl READ hasYtdl CONSTANT)
 
 public:
     explicit MpvObject(QObject *parent = nullptr);
@@ -162,7 +163,9 @@ public:
 
     /// Online Streaming & URL Handling
     QStringList recentUrls() const { return m_recentUrls; }
+    bool hasYtdl() const;
     Q_INVOKABLE QString clipboardText() const;
+    Q_INVOKABLE static QString normalizeStreamUrl(const QString &url);
     Q_INVOKABLE bool isValidStreamUrl(const QString &url) const;
     Q_INVOKABLE void openUrl(const QString &url);
     Q_INVOKABLE void clearRecentUrls();

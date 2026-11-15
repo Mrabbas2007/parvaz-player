@@ -220,7 +220,7 @@ Item {
                 Repeater {
                     model: [
                         { label: "All", code: "all" },
-                        { label: "فارسی (FA)", code: "fa" },
+                        { label: "Persian (FA)", code: "fa" },
                         { label: "English (EN)", code: "en" }
                     ]
 

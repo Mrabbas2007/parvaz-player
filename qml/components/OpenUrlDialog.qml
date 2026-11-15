@@ -13,8 +13,9 @@ Item {
     function openDialog() {
         isOpen = true;
         var clip = Mpv.clipboardText();
-        if (Mpv.isValidStreamUrl(clip)) {
-            urlField.text = clip;
+        var norm = Mpv.normalizeStreamUrl(clip);
+        if (Mpv.isValidStreamUrl(norm)) {
+            urlField.text = norm;
         } else {
             urlField.text = "";
         }
@@ -26,7 +27,7 @@ Item {
     }
 
     function playCurrent() {
-        var u = urlField.text.trim();
+        var u = Mpv.normalizeStreamUrl(urlField.text);
         if (u.length > 0) {
             Mpv.openUrl(u);
             closeDialog();
@@ -48,7 +49,7 @@ Item {
     Rectangle {
         id: dialogBox
         width: Math.min(560, parent.width - 40)
-        height: Math.min(Mpv.recentUrls.length > 0 ? 380 : 250, parent.height - 40)
+        height: Math.min((Mpv.recentUrls.length > 0 ? 380 : 250) + (!Mpv.hasYtdl ? 40 : 0), parent.height - 40)
         anchors.centerIn: parent
         color: "#14161F"
         border.color: "#282D3E"
@@ -110,6 +111,29 @@ Item {
                 width: parent.width
                 height: 1
                 color: "#202534"
+            }
+
+            // Warning notice when yt-dlp is not installed
+            Rectangle {
+                width: parent.width
+                height: 32
+                radius: 4
+                color: "#2D1D10"
+                border.color: "#8C5015"
+                border.width: 1
+                visible: !Mpv.hasYtdl
+
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    Text {
+                        text: "⚠️ yt-dlp not found: Install via 'sudo pacman -S yt-dlp' to play YouTube"
+                        color: "#F6AD55"
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSmall
+                    }
+                }
             }
 
             // --- 2. URL Input Field ---
@@ -176,8 +200,9 @@ Item {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     var clip = Mpv.clipboardText();
-                                    if (clip.length > 0) {
-                                        urlField.text = clip;
+                                    var norm = Mpv.normalizeStreamUrl(clip);
+                                    if (norm.length > 0) {
+                                        urlField.text = norm;
                                         urlField.forceActiveFocus();
                                     }
                                 }

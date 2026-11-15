@@ -221,7 +221,7 @@ Window {
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
-            text: "فایلی را اینجا رها کنید  ·  Space = پخش/توقف  ·  F = تمام‌صفحه"
+            text: "Drop file here  ·  Space = Play/Pause  ·  F = Fullscreen"
         }
     }
 

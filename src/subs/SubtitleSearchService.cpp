@@ -152,7 +152,7 @@ QVariantList SubtitleSearchService::parseOpenSubtitlesJson(const QByteArray &jso
 
         QString lang = attr.value(QStringLiteral("language")).toString();
         item.insert(QStringLiteral("langCode"), lang);
-        item.insert(QStringLiteral("language"), lang == QLatin1String("fa") ? QStringLiteral("فارسی (Persian)") :
+        item.insert(QStringLiteral("language"), lang == QLatin1String("fa") ? QStringLiteral("Persian (FA)") :
                                                 (lang == QLatin1String("en") ? QStringLiteral("English") : lang));
 
         item.insert(QStringLiteral("downloads"), attr.value(QStringLiteral("download_count")).toInt());

@@ -13,6 +13,7 @@
 #include <QVariantMap>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QStandardPaths>
 
 #include <algorithm>
 #include <cstring>
@@ -1817,17 +1818,46 @@ void MpvObject::autoSyncCurrentSubtitle()
     m_subtitleSync.syncSubtitle(m_currentFile, srtCandidate);
 }
 
+bool MpvObject::hasYtdl() const
+{
+    return !QStandardPaths::findExecutable(QStringLiteral("yt-dlp")).isEmpty()
+        || !QStandardPaths::findExecutable(QStringLiteral("youtube-dl")).isEmpty();
+}
+
 QString MpvObject::clipboardText() const
 {
     QClipboard *cb = QGuiApplication::clipboard();
     return cb ? cb->text().trimmed() : QString();
 }
 
+QString MpvObject::normalizeStreamUrl(const QString &url)
+{
+    QString trimmed = url.trimmed();
+    if (trimmed.isEmpty())
+        return QString();
+
+    // If scheme is missing, automatically add https://
+    if (!trimmed.contains(QLatin1String("://"))) {
+        if (trimmed.startsWith(QLatin1String("youtu.be/"), Qt::CaseInsensitive)
+            || trimmed.startsWith(QLatin1String("youtube.com/"), Qt::CaseInsensitive)
+            || trimmed.startsWith(QLatin1String("www.youtube.com/"), Qt::CaseInsensitive)
+            || trimmed.startsWith(QLatin1String("m.youtube.com/"), Qt::CaseInsensitive)
+            || trimmed.startsWith(QLatin1String("twitch.tv/"), Qt::CaseInsensitive)
+            || trimmed.startsWith(QLatin1String("aparat.com/"), Qt::CaseInsensitive)
+            || trimmed.startsWith(QLatin1String("vimeo.com/"), Qt::CaseInsensitive)
+            || trimmed.startsWith(QLatin1String("www."), Qt::CaseInsensitive)) {
+            trimmed.prepend(QLatin1String("https://"));
+        }
+    }
+    return trimmed;
+}
+
 bool MpvObject::isValidStreamUrl(const QString &url) const
 {
-    const QString trimmed = url.trimmed();
-    if (trimmed.isEmpty())
+    const QString normalized = normalizeStreamUrl(url);
+    if (normalized.isEmpty())
         return false;
+
     static const QStringList schemes = {
         QStringLiteral("http://"),
         QStringLiteral("https://"),
@@ -1840,7 +1870,7 @@ bool MpvObject::isValidStreamUrl(const QString &url) const
         QStringLiteral("ytdl://")
     };
     for (const QString &scheme : schemes) {
-        if (trimmed.startsWith(scheme, Qt::CaseInsensitive))
+        if (normalized.startsWith(scheme, Qt::CaseInsensitive))
             return true;
     }
     return false;
@@ -1848,9 +1878,22 @@ bool MpvObject::isValidStreamUrl(const QString &url) const
 
 void MpvObject::openUrl(const QString &url)
 {
-    const QString trimmed = url.trimmed();
-    if (trimmed.isEmpty())
+    const QString normalized = normalizeStreamUrl(url);
+    if (normalized.isEmpty()) {
+        showOsd(QStringLiteral("Invalid URL"));
         return;
+    }
+
+    const bool isStreamService = normalized.contains(QLatin1String("youtube.com"), Qt::CaseInsensitive)
+                              || normalized.contains(QLatin1String("youtu.be"), Qt::CaseInsensitive)
+                              || normalized.contains(QLatin1String("twitch.tv"), Qt::CaseInsensitive)
+                              || normalized.contains(QLatin1String("aparat.com"), Qt::CaseInsensitive)
+                              || normalized.contains(QLatin1String("vimeo.com"), Qt::CaseInsensitive);
+
+    if (isStreamService && !hasYtdl()) {
+        showOsd(QStringLiteral("yt-dlp is required: run 'sudo pacman -S yt-dlp'"));
+        std::fprintf(stderr, "parvaz: yt-dlp is not installed; cannot resolve %s\n", qPrintable(normalized));
+    }
 
     // Enable ytdl and optimized buffering for online streams
     if (m_mpv) {
@@ -1859,18 +1902,18 @@ void MpvObject::openUrl(const QString &url)
         mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "20");
     }
 
-    if (!m_recentUrls.contains(trimmed)) {
-        m_recentUrls.prepend(trimmed);
+    if (!m_recentUrls.contains(normalized)) {
+        m_recentUrls.prepend(normalized);
         if (m_recentUrls.size() > 10)
             m_recentUrls.removeLast();
         emit recentUrlsChanged();
     } else {
-        m_recentUrls.removeAll(trimmed);
-        m_recentUrls.prepend(trimmed);
+        m_recentUrls.removeAll(normalized);
+        m_recentUrls.prepend(normalized);
         emit recentUrlsChanged();
     }
 
-    loadFile(trimmed);
+    loadFile(normalized);
     showOsd(QStringLiteral("Opening stream…"));
 }
 
