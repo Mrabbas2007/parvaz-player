@@ -20,6 +20,7 @@ Item {
     signal searchSubtitlesRequested()
     signal fullscreenToggled()
     signal playlistToggleRequested()
+    signal controlCenterRequested()
 
     height: Theme.controlBarHeight
 
@@ -47,14 +48,6 @@ Item {
                 GradientStop { position: 0.0; color: "#00000000" }
                 GradientStop { position: 0.25; color: "#8008090D" }
                 GradientStop { position: 1.0; color: "#F208090D" }
-            }
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                height: 1
-                color: Theme.borderGlassSubtle
             }
         }
     }
@@ -116,7 +109,7 @@ Item {
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "skip-back"
-                    tooltipText: Mpv.playlistCount > 1 ? "Previous track (Page Down)" : "Frame backward (Comma)"
+                    tooltipText: Mpv.playlistCount > 1 ? "Previous track (Page Down)" : (Mpv.isAudioOnly ? "Rewind 10s (Left)" : "Frame backward (Comma)")
                     buttonSize: 30
                     iconSize: 17
                     enabled: Mpv.playlistCount > 1 ? Mpv.hasPrevious : true
@@ -124,6 +117,8 @@ Item {
                     onClicked: {
                         if (Mpv.playlistCount > 1) {
                             Mpv.previous()
+                        } else if (Mpv.isAudioOnly) {
+                            Mpv.seekRelative(-10)
                         } else {
                             Mpv.frameStep(-1)
                         }
@@ -133,7 +128,7 @@ Item {
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "skip-forward"
-                    tooltipText: Mpv.playlistCount > 1 ? "Next track (Page Up)" : "Frame forward (Period)"
+                    tooltipText: Mpv.playlistCount > 1 ? "Next track (Page Up)" : (Mpv.isAudioOnly ? "Forward 10s (Right)" : "Frame forward (Period)")
                     buttonSize: 30
                     iconSize: 17
                     enabled: Mpv.playlistCount > 1 ? Mpv.hasNext : true
@@ -141,6 +136,8 @@ Item {
                     onClicked: {
                         if (Mpv.playlistCount > 1) {
                             Mpv.next()
+                        } else if (Mpv.isAudioOnly) {
+                            Mpv.seekRelative(10)
                         } else {
                             Mpv.frameStep(1)
                         }
@@ -225,7 +222,7 @@ Item {
                     color: Theme.borderGlass
                 }
 
-                // Subtitle tracks button
+                // Subtitle tracks button (hidden in music mode)
                 IconButton {
                     id: subsBtn
                     anchors.verticalCenter: parent.verticalCenter
@@ -233,6 +230,7 @@ Item {
                     tooltipText: "Subtitles & Options (V / S)"
                     buttonSize: 30
                     iconSize: 17
+                    visible: !Mpv.isAudioOnly
                     active: (Mpv.subtitlesVisible && Mpv.currentSubtitleTrack > 0) || subsMenu.visible
                     onClicked: {
                         if (subsMenu.visible) {
@@ -245,7 +243,7 @@ Item {
                     }
                 }
 
-                // Audio tracks button
+                // Audio tracks button (hidden in single-track music mode)
                 IconButton {
                     id: audioBtn
                     anchors.verticalCenter: parent.verticalCenter
@@ -253,6 +251,7 @@ Item {
                     tooltipText: "Audio tracks (A)"
                     buttonSize: 30
                     iconSize: 17
+                    visible: !Mpv.isAudioOnly || (Mpv.audioTracks && Mpv.audioTracks.length > 1)
                     active: (Mpv.currentAudioTrack > 0 && !Mpv.muted) || audioMenu.visible
                     onClicked: {
                         if (audioMenu.visible) {
@@ -263,6 +262,19 @@ Item {
                             audioMenu.open();
                         }
                     }
+                }
+
+                // Audio Equalizer button (shown in music mode)
+                IconButton {
+                    id: eqBtn
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "sliders"
+                    tooltipText: Mpv.equalizerEnabled ? ("Equalizer: " + Mpv.equalizerPreset + " (F7)") : "Audio Equalizer (F7)"
+                    buttonSize: 30
+                    iconSize: 17
+                    active: Mpv.equalizerEnabled
+                    visible: Mpv.isAudioOnly
+                    onClicked: root.controlCenterRequested()
                 }
 
                 // Clean text speed control (No bordered pill!)
@@ -320,10 +332,11 @@ Item {
                     }
                 }
 
-                // Discrete HW Indicator (Clean dot + label)
+                // Discrete HW Indicator (Clean dot + label; video only)
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 4
+                    visible: !Mpv.isAudioOnly
 
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter

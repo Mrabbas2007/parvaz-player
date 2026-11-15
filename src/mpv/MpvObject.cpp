@@ -168,7 +168,7 @@ MpvObject::MpvObject(QObject *parent)
     // identity check here is the final guard against stale async results.
     connect(&m_coverArt, &parvaz::CoverArtProvider::extracted, this,
             [this](const QString &file, const QString &url) {
-        if (url.isEmpty() || m_currentFile != file || !isAudioOnly())
+        if (m_currentFile != file || !isAudioOnly())
             return;
         setCoverArtUrl(url);
     });
@@ -375,6 +375,7 @@ void MpvObject::drainEvents()
             m_isLoading = true;
             m_bufferPercent = 0;
             emit loadingChanged();
+            setCoverArtUrl(QString());
             break;
         case MPV_EVENT_FILE_LOADED: {
             m_isLoading = false;
@@ -410,6 +411,8 @@ void MpvObject::drainEvents()
             m_seeking = false;
             m_bufferPercent = 100;
             emit loadingChanged();
+            m_coverArt.cancel();
+            setCoverArtUrl(QString());
             m_position = 0.0;
             hasPos = true;
             m_abLoopA = -1.0;
@@ -894,10 +897,11 @@ void MpvObject::setCoverArtUrl(const QString &url)
 
 void MpvObject::refreshCoverArt()
 {
+    // Always clear existing cover art first so previous tracks never leak
+    m_coverArt.cancel();
+    setCoverArtUrl(QString());
+
     if (m_currentFile.isEmpty() || !isAudioOnly()) {
-        // Stop a stale extraction for a previous file before clearing.
-        m_coverArt.cancel();
-        setCoverArtUrl(QString());
         return;
     }
 

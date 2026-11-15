@@ -14,10 +14,76 @@ Item {
     opacity: isAudio ? 1.0 : 0.0
     Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
 
+    // --- Dynamic Floating & Breathing Animations ---
+    property real floatOffset: 0.0
+    property real pulseScale: 1.0
+    property real wavePhase: 0.0
+
+    // Smooth harmonic floating motion (Sine oscillation)
+    SequentialAnimation {
+        id: floatAnim
+        running: !Mpv.paused && root.isAudio
+        loops: Animation.Infinite
+
+        NumberAnimation {
+            target: root
+            property: "floatOffset"
+            to: -6.0
+            duration: 2200
+            easing.type: Easing.InOutSine
+        }
+        NumberAnimation {
+            target: root
+            property: "floatOffset"
+            to: 4.0
+            duration: 2200
+            easing.type: Easing.InOutSine
+        }
+    }
+
+    Behavior on floatOffset {
+        NumberAnimation { duration: 600; easing.type: Easing.OutCubic }
+    }
+
+    // Gentle rhythmic pulse
+    SequentialAnimation {
+        id: pulseAnim
+        running: !Mpv.paused && root.isAudio
+        loops: Animation.Infinite
+
+        NumberAnimation {
+            target: root
+            property: "pulseScale"
+            to: 1.02
+            duration: 1200
+            easing.type: Easing.InOutQuad
+        }
+        NumberAnimation {
+            target: root
+            property: "pulseScale"
+            to: 1.0
+            duration: 1200
+            easing.type: Easing.InOutQuad
+        }
+    }
+
+    Behavior on pulseScale {
+        NumberAnimation { duration: 450; easing.type: Easing.OutCubic }
+    }
+
+    // Visualizer wave phase driver
+    NumberAnimation on wavePhase {
+        from: 0
+        to: 2 * Math.PI
+        duration: 2600
+        loops: Animation.Infinite
+        running: !Mpv.paused && root.isAudio
+    }
+
     // Ambient background atmosphere
     Rectangle {
         anchors.fill: parent
-        color: "#0B0D13"
+        color: "#08090D"
 
         // Ambient Cover Glow (Blurred & Darkened)
         Image {
@@ -36,17 +102,19 @@ Item {
         Rectangle {
             anchors.fill: parent
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#CC0B0D13" }
-                GradientStop { position: 0.5; color: "#B30B0D13" }
-                GradientStop { position: 1.0; color: "#F20B0D13" }
+                GradientStop { position: 0.0; color: "#CC08090D" }
+                GradientStop { position: 0.5; color: "#B308090D" }
+                GradientStop { position: 1.0; color: "#F208090D" }
             }
         }
     }
 
-    // Main Center Content
+    // Main Center Content with Floating Offset & Pulse
     Item {
+        id: mainContent
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: -24
+        anchors.verticalCenterOffset: -24 + root.floatOffset
+        scale: root.pulseScale
         width: Math.max(root.cardSize, metaColumn.implicitWidth)
         height: root.cardSize + metaColumn.implicitHeight + 20
 
@@ -57,24 +125,88 @@ Item {
             width: root.cardSize
             height: root.cardSize
 
-            // Outer Soft Glow Shadow
-            Rectangle {
-                anchors.fill: parent
-                radius: 12
-                color: "#203B82F6"
-                visible: root.hasCover
-                opacity: 0.4
-                scale: 1.03
+            // --- 1. Glowing Ambient Halo (Behind Poster) ---
+            Item {
+                id: ambientHalo
+                anchors.centerIn: parent
+                width: parent.width * 1.35
+                height: parent.height * 1.35
                 z: 0
+
+                // Broad soft atmospheric aura
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * (root.pulseScale * 0.95)
+                    height: parent.height * (root.pulseScale * 0.95)
+                    radius: width / 2
+                    color: root.hasCover ? "#306366F1" : "#203B82F6"
+                    opacity: (!Mpv.paused && root.isAudio) ? 0.55 : 0.18
+
+                    Behavior on opacity { NumberAnimation { duration: 600 } }
+                    Behavior on color { ColorAnimation { duration: 500 } }
+                }
+
+                // Vibrant chromatic core ring
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.8
+                    height: parent.height * 0.8
+                    radius: width / 2
+                    color: root.hasCover ? "#25818CF8" : "#1A60A5FA"
+                    opacity: (!Mpv.paused && root.isAudio) ? 0.70 : 0.22
+
+                    Behavior on opacity { NumberAnimation { duration: 500 } }
+                }
             }
 
-            // The Cover Art Card (When cover image is available)
+            // --- 2. Live Dynamic Acoustic Spectrum Waves (Hugging Poster Bottom) ---
+            Row {
+                id: spectrumRow
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: -10
+                spacing: 4
+                z: 0
+
+                Repeater {
+                    model: 26
+
+                    Rectangle {
+                        required property int index
+                        width: 3
+                        radius: 1.5
+
+                        // Multi-harmonic wave equation for natural, living audio bounce
+                        height: {
+                            if (!Mpv.paused && root.isAudio) {
+                                var s1 = Math.sin(root.wavePhase * 2.0 + index * 0.38);
+                                var s2 = Math.cos(root.wavePhase * 1.2 + index * 0.22);
+                                var amp = Math.abs(s1 * s2);
+                                return 6 + amp * 28;
+                            }
+                            return 4;
+                        }
+
+                        color: {
+                            var a = (!Mpv.paused && root.isAudio)
+                                ? (0.40 + 0.35 * Math.abs(Math.sin(root.wavePhase + index * 0.25)))
+                                : 0.18;
+                            return Qt.rgba(0.75, 0.82, 1.0, a);
+                        }
+
+                        Behavior on height { NumberAnimation { duration: 140; easing.type: Easing.OutQuad } }
+                        Behavior on color { ColorAnimation { duration: 250 } }
+                    }
+                }
+            }
+
+            // --- 3. The Cover Art Card (When Cover is Available) ---
             Rectangle {
                 id: coverCard
                 anchors.fill: parent
-                radius: 12
-                color: "#141722"
-                border.color: "#283246"
+                radius: 16
+                color: "#12141D"
+                border.color: Theme.borderGlass
                 border.width: 1
                 clip: true
                 visible: root.hasCover
@@ -108,7 +240,7 @@ Item {
                 }
             }
 
-            // Fallback: Vinyl Disc (When no cover image is available)
+            // --- 4. Fallback: Studio Obsidian Vinyl Disc (When No Cover Exists) ---
             Item {
                 id: vinylDisc
                 anchors.fill: parent
@@ -118,68 +250,74 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     radius: width / 2
-                    color: "#10121A"
-                    border.color: "#232838"
+                    color: "#0D0F15"
+                    border.color: "#1F2536"
                     border.width: 2
 
-                    // Subtle vinyl concentric grooves
+                    // Concentric Micro-Grooves
                     Rectangle {
                         anchors.centerIn: parent
-                        width: parent.width * 0.82
+                        width: parent.width * 0.86
                         height: width
                         radius: width / 2
                         color: "transparent"
-                        border.color: "#181B26"
+                        border.color: "#161924"
                         border.width: 1.5
                     }
                     Rectangle {
                         anchors.centerIn: parent
-                        width: parent.width * 0.65
+                        width: parent.width * 0.72
                         height: width
                         radius: width / 2
                         color: "transparent"
-                        border.color: "#1C202E"
+                        border.color: "#1A1E2B"
                         border.width: 1.5
                     }
                     Rectangle {
                         anchors.centerIn: parent
-                        width: parent.width * 0.48
+                        width: parent.width * 0.58
                         height: width
                         radius: width / 2
                         color: "transparent"
-                        border.color: "#222738"
+                        border.color: "#1F2433"
+                        border.width: 1.5
+                    }
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width * 0.44
+                        height: width
+                        radius: width / 2
+                        color: "transparent"
+                        border.color: "#161924"
                         border.width: 1.5
                     }
 
-                    // Center Vinyl Label
+                    // Center Vinyl Label with Studio Accent
                     Rectangle {
                         anchors.centerIn: parent
-                        width: parent.width * 0.36
+                        width: parent.width * 0.34
                         height: width
                         radius: width / 2
-                        gradient: Gradient {
-                            GradientStop { position: 0.0; color: "#2563EB" }
-                            GradientStop { position: 1.0; color: "#7C3AED" }
-                        }
+                        color: "#131622"
                         border.color: "#3B82F6"
-                        border.width: 1
+                        border.width: 1.5
 
                         Image {
                             anchors.centerIn: parent
-                            width: 28
-                            height: 28
+                            width: 26
+                            height: 26
                             source: "../icons/music.svg"
-                            sourceSize: Qt.size(28, 28)
+                            sourceSize: Qt.size(26, 26)
                         }
 
                         // Center Spindle Hole
                         Rectangle {
                             anchors.centerIn: parent
-                            width: 10
-                            height: 10
-                            radius: 5
-                            color: "#0B0D13"
-                            border.color: "#30394D"
+                            width: 8
+                            height: 8
+                            radius: 4
+                            color: "#08090D"
+                            border.color: "#4A5568"
                             border.width: 1
                         }
                     }
@@ -190,7 +328,7 @@ Item {
                     running: !Mpv.paused && root.isAudio && !root.hasCover
                     loops: Animation.Infinite
                     from: 0; to: 360
-                    duration: 22000
+                    duration: 20000
                 }
             }
 
@@ -207,9 +345,9 @@ Item {
         Column {
             id: metaColumn
             anchors.top: posterArea.bottom
-            anchors.topMargin: 18
+            anchors.topMargin: 20
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 5
+            spacing: 6
             width: Math.min(520, root.width - 40)
 
             // Title
@@ -231,7 +369,7 @@ Item {
                 id: artistText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: Mpv.trackArtist || "Unknown Artist"
-                color: "#9CA7BA"
+                color: "#A0A8BA"
                 font.family: Theme.fontFamily
                 font.pixelSize: root.cardSize > 240 ? 15 : 13
                 horizontalAlignment: Text.AlignHCenter
@@ -239,47 +377,18 @@ Item {
                 width: parent.width
             }
 
-            // Album & Year
+            // Album & Year (Clean, elegant, no ugly format badge!)
             Text {
                 id: albumText
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: (Mpv.trackAlbum.length > 0 || Mpv.trackYear.length > 0)
                 text: (Mpv.trackAlbum ? Mpv.trackAlbum : "") + (Mpv.trackYear ? ("  (" + Mpv.trackYear + ")") : "")
-                color: "#606C82"
+                color: "#646F84"
                 font.family: Theme.fontFamily
                 font.pixelSize: 13
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
                 width: parent.width
-            }
-
-            // Format Badge (Pill)
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.topMargin: 4
-                implicitWidth: badgeText.implicitWidth + 14
-                implicitHeight: 20
-                radius: 10
-                color: "#182030"
-                border.color: "#2C3952"
-                border.width: 1
-
-                Text {
-                    id: badgeText
-                    anchors.centerIn: parent
-                    text: {
-                        var ext = "AUDIO";
-                        if (Mpv.currentFile.length > 0) {
-                            var parts = Mpv.currentFile.split('.');
-                            if (parts.length > 1) ext = parts[parts.length - 1].toUpperCase();
-                        }
-                        return ext + (Mpv.audioNormalizer ? " • NIGHT" : "");
-                    }
-                    color: "#7E8DA6"
-                    font.family: Theme.fontDigits
-                    font.pixelSize: 10
-                    font.bold: true
-                }
             }
         }
     }

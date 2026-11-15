@@ -327,6 +327,7 @@ Window {
         onOpenUrlRequested: { openUrlDialog.openDialog(); root.poke() }
         onOpenSubClicked: subDialog.open()
         onSearchSubtitlesRequested: { subSearchDialog.openDialog(); root.poke() }
+        onControlCenterRequested: { controlCenter.toggle(); root.poke() }
         onFullscreenToggled: root.toggleFullscreen()
     }
 
