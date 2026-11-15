@@ -231,12 +231,15 @@ Item {
                     tooltipText: "Subtitles & Options (V / S)"
                     buttonSize: 30
                     iconSize: 17
-                    active: Mpv.subtitlesVisible && Mpv.currentSubtitleTrack > 0
+                    active: (Mpv.subtitlesVisible && Mpv.currentSubtitleTrack > 0) || subsMenu.visible
                     onClicked: {
-                        var p = subsBtn.mapToItem(root, 0, 0);
-                        subsMenu.x = Math.max(8, Math.min(root.width - subsMenu.implicitWidth - 8, p.x + (subsBtn.width - subsMenu.implicitWidth) / 2));
-                        subsMenu.y = p.y - subsMenu.implicitHeight - 8;
-                        subsMenu.open();
+                        if (subsMenu.visible) {
+                            subsMenu.close();
+                        } else {
+                            if (audioMenu.visible)
+                                audioMenu.close();
+                            subsMenu.open();
+                        }
                     }
                 }
 
@@ -248,12 +251,15 @@ Item {
                     tooltipText: "Audio tracks (A)"
                     buttonSize: 30
                     iconSize: 17
-                    active: Mpv.currentAudioTrack > 0 && !Mpv.muted
+                    active: (Mpv.currentAudioTrack > 0 && !Mpv.muted) || audioMenu.visible
                     onClicked: {
-                        var p = audioBtn.mapToItem(root, 0, 0);
-                        audioMenu.x = Math.max(8, Math.min(root.width - audioMenu.implicitWidth - 8, p.x + (audioBtn.width - audioMenu.implicitWidth) / 2));
-                        audioMenu.y = p.y - audioMenu.implicitHeight - 8;
-                        audioMenu.open();
+                        if (audioMenu.visible) {
+                            audioMenu.close();
+                        } else {
+                            if (subsMenu.visible)
+                                subsMenu.close();
+                            audioMenu.open();
+                        }
                     }
                 }
 
@@ -437,6 +443,9 @@ Item {
     // Audio Menu
     Menu {
         id: audioMenu
+        parent: audioBtn
+        x: Math.round((audioBtn.width - width) / 2)
+        y: -height - 8
 
         background: Rectangle {
             implicitWidth: 240
@@ -474,6 +483,9 @@ Item {
     // Subtitle Menu
     Menu {
         id: subsMenu
+        parent: subsBtn
+        x: Math.round((subsBtn.width - width) / 2)
+        y: -height - 8
 
         background: Rectangle {
             implicitWidth: 240
