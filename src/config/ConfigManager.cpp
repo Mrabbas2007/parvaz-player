@@ -80,6 +80,38 @@ ConfigManager::ConfigManager(MpvObject *mpv, const QString &explicitPath, QObjec
             if (!m_applyingToPlayer && m_mpv)
                 setSubtitleDelay(m_mpv->subtitleDelay());
         });
+        connect(m_mpv, &MpvObject::brightnessChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setBrightness(m_mpv->brightness());
+        });
+        connect(m_mpv, &MpvObject::contrastChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setContrast(m_mpv->contrast());
+        });
+        connect(m_mpv, &MpvObject::saturationChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setSaturation(m_mpv->saturation());
+        });
+        connect(m_mpv, &MpvObject::hueChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setHue(m_mpv->hue());
+        });
+        connect(m_mpv, &MpvObject::gammaChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setGamma(m_mpv->gamma());
+        });
+        connect(m_mpv, &MpvObject::equalizerEnabledChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setEqualizerEnabled(m_mpv->equalizerEnabled());
+        });
+        connect(m_mpv, &MpvObject::equalizerPresetChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setEqualizerPreset(m_mpv->equalizerPreset());
+        });
+        connect(m_mpv, &MpvObject::equalizerGainsChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setEqualizerGains(m_mpv->equalizerGains());
+        });
 
         applyToPlayer();
     }
@@ -125,6 +157,31 @@ void ConfigManager::load()
                 m_videoAspect = QString::fromStdString(*a);
             if (auto p = (*video)["performance_profile"].value<std::string>())
                 m_performanceProfile = QString::fromStdString(*p);
+            if (auto b = (*video)["brightness"].value<double>())
+                m_brightness = *b;
+            if (auto c = (*video)["contrast"].value<double>())
+                m_contrast = *c;
+            if (auto s = (*video)["saturation"].value<double>())
+                m_saturation = *s;
+            if (auto h = (*video)["hue"].value<double>())
+                m_hue = *h;
+            if (auto g = (*video)["gamma"].value<double>())
+                m_gamma = *g;
+        }
+
+        // [equalizer]
+        if (auto eq = tbl["equalizer"].as_table()) {
+            if (auto e = (*eq)["enabled"].value<bool>())
+                m_equalizerEnabled = *e;
+            if (auto p = (*eq)["preset"].value<std::string>())
+                m_equalizerPreset = QString::fromStdString(*p);
+            if (auto arr = (*eq)["gains"].as_array()) {
+                m_equalizerGains.clear();
+                for (const auto &elem : *arr) {
+                    if (auto g = elem.value<double>())
+                        m_equalizerGains.append(*g);
+                }
+            }
         }
 
         // [subtitles]
@@ -177,6 +234,19 @@ void ConfigManager::applyToPlayer()
     m_mpv->setAudioNormalizer(m_audioNormalizer);
     m_mpv->setVideoAspect(m_videoAspect);
     m_mpv->setPerformanceProfile(m_performanceProfile);
+    m_mpv->setBrightness(m_brightness);
+    m_mpv->setContrast(m_contrast);
+    m_mpv->setSaturation(m_saturation);
+    m_mpv->setHue(m_hue);
+    m_mpv->setGamma(m_gamma);
+    m_mpv->setEqualizerEnabled(m_equalizerEnabled);
+    if (!m_equalizerPreset.isEmpty())
+        m_mpv->applyEqualizerPreset(m_equalizerPreset);
+    if (!m_equalizerGains.isEmpty()) {
+        for (int i = 0; i < m_equalizerGains.size(); ++i) {
+            m_mpv->setEqualizerBandGain(i, m_equalizerGains[i].toDouble());
+        }
+    }
     m_mpv->setSubtitleFontSize(m_subtitleFontSize);
     m_mpv->setSubtitlePosition(m_subtitlePosition);
     m_mpv->setSubtitleDelay(m_subtitleDelay);
@@ -210,7 +280,23 @@ void ConfigManager::writeToDisk()
     // [video]
     tbl.insert_or_assign("video", toml::table{
         { "aspect", m_videoAspect.toStdString() },
-        { "performance_profile", m_performanceProfile.toStdString() }
+        { "performance_profile", m_performanceProfile.toStdString() },
+        { "brightness", m_brightness },
+        { "contrast", m_contrast },
+        { "saturation", m_saturation },
+        { "hue", m_hue },
+        { "gamma", m_gamma }
+    });
+
+    // [equalizer]
+    toml::array eqGainsArray;
+    for (const auto &v : m_equalizerGains) {
+        eqGainsArray.push_back(v.toDouble());
+    }
+    tbl.insert_or_assign("equalizer", toml::table{
+        { "enabled", m_equalizerEnabled },
+        { "preset", m_equalizerPreset.toStdString() },
+        { "gains", eqGainsArray }
     });
 
     // [subtitles]
@@ -372,6 +458,78 @@ void ConfigManager::setAlwaysOnTop(bool onTop)
         return;
     m_alwaysOnTop = onTop;
     emit alwaysOnTopChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setBrightness(double b)
+{
+    if (qFuzzyCompare(m_brightness, b))
+        return;
+    m_brightness = b;
+    emit videoAdjustmentsChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setContrast(double c)
+{
+    if (qFuzzyCompare(m_contrast, c))
+        return;
+    m_contrast = c;
+    emit videoAdjustmentsChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setSaturation(double s)
+{
+    if (qFuzzyCompare(m_saturation, s))
+        return;
+    m_saturation = s;
+    emit videoAdjustmentsChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setHue(double h)
+{
+    if (qFuzzyCompare(m_hue, h))
+        return;
+    m_hue = h;
+    emit videoAdjustmentsChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setGamma(double g)
+{
+    if (qFuzzyCompare(m_gamma, g))
+        return;
+    m_gamma = g;
+    emit videoAdjustmentsChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setEqualizerEnabled(bool e)
+{
+    if (m_equalizerEnabled == e)
+        return;
+    m_equalizerEnabled = e;
+    emit equalizerChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setEqualizerPreset(const QString &p)
+{
+    if (m_equalizerPreset == p || p.isEmpty())
+        return;
+    m_equalizerPreset = p;
+    emit equalizerChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setEqualizerGains(const QVariantList &gains)
+{
+    if (m_equalizerGains == gains)
+        return;
+    m_equalizerGains = gains;
+    emit equalizerChanged();
     scheduleSave();
 }
 

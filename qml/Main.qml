@@ -56,7 +56,7 @@ Window {
         interval: Theme.autoHideTimeout
         repeat: false
         onTriggered: {
-            if (!Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen) {
+            if (!Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen && !(controlCenter && controlCenter.isOpen)) {
                 root.chromeVisible = false
             }
         }
@@ -173,9 +173,11 @@ Window {
 
     // Mouse interactions over the video area
     MouseArea {
+        id: videoMouseArea
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
+        cursorShape: (!root.chromeVisible && !Mpv.paused && Mpv.duration > 0) ? Qt.BlankCursor : Qt.ArrowCursor
         onPositionChanged: root.poke()
         onWheel: (wheel) => {
             if (wheel.angleDelta.y > 0) {
@@ -337,11 +339,17 @@ Window {
         onAlwaysOnTopToggled: root.toggleAlwaysOnTop()
         onPlaylistToggled: { playlistDrawer.toggle(); root.poke() }
         onTechnicalInfoRequested: technicalInfoOverlay.toggle()
+        onControlCenterRequested: { controlCenter.toggle(); root.poke() }
         onWindowSizeRequested: (w, h) => {
             root.visibility = Window.Windowed
             root.width = w
             root.height = h
         }
+    }
+
+    // --- Control Center Floater (F7) --------------------------------------
+    ControlCenter {
+        id: controlCenter
     }
 
     // --- Technical Media Info Overlay (Tab) -------------------------------
@@ -404,7 +412,9 @@ Window {
     PlayerShortcut {
         sequence: "Escape"
         onActivated: {
-            if (technicalInfoOverlay.isOpen) {
+            if (controlCenter.isOpen) {
+                controlCenter.close()
+            } else if (technicalInfoOverlay.isOpen) {
                 technicalInfoOverlay.close()
             } else if (playlistDrawer.isOpen) {
                 playlistDrawer.close()
@@ -413,6 +423,9 @@ Window {
             }
         }
     }
+
+    // Control Center (PotPlayer F7)
+    PlayerShortcut { sequence: "F7"; onActivated: { controlCenter.toggle(); root.poke() } }
 
     // Technical info overlay (PotPlayer Tab)
     PlayerShortcut { sequence: "Tab"; onActivated: technicalInfoOverlay.toggle() }

@@ -13,6 +13,7 @@ Menu {
     signal alwaysOnTopToggled()
     signal playlistToggled()
     signal technicalInfoRequested()
+    signal controlCenterRequested()
 
     property bool isAlwaysOnTop: false
 
@@ -126,6 +127,11 @@ Menu {
             text: "Open subtitle file…"
             onTriggered: root.openSubtitleRequested()
         }
+    }
+
+    StyledItem {
+        text: "Control Center (F7)"
+        onTriggered: root.controlCenterRequested()
     }
 
     StyledSeparator {}

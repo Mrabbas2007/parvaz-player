@@ -48,6 +48,7 @@ qt_add_qml_module(parvaz
         qml/Theme.qml
         qml/components/ContextMenu.qml
         qml/components/ControlBar.qml
+        qml/components/ControlCenter.qml
         qml/components/DropOverlay.qml
         qml/components/IconButton.qml
         qml/components/MusicPlayerView.qml

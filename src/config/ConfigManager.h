@@ -4,6 +4,7 @@
 #include <QString>
 #include <QTimer>
 #include <QFileSystemWatcher>
+#include <QVariant>
 
 class MpvObject;
 
@@ -16,10 +17,18 @@ class ConfigManager : public QObject {
     Q_PROPERTY(int volume READ volume WRITE setVolume NOTIFY volumeChanged)
     Q_PROPERTY(bool muted READ muted WRITE setMuted NOTIFY mutedChanged)
     Q_PROPERTY(bool audioNormalizer READ audioNormalizer WRITE setAudioNormalizer NOTIFY audioNormalizerChanged)
+    Q_PROPERTY(bool equalizerEnabled READ equalizerEnabled WRITE setEqualizerEnabled NOTIFY equalizerChanged)
+    Q_PROPERTY(QString equalizerPreset READ equalizerPreset WRITE setEqualizerPreset NOTIFY equalizerChanged)
+    Q_PROPERTY(QVariantList equalizerGains READ equalizerGains WRITE setEqualizerGains NOTIFY equalizerChanged)
 
     // Video
     Q_PROPERTY(QString videoAspect READ videoAspect WRITE setVideoAspect NOTIFY videoAspectChanged)
     Q_PROPERTY(QString performanceProfile READ performanceProfile WRITE setPerformanceProfile NOTIFY performanceProfileChanged)
+    Q_PROPERTY(double brightness READ brightness WRITE setBrightness NOTIFY videoAdjustmentsChanged)
+    Q_PROPERTY(double contrast READ contrast WRITE setContrast NOTIFY videoAdjustmentsChanged)
+    Q_PROPERTY(double saturation READ saturation WRITE setSaturation NOTIFY videoAdjustmentsChanged)
+    Q_PROPERTY(double hue READ hue WRITE setHue NOTIFY videoAdjustmentsChanged)
+    Q_PROPERTY(double gamma READ gamma WRITE setGamma NOTIFY videoAdjustmentsChanged)
 
     // Subtitles
     Q_PROPERTY(double subtitleFontSize READ subtitleFontSize WRITE setSubtitleFontSize NOTIFY subtitleFontSizeChanged)
@@ -51,11 +60,31 @@ public:
     int windowHeight() const { return m_windowHeight; }
     bool alwaysOnTop() const { return m_alwaysOnTop; }
 
+    double brightness() const { return m_brightness; }
+    double contrast() const { return m_contrast; }
+    double saturation() const { return m_saturation; }
+    double hue() const { return m_hue; }
+    double gamma() const { return m_gamma; }
+
+    bool equalizerEnabled() const { return m_equalizerEnabled; }
+    QString equalizerPreset() const { return m_equalizerPreset; }
+    QVariantList equalizerGains() const { return m_equalizerGains; }
+
     Q_INVOKABLE void setVolume(int v);
     Q_INVOKABLE void setMuted(bool m);
     Q_INVOKABLE void setAudioNormalizer(bool n);
+    Q_INVOKABLE void setEqualizerEnabled(bool e);
+    Q_INVOKABLE void setEqualizerPreset(const QString &p);
+    Q_INVOKABLE void setEqualizerGains(const QVariantList &gains);
+
     Q_INVOKABLE void setVideoAspect(const QString &a);
     Q_INVOKABLE void setPerformanceProfile(const QString &p);
+    Q_INVOKABLE void setBrightness(double b);
+    Q_INVOKABLE void setContrast(double c);
+    Q_INVOKABLE void setSaturation(double s);
+    Q_INVOKABLE void setHue(double h);
+    Q_INVOKABLE void setGamma(double g);
+
     Q_INVOKABLE void setSubtitleFontSize(double s);
     Q_INVOKABLE void setSubtitlePosition(double p);
     Q_INVOKABLE void setSubtitleDelay(double d);
@@ -78,6 +107,8 @@ signals:
     void subtitleDelayChanged();
     void windowGeometryChanged();
     void alwaysOnTopChanged();
+    void videoAdjustmentsChanged();
+    void equalizerChanged();
     void configReloaded();
 
 private slots:
@@ -110,6 +141,19 @@ private:
     int m_windowWidth = 1280;
     int m_windowHeight = 720;
     bool m_alwaysOnTop = false;
+
+    // Video adjustments
+    double m_brightness = 0.0;
+    double m_contrast = 0.0;
+    double m_saturation = 0.0;
+    double m_hue = 0.0;
+    double m_gamma = 0.0;
+
+    // Equalizer
+    bool m_equalizerEnabled = false;
+    QString m_equalizerPreset = QStringLiteral("Flat");
+    QVariantList m_equalizerGains = {QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0),
+                                     QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0)};
 };
 
 } // namespace parvaz

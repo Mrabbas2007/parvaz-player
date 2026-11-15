@@ -410,6 +410,21 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             break;
         }
         case 38: {
+            mpv.setBrightness(15.0);
+            check("brightness set to 15", mpv.brightness() == 15.0);
+            mpv.setContrast(-10.0);
+            check("contrast set to -10", mpv.contrast() == -10.0);
+            mpv.resetVideoAdjustments();
+            check("video adjustments reset", mpv.brightness() == 0.0 && mpv.contrast() == 0.0);
+
+            mpv.setEqualizerEnabled(true);
+            check("equalizerEnabled is true", mpv.equalizerEnabled() == true);
+            mpv.applyEqualizerPreset(QStringLiteral("Rock"));
+            check("equalizerPreset is Rock", mpv.equalizerPreset() == QLatin1String("Rock"));
+            check("equalizerGains has 10 bands", mpv.equalizerGains().size() == 10);
+            mpv.setEqualizerEnabled(false);
+            check("equalizerEnabled is false", mpv.equalizerEnabled() == false);
+
             if (parvaz::ConfigManager::instance()) {
                 parvaz::ConfigManager::instance()->setVolume(75);
                 parvaz::ConfigManager::instance()->saveNow();

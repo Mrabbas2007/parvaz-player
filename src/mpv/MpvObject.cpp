@@ -150,6 +150,12 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "metadata",       MPV_FORMAT_NONE);
     mpv_observe_property(m_mpv, 0, "ab-loop-a",      MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 0, "ab-loop-b",      MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "brightness",    MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "contrast",      MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "saturation",    MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "hue",           MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "gamma",         MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "video-rotate",   MPV_FORMAT_INT64);
 
     // Apply cover-art extraction results to the current file only; the file
     // identity check here is the final guard against stale async results.
@@ -288,6 +294,42 @@ void MpvObject::drainEvents()
             } else if (name == QLatin1String("ab-loop-b")) {
                 m_abLoopB = (prop->format == MPV_FORMAT_DOUBLE) ? *static_cast<double *>(prop->data) : -1.0;
                 emit abLoopChanged();
+            } else if (name == QLatin1String("brightness") && prop->format == MPV_FORMAT_DOUBLE) {
+                const double v = *static_cast<double *>(prop->data);
+                if (!qFuzzyCompare(m_brightness, v)) {
+                    m_brightness = v;
+                    emit brightnessChanged();
+                }
+            } else if (name == QLatin1String("contrast") && prop->format == MPV_FORMAT_DOUBLE) {
+                const double v = *static_cast<double *>(prop->data);
+                if (!qFuzzyCompare(m_contrast, v)) {
+                    m_contrast = v;
+                    emit contrastChanged();
+                }
+            } else if (name == QLatin1String("saturation") && prop->format == MPV_FORMAT_DOUBLE) {
+                const double v = *static_cast<double *>(prop->data);
+                if (!qFuzzyCompare(m_saturation, v)) {
+                    m_saturation = v;
+                    emit saturationChanged();
+                }
+            } else if (name == QLatin1String("hue") && prop->format == MPV_FORMAT_DOUBLE) {
+                const double v = *static_cast<double *>(prop->data);
+                if (!qFuzzyCompare(m_hue, v)) {
+                    m_hue = v;
+                    emit hueChanged();
+                }
+            } else if (name == QLatin1String("gamma") && prop->format == MPV_FORMAT_DOUBLE) {
+                const double v = *static_cast<double *>(prop->data);
+                if (!qFuzzyCompare(m_gamma, v)) {
+                    m_gamma = v;
+                    emit gammaChanged();
+                }
+            } else if (name == QLatin1String("video-rotate") && prop->format == MPV_FORMAT_INT64) {
+                const int r = static_cast<int>(*static_cast<int64_t *>(prop->data));
+                if (m_videoRotate != r) {
+                    m_videoRotate = r;
+                    emit videoRotateChanged();
+                }
             }
             break;
         }
@@ -1351,6 +1393,171 @@ void MpvObject::setAudioNormalizer(bool enabled)
 void MpvObject::toggleAudioNormalizer()
 {
     setAudioNormalizer(!m_audioNormalizer);
+}
+
+void MpvObject::setBrightness(double b)
+{
+    b = qBound(-100.0, b, 100.0);
+    if (qFuzzyCompare(m_brightness, b))
+        return;
+    m_brightness = b;
+    emit brightnessChanged();
+    if (m_mpv)
+        mpv_set_property_async(m_mpv, 0, "brightness", MPV_FORMAT_DOUBLE, &m_brightness);
+}
+
+void MpvObject::setContrast(double c)
+{
+    c = qBound(-100.0, c, 100.0);
+    if (qFuzzyCompare(m_contrast, c))
+        return;
+    m_contrast = c;
+    emit contrastChanged();
+    if (m_mpv)
+        mpv_set_property_async(m_mpv, 0, "contrast", MPV_FORMAT_DOUBLE, &m_contrast);
+}
+
+void MpvObject::setSaturation(double s)
+{
+    s = qBound(-100.0, s, 100.0);
+    if (qFuzzyCompare(m_saturation, s))
+        return;
+    m_saturation = s;
+    emit saturationChanged();
+    if (m_mpv)
+        mpv_set_property_async(m_mpv, 0, "saturation", MPV_FORMAT_DOUBLE, &m_saturation);
+}
+
+void MpvObject::setHue(double h)
+{
+    h = qBound(-100.0, h, 100.0);
+    if (qFuzzyCompare(m_hue, h))
+        return;
+    m_hue = h;
+    emit hueChanged();
+    if (m_mpv)
+        mpv_set_property_async(m_mpv, 0, "hue", MPV_FORMAT_DOUBLE, &m_hue);
+}
+
+void MpvObject::setGamma(double g)
+{
+    g = qBound(-100.0, g, 100.0);
+    if (qFuzzyCompare(m_gamma, g))
+        return;
+    m_gamma = g;
+    emit gammaChanged();
+    if (m_mpv)
+        mpv_set_property_async(m_mpv, 0, "gamma", MPV_FORMAT_DOUBLE, &m_gamma);
+}
+
+void MpvObject::setVideoRotate(int rot)
+{
+    rot = (rot % 360 + 360) % 360;
+    if (m_videoRotate == rot)
+        return;
+    m_videoRotate = rot;
+    emit videoRotateChanged();
+    if (m_mpv) {
+        int64_t r = m_videoRotate;
+        mpv_set_property_async(m_mpv, 0, "video-rotate", MPV_FORMAT_INT64, &r);
+        showOsd(QStringLiteral("Rotate: %1°").arg(m_videoRotate));
+    }
+}
+
+void MpvObject::resetVideoAdjustments()
+{
+    setBrightness(0.0);
+    setContrast(0.0);
+    setSaturation(0.0);
+    setHue(0.0);
+    setGamma(0.0);
+    showOsd(QStringLiteral("Video adjustments reset"));
+}
+
+void MpvObject::setEqualizerEnabled(bool enabled)
+{
+    if (m_equalizerEnabled == enabled)
+        return;
+    m_equalizerEnabled = enabled;
+    emit equalizerEnabledChanged();
+    updateEqualizerFilter();
+    showOsd(enabled ? QStringLiteral("Equalizer: ON") : QStringLiteral("Equalizer: OFF"));
+}
+
+void MpvObject::setEqualizerBandGain(int bandIndex, double gainDb)
+{
+    if (bandIndex < 0 || bandIndex >= m_equalizerGains.size())
+        return;
+    gainDb = qBound(-12.0, gainDb, 12.0);
+    if (qFuzzyCompare(m_equalizerGains[bandIndex].toDouble(), gainDb))
+        return;
+    m_equalizerGains[bandIndex] = gainDb;
+    m_equalizerPreset = QStringLiteral("Custom");
+    emit equalizerGainsChanged();
+    emit equalizerPresetChanged();
+    if (m_equalizerEnabled)
+        updateEqualizerFilter();
+}
+
+void MpvObject::applyEqualizerPreset(const QString &presetName)
+{
+    QList<double> gains;
+    if (presetName == QLatin1String("Rock"))
+        gains = {4.5, 3.0, 1.5, 0.0, -1.0, -0.5, 1.5, 3.0, 4.0, 4.5};
+    else if (presetName == QLatin1String("Pop"))
+        gains = {-1.5, 1.0, 3.0, 3.5, 2.0, -0.5, -1.5, -1.5, 1.0, 2.5};
+    else if (presetName == QLatin1String("Jazz"))
+        gains = {3.0, 2.0, 1.0, 1.5, -1.5, -1.5, 0.0, 1.5, 2.5, 3.0};
+    else if (presetName == QLatin1String("Classical"))
+        gains = {4.0, 3.0, 2.5, 2.0, -1.5, -1.5, 0.0, 2.0, 3.0, 3.5};
+    else if (presetName == QLatin1String("Bass Boost"))
+        gains = {6.0, 5.0, 4.0, 2.5, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    else if (presetName == QLatin1String("Treble Boost"))
+        gains = {0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.5, 4.0, 5.0, 6.0};
+    else if (presetName == QLatin1String("Vocal") || presetName == QLatin1String("Speech"))
+        gains = {-3.0, -2.0, -1.0, 1.5, 3.5, 3.5, 2.5, 1.0, -1.0, -2.0};
+    else // Flat
+        gains = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+    m_equalizerGains.clear();
+    for (double g : gains)
+        m_equalizerGains.append(g);
+    m_equalizerPreset = presetName;
+
+    emit equalizerGainsChanged();
+    emit equalizerPresetChanged();
+
+    if (m_equalizerEnabled)
+        updateEqualizerFilter();
+    showOsd(QStringLiteral("Equalizer: %1").arg(presetName));
+}
+
+void MpvObject::resetEqualizer()
+{
+    applyEqualizerPreset(QStringLiteral("Flat"));
+}
+
+void MpvObject::updateEqualizerFilter()
+{
+    if (!m_mpv)
+        return;
+
+    if (!m_equalizerEnabled) {
+        const char *cmd[] = {"af", "remove", "@eq", nullptr};
+        mpv_command_async(m_mpv, 0, cmd);
+        return;
+    }
+
+    static const int freqs[10] = {31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};
+    QStringList bands;
+    for (int i = 0; i < 10; ++i) {
+        const double g = (i < m_equalizerGains.size()) ? m_equalizerGains[i].toDouble() : 0.0;
+        bands << QStringLiteral("equalizer=f=%1:t=o:w=1:g=%2").arg(freqs[i]).arg(QString::number(g, 'f', 1));
+    }
+    const QString filterSpec = QStringLiteral("@eq:lavfi=[%1]").arg(bands.join(QLatin1Char(',')));
+    const QByteArray filterUtf8 = filterSpec.toUtf8();
+    const char *cmd[] = {"af", "add", filterUtf8.constData(), nullptr};
+    mpv_command_async(m_mpv, 0, cmd);
 }
 
 QVariantMap MpvObject::technicalStats() const

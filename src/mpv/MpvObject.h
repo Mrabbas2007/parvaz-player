@@ -73,6 +73,19 @@ class MpvObject : public QObject {
     Q_PROPERTY(double abLoopB READ abLoopB NOTIFY abLoopChanged)
     Q_PROPERTY(bool abLoopActive READ abLoopActive NOTIFY abLoopChanged)
 
+    // Video Adjustments
+    Q_PROPERTY(double brightness READ brightness WRITE setBrightness NOTIFY brightnessChanged)
+    Q_PROPERTY(double contrast READ contrast WRITE setContrast NOTIFY contrastChanged)
+    Q_PROPERTY(double saturation READ saturation WRITE setSaturation NOTIFY saturationChanged)
+    Q_PROPERTY(double hue READ hue WRITE setHue NOTIFY hueChanged)
+    Q_PROPERTY(double gamma READ gamma WRITE setGamma NOTIFY gammaChanged)
+    Q_PROPERTY(int videoRotate READ videoRotate WRITE setVideoRotate NOTIFY videoRotateChanged)
+
+    // Audio Equalizer (10-Band)
+    Q_PROPERTY(bool equalizerEnabled READ equalizerEnabled WRITE setEqualizerEnabled NOTIFY equalizerEnabledChanged)
+    Q_PROPERTY(QString equalizerPreset READ equalizerPreset NOTIFY equalizerPresetChanged)
+    Q_PROPERTY(QVariantList equalizerGains READ equalizerGains NOTIFY equalizerGainsChanged)
+
 public:
     explicit MpvObject(QObject *parent = nullptr);
     ~MpvObject() override;
@@ -123,6 +136,17 @@ public:
     double abLoopB() const { return m_abLoopB; }
     bool abLoopActive() const { return m_abLoopA >= 0.0 && m_abLoopB > m_abLoopA; }
 
+    double brightness() const { return m_brightness; }
+    double contrast() const { return m_contrast; }
+    double saturation() const { return m_saturation; }
+    double hue() const { return m_hue; }
+    double gamma() const { return m_gamma; }
+    int videoRotate() const { return m_videoRotate; }
+
+    bool equalizerEnabled() const { return m_equalizerEnabled; }
+    QString equalizerPreset() const { return m_equalizerPreset; }
+    QVariantList equalizerGains() const { return m_equalizerGains; }
+
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
     Q_INVOKABLE void setPerformanceProfile(const QString &profile);
@@ -140,6 +164,21 @@ public:
     Q_INVOKABLE void setSubtitlePosition(double percentFromTop);
     Q_INVOKABLE void setSubtitleFontSize(double size);
     Q_INVOKABLE void setVideoAspect(const QString &aspect);
+
+    // Video adjustments
+    Q_INVOKABLE void setBrightness(double b);
+    Q_INVOKABLE void setContrast(double c);
+    Q_INVOKABLE void setSaturation(double s);
+    Q_INVOKABLE void setHue(double h);
+    Q_INVOKABLE void setGamma(double g);
+    Q_INVOKABLE void setVideoRotate(int rot);
+    Q_INVOKABLE void resetVideoAdjustments();
+
+    // Audio Equalizer
+    Q_INVOKABLE void setEqualizerEnabled(bool enabled);
+    Q_INVOKABLE void setEqualizerBandGain(int bandIndex, double gainDb);
+    Q_INVOKABLE void applyEqualizerPreset(const QString &presetName);
+    Q_INVOKABLE void resetEqualizer();
 
     /// mpv accepts --speed 0.01..100 (see `mpv --speed=` docs).
     static constexpr double kMinSpeed = 0.01;
@@ -283,6 +322,15 @@ signals:
     void audioNormalizerChanged();
     void performanceProfileChanged();
     void abLoopChanged();
+    void brightnessChanged();
+    void contrastChanged();
+    void saturationChanged();
+    void hueChanged();
+    void gammaChanged();
+    void videoRotateChanged();
+    void equalizerEnabledChanged();
+    void equalizerPresetChanged();
+    void equalizerGainsChanged();
     void secondarySubtitleTrackChanged();
     void technicalStatsChanged();
     void isAudioOnlyChanged();
@@ -306,6 +354,7 @@ private:
     void refreshCoverArt();
     void setCoverArtUrl(const QString &url);
     void applyPerformanceProfile();
+    void updateEqualizerFilter();
     QStringList expandAndSortPaths(const QStringList &rawPaths);
     static void wakeupCallback(void *ctx);
 
@@ -356,4 +405,18 @@ private:
     qint64 m_currentAudioTrack = 0;
     qint64 m_currentSubtitleTrack = 0;
     QString m_videoAspect = QStringLiteral("default");
+
+    // Video adjustments
+    double m_brightness = 0.0;
+    double m_contrast = 0.0;
+    double m_saturation = 0.0;
+    double m_hue = 0.0;
+    double m_gamma = 0.0;
+    int m_videoRotate = 0;
+
+    // Audio Equalizer
+    bool m_equalizerEnabled = false;
+    QString m_equalizerPreset = QStringLiteral("Flat");
+    QVariantList m_equalizerGains = {QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0),
+                                     QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0)};
 };
