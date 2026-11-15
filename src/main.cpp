@@ -15,6 +15,7 @@
 #include <QVariantMap>
 #include <qqml.h>
 
+#include "config/ConfigManager.h"
 #include "mpv/MpvObject.h"
 #include "mpv/MpvFboItem.h"
 #include "platform/IdleInhibitor.h"
@@ -388,6 +389,15 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("coverArtUrl is non-empty", !mpv.coverArtUrl().isEmpty());
             break;
         }
+        case 38: {
+            if (parvaz::ConfigManager::instance()) {
+                parvaz::ConfigManager::instance()->setVolume(75);
+                parvaz::ConfigManager::instance()->saveNow();
+                check("config manager setVolume(75) accepted", parvaz::ConfigManager::instance()->volume() == 75);
+                check("config file exists on disk", QFile::exists(parvaz::ConfigManager::instance()->configFilePath()));
+            }
+            break;
+        }
         default: {
             const QString hw = mpv.hwdec();
             std::fprintf(stderr,
@@ -449,6 +459,13 @@ int main(int argc, char *argv[])
     // Declared before the engine so it outlives every QML object.
     MpvObject mpv;
     qmlRegisterSingletonInstance("Parvaz", 1, 0, "Mpv", &mpv);
+
+    // Persistent configuration (TOML)
+    const QString configPath = (parser.isSet(smokeOpt) || parser.isSet(benchOpt))
+                                   ? QStringLiteral("/tmp/parvaz_test_config.toml")
+                                   : QString();
+    parvaz::ConfigManager config(&mpv, configPath, &app);
+    qmlRegisterSingletonInstance("Parvaz", 1, 0, "Config", &config);
 
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("thumbnail"), new ThumbnailProvider());

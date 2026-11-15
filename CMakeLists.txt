@@ -12,6 +12,7 @@ qt_standard_project_setup()
 
 qt_add_executable(parvaz
     src/main.cpp
+    src/config/ConfigManager.h   src/config/ConfigManager.cpp
     src/mpv/MpvObject.h  src/mpv/MpvObject.cpp
     src/mpv/MpvFboItem.h src/mpv/MpvFboItem.cpp
     src/mpv/SubtitleController.h src/mpv/SubtitleController.cpp
@@ -70,7 +71,10 @@ qt_add_resources(parvaz "parvaz-assets"
         ${PARVAZ_ICONS}
 )
 
-target_include_directories(parvaz PRIVATE src)
+target_include_directories(parvaz PRIVATE
+    src
+    3rdparty
+)
 target_compile_definitions(parvaz PRIVATE
     PARVAZ_TESTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests"
 )

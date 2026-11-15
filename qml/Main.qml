@@ -29,11 +29,12 @@ Window {
 
     property bool chromeVisible: true
     property bool pointerOnBar: false
-    property bool alwaysOnTop: false
+    property bool alwaysOnTop: Config.alwaysOnTop
     flags: Qt.Window | Qt.FramelessWindowHint | (alwaysOnTop ? Qt.WindowStaysOnTopHint : 0)
 
     function toggleAlwaysOnTop() {
         alwaysOnTop = !alwaysOnTop
+        Config.setAlwaysOnTop(alwaysOnTop)
         Mpv.showOsd(alwaysOnTop ? "Always on top: On" : "Always on top: Off")
     }
 
@@ -78,6 +79,29 @@ Window {
 
     onHeightChanged: {
         Mpv.setBottomBarOffset(chromeVisible, controlBar.height, root.height)
+        if (root.visibility === Window.Windowed)
+            Config.setWindowSize(root.width, root.height)
+    }
+
+    onWidthChanged: {
+        if (root.visibility === Window.Windowed)
+            Config.setWindowSize(root.width, root.height)
+    }
+
+    Connections {
+        target: Config
+        function onWindowGeometryChanged() {
+            if (root.visibility === Window.Windowed) {
+                if (root.width !== Config.windowWidth)
+                    root.width = Config.windowWidth
+                if (root.height !== Config.windowHeight)
+                    root.height = Config.windowHeight
+            }
+        }
+        function onAlwaysOnTopChanged() {
+            if (root.alwaysOnTop !== Config.alwaysOnTop)
+                root.alwaysOnTop = Config.alwaysOnTop
+        }
     }
 
     Connections {
@@ -90,6 +114,10 @@ Window {
 
     Component.onCompleted: {
         poke()
+        if (Config.windowWidth >= root.minimumWidth && Config.windowHeight >= root.minimumHeight) {
+            root.width = Config.windowWidth
+            root.height = Config.windowHeight
+        }
         Mpv.setBottomBarOffset(chromeVisible, controlBar.height, root.height)
     }
 
