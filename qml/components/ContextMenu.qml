@@ -410,6 +410,23 @@ Menu {
                 }
             }
         }
+        StyledSeparator {}
+        StyledMenu {
+            title: "A-B Repeat"
+            StyledItem {
+                text: "Set Start Point A ([)"
+                onTriggered: Mpv.setAbLoopA()
+            }
+            StyledItem {
+                text: "Set End Point B (])"
+                onTriggered: Mpv.setAbLoopB()
+            }
+            StyledItem {
+                text: "Clear Repeat Loop (\\)"
+                enabled: Mpv.abLoopA >= 0 || Mpv.abLoopB >= 0
+                onTriggered: Mpv.clearAbLoop()
+            }
+        }
     }
 
     // 8. Playlist

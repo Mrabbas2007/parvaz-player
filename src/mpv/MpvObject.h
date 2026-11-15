@@ -69,6 +69,9 @@ class MpvObject : public QObject {
     Q_PROPERTY(QString trackYear READ trackYear NOTIFY metadataChanged)
     Q_PROPERTY(QString trackGenre READ trackGenre NOTIFY metadataChanged)
     Q_PROPERTY(QString coverArtUrl READ coverArtUrl NOTIFY coverArtUrlChanged)
+    Q_PROPERTY(double abLoopA READ abLoopA NOTIFY abLoopChanged)
+    Q_PROPERTY(double abLoopB READ abLoopB NOTIFY abLoopChanged)
+    Q_PROPERTY(bool abLoopActive READ abLoopActive NOTIFY abLoopChanged)
 
 public:
     explicit MpvObject(QObject *parent = nullptr);
@@ -116,6 +119,9 @@ public:
     bool audioNormalizer() const { return m_audioNormalizer; }
     QString performanceProfile() const { return m_performanceProfile; }
     qint64 secondarySubtitleTrack() const { return m_subtitles.secondaryTrack(); }
+    double abLoopA() const { return m_abLoopA; }
+    double abLoopB() const { return m_abLoopB; }
+    bool abLoopActive() const { return m_abLoopA >= 0.0 && m_abLoopB > m_abLoopA; }
 
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
@@ -240,6 +246,12 @@ public:
     Q_INVOKABLE void adjustSubtitleFontSize(double delta);
     Q_INVOKABLE void showOsd(const QString &text);
 
+    /// A-B Repeat Loop
+    Q_INVOKABLE void setAbLoopA();
+    Q_INVOKABLE void setAbLoopB();
+    Q_INVOKABLE void clearAbLoop();
+    Q_INVOKABLE void toggleAbLoop();
+
     /// Screenshots / Frame Capture
     Q_INVOKABLE bool copyScreenshotToClipboard();
     Q_INVOKABLE QString saveScreenshot(const QString &folder = QString());
@@ -270,6 +282,7 @@ signals:
     void bookmarksChanged();
     void audioNormalizerChanged();
     void performanceProfileChanged();
+    void abLoopChanged();
     void secondarySubtitleTrackChanged();
     void technicalStatsChanged();
     void isAudioOnlyChanged();
@@ -325,6 +338,8 @@ private:
     bool m_audioNormalizer = false;
     QString m_performanceProfile = QStringLiteral("auto"); // "auto", "low-spec", "high-quality"
     bool m_lowSpecActive = false;
+    double m_abLoopA = -1.0;
+    double m_abLoopB = -1.0;
     QVariantMap m_metadata;
     QString m_coverArtUrl;
     bool m_isAudioOnly = false;

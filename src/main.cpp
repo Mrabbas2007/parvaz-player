@@ -368,6 +368,15 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("currentAudioTrack == 1 after restore", mpv.currentAudioTrack() == 1);
             mpv.selectSecondarySubtitleTrack(0);
             check("secondarySubtitleTrack <= 0", mpv.secondarySubtitleTrack() <= 0);
+            // Test A-B Repeat Loop
+            mpv.setAbLoopA();
+            check("abLoopA >= 0 after setAbLoopA", mpv.abLoopA() >= 0.0);
+            mpv.setAbLoopB();
+            check("abLoopB >= 0 after setAbLoopB", mpv.abLoopB() >= 0.0);
+            mpv.clearAbLoop();
+            check("abLoopA < 0 after clearAbLoop", mpv.abLoopA() < 0.0);
+            check("abLoopB < 0 after clearAbLoop", mpv.abLoopB() < 0.0);
+            check("abLoopActive is false", mpv.abLoopActive() == false);
             // Test screenshot saving to temporary path while playing video
             const QString testDir = QStringLiteral("/tmp/parvaz_test_screenshots");
             const QString saved = mpv.saveScreenshot(testDir);

@@ -148,6 +148,8 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "chapter-list",   MPV_FORMAT_NONE);
     mpv_observe_property(m_mpv, 0, "secondary-sid",  MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, 0, "metadata",       MPV_FORMAT_NONE);
+    mpv_observe_property(m_mpv, 0, "ab-loop-a",      MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "ab-loop-b",      MPV_FORMAT_DOUBLE);
 
     // Apply cover-art extraction results to the current file only; the file
     // identity check here is the final guard against stale async results.
@@ -280,6 +282,12 @@ void MpvObject::drainEvents()
                 hasChapters = true;
             } else if (name == QLatin1String("metadata")) {
                 refreshMetadata();
+            } else if (name == QLatin1String("ab-loop-a")) {
+                m_abLoopA = (prop->format == MPV_FORMAT_DOUBLE) ? *static_cast<double *>(prop->data) : -1.0;
+                emit abLoopChanged();
+            } else if (name == QLatin1String("ab-loop-b")) {
+                m_abLoopB = (prop->format == MPV_FORMAT_DOUBLE) ? *static_cast<double *>(prop->data) : -1.0;
+                emit abLoopChanged();
             }
             break;
         }
@@ -290,6 +298,9 @@ void MpvObject::drainEvents()
                 mpv_free(path);
                 emit currentFileChanged();
             }
+            m_abLoopA = -1.0;
+            m_abLoopB = -1.0;
+            emit abLoopChanged();
             refreshTracks();
             hasTracks = true;
             emit hasVideoChanged();
@@ -308,6 +319,9 @@ void MpvObject::drainEvents()
         case MPV_EVENT_END_FILE:
             m_position = 0.0;
             hasPos = true;
+            m_abLoopA = -1.0;
+            m_abLoopB = -1.0;
+            emit abLoopChanged();
             emit hasVideoChanged();
             break;
         default:
@@ -1504,4 +1518,51 @@ QString MpvObject::saveScreenshot(const QString &folder)
         showOsd(QStringLiteral("Capture failed"));
     }
     return savedPath;
+}
+
+void MpvObject::setAbLoopA()
+{
+    if (!m_mpv)
+        return;
+    const double pos = m_position;
+    const QByteArray posStr = QByteArray::number(pos, 'f', 3);
+    mpv_set_property_string(m_mpv, "ab-loop-a", posStr.constData());
+    m_abLoopA = pos;
+    emit abLoopChanged();
+    showOsd(QStringLiteral("A-B Loop: Point A (%1)").arg(formatTime(pos)));
+}
+
+void MpvObject::setAbLoopB()
+{
+    if (!m_mpv)
+        return;
+    const double pos = m_position;
+    const QByteArray posStr = QByteArray::number(pos, 'f', 3);
+    mpv_set_property_string(m_mpv, "ab-loop-b", posStr.constData());
+    m_abLoopB = pos;
+    emit abLoopChanged();
+    showOsd(QStringLiteral("A-B Loop: Point B (%1)").arg(formatTime(pos)));
+}
+
+void MpvObject::clearAbLoop()
+{
+    if (!m_mpv)
+        return;
+    mpv_set_property_string(m_mpv, "ab-loop-a", "no");
+    mpv_set_property_string(m_mpv, "ab-loop-b", "no");
+    m_abLoopA = -1.0;
+    m_abLoopB = -1.0;
+    emit abLoopChanged();
+    showOsd(QStringLiteral("A-B Loop: Cleared"));
+}
+
+void MpvObject::toggleAbLoop()
+{
+    if (m_abLoopA < 0.0) {
+        setAbLoopA();
+    } else if (m_abLoopB < 0.0) {
+        setAbLoopB();
+    } else {
+        clearAbLoop();
+    }
 }

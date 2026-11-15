@@ -434,15 +434,21 @@ Window {
             Mpv.showOsd(Mpv.subtitlesVisible ? "Subtitles: On" : "Subtitles: Off")
         }
     }
+    // A-B Repeat Loop (PotPlayer: [ = Point A, ] = Point B, \ = Clear)
+    PlayerShortcut { sequence: "["; onActivated: Mpv.setAbLoopA() }
+    PlayerShortcut { sequence: "]"; onActivated: Mpv.setAbLoopB() }
+    PlayerShortcut { sequence: "\\"; onActivated: Mpv.clearAbLoop() }
+
+    // Subtitle delay (PotPlayer: < / > or Shift+< / Shift+>)
     PlayerShortcut {
-        sequence: "["
+        sequence: "<"
         onActivated: {
             Mpv.setSubtitleDelay(Mpv.subtitleDelay - 0.1)
             Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")
         }
     }
     PlayerShortcut {
-        sequence: "]"
+        sequence: ">"
         onActivated: {
             Mpv.setSubtitleDelay(Mpv.subtitleDelay + 0.1)
             Mpv.showOsd("Sub delay: " + Mpv.subtitleDelay.toFixed(1) + "s")

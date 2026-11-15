@@ -51,6 +51,45 @@ Item {
             color: Theme.timelinePlayed
         }
 
+        // A-B Repeat Loop Highlight Range
+        Rectangle {
+            id: abLoopRange
+            visible: Mpv.abLoopActive && root.duration > 0
+            x: trackArea.width * Math.max(0.0, Math.min(1.0, Mpv.abLoopA / root.effectiveDuration))
+            width: Math.max(2, trackArea.width * Math.max(0.0, (Mpv.abLoopB - Mpv.abLoopA) / root.effectiveDuration))
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            radius: height / 2
+            color: "#6600E5FF" // Electric cyan transparent overlay
+            border.color: "#00E5FF"
+            border.width: 1
+            z: 1
+        }
+
+        // A-B Repeat Point A marker (when A is set, waiting for B)
+        Rectangle {
+            visible: Mpv.abLoopA >= 0.0 && root.duration > 0
+            x: (trackArea.width * Math.max(0.0, Math.min(1.0, Mpv.abLoopA / root.effectiveDuration))) - (width / 2)
+            anchors.verticalCenter: parent.verticalCenter
+            width: 3
+            height: trackArea.height + 6
+            radius: 1.5
+            color: "#00E5FF"
+            z: 4
+        }
+
+        // A-B Repeat Point B marker
+        Rectangle {
+            visible: Mpv.abLoopB > 0.0 && root.duration > 0
+            x: (trackArea.width * Math.max(0.0, Math.min(1.0, Mpv.abLoopB / root.effectiveDuration))) - (width / 2)
+            anchors.verticalCenter: parent.verticalCenter
+            width: 3
+            height: trackArea.height + 6
+            radius: 1.5
+            color: "#00E5FF"
+            z: 4
+        }
+
         // Chapter notches
         Repeater {
             model: Mpv.chapters
