@@ -15,6 +15,7 @@ Item {
 
     signal pokeRequested()
     signal openClicked()
+    signal openUrlRequested()
     signal openSubClicked()
     signal searchSubtitlesRequested()
     signal fullscreenToggled()

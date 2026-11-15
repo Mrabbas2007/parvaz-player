@@ -133,7 +133,7 @@ Item {
 
             Repeater {
                 model: [
-                    { name: "Video", icon: "film" },
+                    { name: "Video", icon: "sliders" },
                     { name: "Audio & EQ", icon: "music" },
                     { name: "Subtitles", icon: "subtitles" },
                     { name: "Playback", icon: "play" }
@@ -810,10 +810,10 @@ Item {
                                     Text {
                                         anchors.centerIn: parent
                                         text: modelData.text
-                                        color: modelData.reset ? "#4A90E2" : (btnMouse.containsMouse ? "#FFFFFF" : Theme.textSecondary)
+                                        color: modelData.reset === true ? "#4A90E2" : (btnMouse.containsMouse ? "#FFFFFF" : Theme.textSecondary)
                                         font.family: Theme.fontDigits
                                         font.pixelSize: Theme.fontSmall
-                                        font.bold: modelData.reset
+                                        font.bold: modelData.reset === true
                                     }
 
                                     MouseArea {

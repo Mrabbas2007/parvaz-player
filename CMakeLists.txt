@@ -54,6 +54,7 @@ qt_add_qml_module(parvaz
         qml/components/DropOverlay.qml
         qml/components/IconButton.qml
         qml/components/MusicPlayerView.qml
+        qml/components/OpenUrlDialog.qml
         qml/components/OsdOverlay.qml
         qml/components/PlaylistDrawer.qml
         qml/components/SeekBar.qml

@@ -470,6 +470,17 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             // Test SubtitleSyncService and SubtitleSearchService access
             check("subtitleSync is accessible", mpv.subtitleSync() != nullptr);
             check("subtitleSearch is accessible", mpv.subtitleSearch() != nullptr);
+
+            // Test Stream URL validation & recent URLs
+            check("isValidStreamUrl accepts https://youtube.com/watch?v=123", mpv.isValidStreamUrl(QStringLiteral("https://youtube.com/watch?v=123")) == true);
+            check("isValidStreamUrl accepts http://example.com/stream.m3u8", mpv.isValidStreamUrl(QStringLiteral("http://example.com/stream.m3u8")) == true);
+            check("isValidStreamUrl accepts magnet:?xt=urn:btih:123", mpv.isValidStreamUrl(QStringLiteral("magnet:?xt=urn:btih:123")) == true);
+            check("isValidStreamUrl rejects /local/file.mkv", mpv.isValidStreamUrl(QStringLiteral("/local/file.mkv")) == false);
+
+            mpv.openUrl(QStringLiteral("https://example.com/live.m3u8"));
+            check("recentUrls contains live.m3u8", mpv.recentUrls().contains(QStringLiteral("https://example.com/live.m3u8")));
+            mpv.clearRecentUrls();
+            check("recentUrls is empty after clearRecentUrls", mpv.recentUrls().isEmpty());
             break;
         }
         default: {

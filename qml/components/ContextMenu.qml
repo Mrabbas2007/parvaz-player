@@ -7,6 +7,7 @@ Menu {
     id: root
 
     signal openMediaRequested()
+    signal openUrlRequested()
     signal openSubtitleRequested()
     signal searchSubtitlesRequested()
     signal windowSizeRequested(int w, int h)
@@ -123,6 +124,10 @@ Menu {
         StyledItem {
             text: "Open media…"
             onTriggered: root.openMediaRequested()
+        }
+        StyledItem {
+            text: "Open URL / Stream… (Ctrl+U)"
+            onTriggered: root.openUrlRequested()
         }
         StyledItem {
             text: "Open subtitle file…"

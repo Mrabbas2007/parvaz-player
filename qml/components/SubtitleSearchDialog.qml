@@ -59,7 +59,7 @@ Item {
             spacing: 12
 
             // --- 1. Header ---
-            Row {
+            Item {
                 width: parent.width
                 height: 28
 
@@ -314,7 +314,7 @@ Item {
                     visible: Mpv.subtitleSearch.results.length > 0
 
                     ScrollBar.vertical: ScrollBar {
-                        active: resultsList.moving || resultsList.fllicking
+                        active: resultsList.moving || resultsList.flicking
                     }
 
                     delegate: Rectangle {

@@ -11,6 +11,8 @@
 #include <QUrl>
 #include <QDebug>
 #include <QVariantMap>
+#include <QClipboard>
+#include <QGuiApplication>
 
 #include <algorithm>
 #include <cstring>
@@ -1813,4 +1815,69 @@ void MpvObject::autoSyncCurrentSubtitle()
 
     showOsd(QStringLiteral("Auto-syncing subtitle with audio…"));
     m_subtitleSync.syncSubtitle(m_currentFile, srtCandidate);
+}
+
+QString MpvObject::clipboardText() const
+{
+    QClipboard *cb = QGuiApplication::clipboard();
+    return cb ? cb->text().trimmed() : QString();
+}
+
+bool MpvObject::isValidStreamUrl(const QString &url) const
+{
+    const QString trimmed = url.trimmed();
+    if (trimmed.isEmpty())
+        return false;
+    static const QStringList schemes = {
+        QStringLiteral("http://"),
+        QStringLiteral("https://"),
+        QStringLiteral("rtmp://"),
+        QStringLiteral("rtmps://"),
+        QStringLiteral("rtsp://"),
+        QStringLiteral("mms://"),
+        QStringLiteral("magnet:"),
+        QStringLiteral("udp://"),
+        QStringLiteral("ytdl://")
+    };
+    for (const QString &scheme : schemes) {
+        if (trimmed.startsWith(scheme, Qt::CaseInsensitive))
+            return true;
+    }
+    return false;
+}
+
+void MpvObject::openUrl(const QString &url)
+{
+    const QString trimmed = url.trimmed();
+    if (trimmed.isEmpty())
+        return;
+
+    // Enable ytdl and optimized buffering for online streams
+    if (m_mpv) {
+        mpv_set_option_string(m_mpv, "ytdl", "yes");
+        mpv_set_option_string(m_mpv, "demuxer-max-bytes", "64MiB");
+        mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "20");
+    }
+
+    if (!m_recentUrls.contains(trimmed)) {
+        m_recentUrls.prepend(trimmed);
+        if (m_recentUrls.size() > 10)
+            m_recentUrls.removeLast();
+        emit recentUrlsChanged();
+    } else {
+        m_recentUrls.removeAll(trimmed);
+        m_recentUrls.prepend(trimmed);
+        emit recentUrlsChanged();
+    }
+
+    loadFile(trimmed);
+    showOsd(QStringLiteral("Opening stream…"));
+}
+
+void MpvObject::clearRecentUrls()
+{
+    if (!m_recentUrls.isEmpty()) {
+        m_recentUrls.clear();
+        emit recentUrlsChanged();
+    }
 }

@@ -56,7 +56,7 @@ Window {
         interval: Theme.autoHideTimeout
         repeat: false
         onTriggered: {
-            if (!Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen && !(controlCenter && controlCenter.isOpen) && !(subSearchDialog && subSearchDialog.isOpen)) {
+            if (!Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen && !(controlCenter && controlCenter.isOpen) && !(subSearchDialog && subSearchDialog.isOpen) && !(openUrlDialog && openUrlDialog.isOpen)) {
                 root.chromeVisible = false
             }
         }
@@ -177,7 +177,7 @@ Window {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
-        cursorShape: (!root.chromeVisible && !Mpv.paused && Mpv.duration > 0 && !(subSearchDialog && subSearchDialog.isOpen)) ? Qt.BlankCursor : Qt.ArrowCursor
+        cursorShape: (!root.chromeVisible && !Mpv.paused && Mpv.duration > 0 && !(subSearchDialog && subSearchDialog.isOpen) && !(openUrlDialog && openUrlDialog.isOpen)) ? Qt.BlankCursor : Qt.ArrowCursor
         onPositionChanged: root.poke()
         onWheel: (wheel) => {
             if (wheel.angleDelta.y > 0) {
@@ -307,6 +307,7 @@ Window {
 
         onPokeRequested: root.poke()
         onOpenClicked: openDialog.open()
+        onOpenUrlRequested: { openUrlDialog.openDialog(); root.poke() }
         onOpenSubClicked: subDialog.open()
         onSearchSubtitlesRequested: { subSearchDialog.openDialog(); root.poke() }
         onFullscreenToggled: root.toggleFullscreen()
@@ -335,6 +336,7 @@ Window {
         id: contextMenu
         isAlwaysOnTop: root.alwaysOnTop
         onOpenMediaRequested: openDialog.open()
+        onOpenUrlRequested: { openUrlDialog.openDialog(); root.poke() }
         onOpenSubtitleRequested: subDialog.open()
         onSearchSubtitlesRequested: { subSearchDialog.openDialog(); root.poke() }
         onFullscreenToggled: root.toggleFullscreen()
@@ -359,6 +361,12 @@ Window {
     SubtitleSearchDialog {
         id: subSearchDialog
         z: 30
+    }
+
+    // --- Open Stream / URL Dialog (Ctrl+U) --------------------------------
+    OpenUrlDialog {
+        id: openUrlDialog
+        z: 35
     }
 
     // --- Technical Media Info Overlay (Tab) -------------------------------
@@ -421,7 +429,9 @@ Window {
     PlayerShortcut {
         sequence: "Escape"
         onActivated: {
-            if (subSearchDialog.isOpen) {
+            if (openUrlDialog.isOpen) {
+                openUrlDialog.closeDialog()
+            } else if (subSearchDialog.isOpen) {
                 subSearchDialog.closeDialog()
             } else if (controlCenter.isOpen) {
                 controlCenter.close()
@@ -432,6 +442,15 @@ Window {
             } else if (root.visibility === Window.FullScreen) {
                 root.visibility = Window.Windowed
             }
+        }
+    }
+
+    // Open Stream / URL (Ctrl+U)
+    PlayerShortcut {
+        sequence: "Ctrl+U"
+        onActivated: {
+            openUrlDialog.openDialog()
+            root.poke()
         }
     }
 

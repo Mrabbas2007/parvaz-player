@@ -92,6 +92,9 @@ class MpvObject : public QObject {
     Q_PROPERTY(SubtitleSearchService* subtitleSearch READ subtitleSearch CONSTANT)
     Q_PROPERTY(SubtitleSyncService* subtitleSync READ subtitleSync CONSTANT)
 
+    // Online Streaming & URLs (Ctrl+U)
+    Q_PROPERTY(QStringList recentUrls READ recentUrls NOTIFY recentUrlsChanged)
+
 public:
     explicit MpvObject(QObject *parent = nullptr);
     ~MpvObject() override;
@@ -156,6 +159,13 @@ public:
     SubtitleSearchService *subtitleSearch() { return &m_subtitleSearch; }
     SubtitleSyncService *subtitleSync() { return &m_subtitleSync; }
     Q_INVOKABLE void autoSyncCurrentSubtitle();
+
+    /// Online Streaming & URL Handling
+    QStringList recentUrls() const { return m_recentUrls; }
+    Q_INVOKABLE QString clipboardText() const;
+    Q_INVOKABLE bool isValidStreamUrl(const QString &url) const;
+    Q_INVOKABLE void openUrl(const QString &url);
+    Q_INVOKABLE void clearRecentUrls();
 
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
@@ -341,6 +351,7 @@ signals:
     void equalizerEnabledChanged();
     void equalizerPresetChanged();
     void equalizerGainsChanged();
+    void recentUrlsChanged();
     void secondarySubtitleTrackChanged();
     void technicalStatsChanged();
     void isAudioOnlyChanged();
@@ -433,4 +444,6 @@ private:
     QString m_equalizerPreset = QStringLiteral("Flat");
     QVariantList m_equalizerGains = {QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0),
                                      QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0), QVariant(0.0)};
+
+    QStringList m_recentUrls;
 };
