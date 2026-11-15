@@ -109,6 +109,7 @@ MpvObject::MpvObject(QObject *parent)
         return;
     }
     m_subtitles.setHandle(m_mpv);
+    m_screenshot.setHandle(m_mpv);
 
     // Subtitle state lives in the controller; re-expose its change signals
     // under the MpvObject NOTIFY names QML binds to.
@@ -1470,4 +1471,37 @@ void MpvObject::applyPerformanceProfile()
         }
         emit technicalStatsChanged();
     }
+}
+
+bool MpvObject::copyScreenshotToClipboard()
+{
+    if (!hasVideo()) {
+        showOsd(QStringLiteral("No video to capture"));
+        return false;
+    }
+
+    bool ok = m_screenshot.copyToClipboard();
+    if (ok) {
+        showOsd(QStringLiteral("Frame copied to clipboard"));
+    } else {
+        showOsd(QStringLiteral("Capture failed"));
+    }
+    return ok;
+}
+
+QString MpvObject::saveScreenshot(const QString &folder)
+{
+    if (!hasVideo()) {
+        showOsd(QStringLiteral("No video to capture"));
+        return QString();
+    }
+
+    QString savedPath = m_screenshot.saveToFile(folder);
+    if (!savedPath.isEmpty()) {
+        const QString fileName = QFileInfo(savedPath).fileName();
+        showOsd(QStringLiteral("Screenshot saved: %1").arg(fileName));
+    } else {
+        showOsd(QStringLiteral("Capture failed"));
+    }
+    return savedPath;
 }

@@ -441,7 +441,21 @@ Menu {
         }
     }
 
-    // 10. Window
+    // 10. Capture / Screenshot
+    StyledMenu {
+        title: "Capture"
+        enabled: Mpv.hasVideo
+        StyledItem {
+            text: "Copy frame to clipboard (Ctrl+C)"
+            onTriggered: Mpv.copyScreenshotToClipboard()
+        }
+        StyledItem {
+            text: "Save frame to Pictures (Ctrl+S)"
+            onTriggered: Mpv.saveScreenshot()
+        }
+    }
+
+    // 11. Window
     StyledMenu {
         title: "Window"
         StyledItem {

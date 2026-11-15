@@ -368,6 +368,17 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("currentAudioTrack == 1 after restore", mpv.currentAudioTrack() == 1);
             mpv.selectSecondarySubtitleTrack(0);
             check("secondarySubtitleTrack <= 0", mpv.secondarySubtitleTrack() <= 0);
+            // Test screenshot saving to temporary path while playing video
+            const QString testDir = QStringLiteral("/tmp/parvaz_test_screenshots");
+            const QString saved = mpv.saveScreenshot(testDir);
+            check("saveScreenshot produced a file path", !saved.isEmpty());
+            check("saved screenshot file exists on disk", QFile::exists(saved));
+            if (QFile::exists(saved)) {
+                QFile f(saved);
+                check("saved screenshot file size > 10KB", f.size() > 10240);
+                f.remove();
+            }
+            QDir().rmdir(testDir);
             // Load music file with attached picture to test music mode & cover art
             mpv.loadFile(QStringLiteral(PARVAZ_TESTS_DIR "/../build/music_test.mp3"));
             break;

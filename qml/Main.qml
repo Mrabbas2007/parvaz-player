@@ -475,6 +475,8 @@ Window {
     }
 
     PlayerShortcut { sequence: "Ctrl+T"; onActivated: root.toggleAlwaysOnTop() }
+    PlayerShortcut { sequence: "Ctrl+C"; onActivated: Mpv.copyScreenshotToClipboard() }
+    PlayerShortcut { sequence: "Ctrl+S"; onActivated: Mpv.saveScreenshot() }
     PlayerShortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
 
     // --- Window Border & Edge Resizing (Frameless windowed mode) ------------

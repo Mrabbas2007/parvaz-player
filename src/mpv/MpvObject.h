@@ -9,6 +9,7 @@
 #include <mpv/client.h>
 #include <mpv/SubtitleController.h>
 #include <playback/CoverArtProvider.h>
+#include <playback/ScreenshotController.h>
 
 namespace parvaz { class PlaybackHistory; }
 
@@ -239,6 +240,10 @@ public:
     Q_INVOKABLE void adjustSubtitleFontSize(double delta);
     Q_INVOKABLE void showOsd(const QString &text);
 
+    /// Screenshots / Frame Capture
+    Q_INVOKABLE bool copyScreenshotToClipboard();
+    Q_INVOKABLE QString saveScreenshot(const QString &folder = QString());
+
     /// "hwdec=vaapi drop=0 decoder-drop=0" for benchmarks.
     QString statsLine() const;
 
@@ -328,6 +333,9 @@ private:
 
     /// Subtitle state and mpv wiring; QML-facing API stays on MpvObject.
     SubtitleController m_subtitles;
+
+    /// Screenshot & frame capture controller
+    parvaz::ScreenshotController m_screenshot;
 
     QVariantList m_tracks;
     qint64 m_currentAudioTrack = 0;
