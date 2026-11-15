@@ -4,7 +4,7 @@ project(parvaz VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui OpenGL Quick QuickControls2 DBus Sql)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui OpenGL Quick QuickControls2 DBus Sql Network)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
 
@@ -16,6 +16,8 @@ qt_add_executable(parvaz
     src/mpv/MpvObject.h  src/mpv/MpvObject.cpp
     src/mpv/MpvFboItem.h src/mpv/MpvFboItem.cpp
     src/mpv/SubtitleController.h src/mpv/SubtitleController.cpp
+    src/subs/SubtitleSearchService.h src/subs/SubtitleSearchService.cpp
+    src/subs/SubtitleSyncService.h src/subs/SubtitleSyncService.cpp
     src/platform/IdleInhibitor.h src/platform/IdleInhibitor.cpp
     src/platform/MprisService.h  src/platform/MprisService.cpp
     src/playback/PlaybackHistory.h src/playback/PlaybackHistory.cpp
@@ -55,6 +57,7 @@ qt_add_qml_module(parvaz
         qml/components/OsdOverlay.qml
         qml/components/PlaylistDrawer.qml
         qml/components/SeekBar.qml
+        qml/components/SubtitleSearchDialog.qml
         qml/components/TechnicalInfoOverlay.qml
         qml/components/TitleBar.qml
         qml/components/VolumeControl.qml
@@ -88,7 +91,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 target_link_libraries(parvaz PRIVATE
-    Qt6::Core Qt6::Gui Qt6::OpenGL Qt6::Quick Qt6::QuickControls2 Qt6::DBus Qt6::Sql
+    Qt6::Core Qt6::Gui Qt6::OpenGL Qt6::Quick Qt6::QuickControls2 Qt6::DBus Qt6::Sql Qt6::Network
     PkgConfig::MPV
 )
 

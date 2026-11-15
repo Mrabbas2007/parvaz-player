@@ -10,6 +10,8 @@
 #include <mpv/SubtitleController.h>
 #include <playback/CoverArtProvider.h>
 #include <playback/ScreenshotController.h>
+#include <subs/SubtitleSearchService.h>
+#include <subs/SubtitleSyncService.h>
 
 namespace parvaz { class PlaybackHistory; }
 
@@ -86,6 +88,10 @@ class MpvObject : public QObject {
     Q_PROPERTY(QString equalizerPreset READ equalizerPreset NOTIFY equalizerPresetChanged)
     Q_PROPERTY(QVariantList equalizerGains READ equalizerGains NOTIFY equalizerGainsChanged)
 
+    // Online Subtitle Services (Search & Auto-Sync)
+    Q_PROPERTY(SubtitleSearchService* subtitleSearch READ subtitleSearch CONSTANT)
+    Q_PROPERTY(SubtitleSyncService* subtitleSync READ subtitleSync CONSTANT)
+
 public:
     explicit MpvObject(QObject *parent = nullptr);
     ~MpvObject() override;
@@ -146,6 +152,10 @@ public:
     bool equalizerEnabled() const { return m_equalizerEnabled; }
     QString equalizerPreset() const { return m_equalizerPreset; }
     QVariantList equalizerGains() const { return m_equalizerGains; }
+
+    SubtitleSearchService *subtitleSearch() { return &m_subtitleSearch; }
+    SubtitleSyncService *subtitleSync() { return &m_subtitleSync; }
+    Q_INVOKABLE void autoSyncCurrentSubtitle();
 
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
@@ -400,6 +410,10 @@ private:
 
     /// Screenshot & frame capture controller
     parvaz::ScreenshotController m_screenshot;
+
+    /// Subtitle online search and synchronization services
+    SubtitleSearchService m_subtitleSearch;
+    SubtitleSyncService m_subtitleSync;
 
     QVariantList m_tracks;
     qint64 m_currentAudioTrack = 0;

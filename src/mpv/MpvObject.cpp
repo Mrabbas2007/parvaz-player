@@ -166,6 +166,24 @@ MpvObject::MpvObject(QObject *parent)
         setCoverArtUrl(url);
     });
 
+    // Subtitle search & download wiring
+    connect(&m_subtitleSearch, &SubtitleSearchService::subtitleReadyToApply,
+            this, [this](const QString &path) {
+        addSubtitleFile(path);
+        showOsd(QStringLiteral("Sub loaded: %1").arg(QFileInfo(path).fileName()));
+    });
+
+    // Subtitle auto-sync wiring
+    connect(&m_subtitleSync, &SubtitleSyncService::syncFinished,
+            this, [this](const QString &path) {
+        addSubtitleFile(path);
+        showOsd(QStringLiteral("Sub synchronized successfully!"));
+    });
+    connect(&m_subtitleSync, &SubtitleSyncService::syncFailed,
+            this, [this](const QString &err) {
+        showOsd(QStringLiteral("Sync error: %1").arg(err));
+    });
+
     drainEvents();
 }
 
@@ -1772,4 +1790,27 @@ void MpvObject::toggleAbLoop()
     } else {
         clearAbLoop();
     }
+}
+
+void MpvObject::autoSyncCurrentSubtitle()
+{
+    if (m_currentFile.isEmpty()) {
+        showOsd(QStringLiteral("No media file playing"));
+        return;
+    }
+    if (!m_subtitleSync.isToolAvailable()) {
+        showOsd(QStringLiteral("ffsubsync not found (pip install ffsubsync)"));
+        return;
+    }
+
+    // Check for sidecar .srt in same folder or cache
+    QFileInfo fi(m_currentFile);
+    QString srtCandidate = fi.absolutePath() + QStringLiteral("/") + fi.completeBaseName() + QStringLiteral(".srt");
+    if (!QFile::exists(srtCandidate)) {
+        showOsd(QStringLiteral("No sidecar .srt found to synchronize"));
+        return;
+    }
+
+    showOsd(QStringLiteral("Auto-syncing subtitle with audio…"));
+    m_subtitleSync.syncSubtitle(m_currentFile, srtCandidate);
 }

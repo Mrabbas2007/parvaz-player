@@ -9,6 +9,7 @@
 #include <QSGRendererInterface>
 #include <QCommandLineParser>
 #include <QFile>
+#include <QBuffer>
 #include <QDir>
 #include <QTimer>
 #include <QUrl>
@@ -22,6 +23,8 @@
 #include "platform/MprisService.h"
 #include "playback/PlaybackHistory.h"
 #include "playback/ThumbnailProvider.h"
+#include "subs/SubtitleSearchService.h"
+#include "subs/SubtitleSyncService.h"
 
 /// Each step applies a change, then checks it on a later event-loop turn:
 /// mpv reports the new value only through the observe callbacks, which need a
@@ -431,6 +434,42 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
                 check("config manager setVolume(75) accepted", parvaz::ConfigManager::instance()->volume() == 75);
                 check("config file exists on disk", QFile::exists(parvaz::ConfigManager::instance()->configFilePath()));
             }
+            break;
+        }
+        case 39: {
+            // Test SubtitleSearchService cleanMediaTitle
+            const QString cleaned1 = SubtitleSearchService::cleanMediaTitle(QStringLiteral("Demon.Slayer.S01E01.1080p.x264-SPARKS.mkv"));
+            check("cleanMediaTitle extracts Demon Slayer S01E01", cleaned1 == QLatin1String("Demon Slayer S01E01"));
+
+            const QString cleaned2 = SubtitleSearchService::cleanMediaTitle(QStringLiteral("Oppenheimer.2023.1080p.WEBRip.x264-[YTS.MX].mkv"));
+            check("cleanMediaTitle extracts Oppenheimer 2023", cleaned2 == QLatin1String("Oppenheimer 2023"));
+
+            // Test OpenSubtitles hash algorithm with synthetic buffer (128KB = 0x20000)
+            QByteArray zeroBuf(131072, 0);
+            QBuffer buf(&zeroBuf);
+            buf.open(QIODevice::ReadOnly);
+            const QString hash = SubtitleSearchService::computeOpenSubtitlesHash(&buf, 131072);
+            check("computeOpenSubtitlesHash on 128KB zero buffer is 0000000000020000", hash == QLatin1String("0000000000020000"));
+
+            // Test OpenSubtitles JSON parsing
+            const QByteArray osJson = "{\"data\":[{\"id\":\"sub1\",\"attributes\":{\"release\":\"Demon.Slayer.S01E01\",\"language\":\"fa\",\"download_count\":350,\"ratings\":4.8,\"files\":[{\"file_id\":101,\"file_name\":\"ds_s01e01.srt\"}],\"url\":\"https://example.com/sub.srt\"}}]}";
+            const QVariantList osParsed = SubtitleSearchService::parseOpenSubtitlesJson(osJson, true);
+            check("parseOpenSubtitlesJson returns 1 item", osParsed.size() == 1);
+            if (!osParsed.isEmpty()) {
+                const QVariantMap item = osParsed.first().toMap();
+                check("parsed item has release Demon.Slayer.S01E01", item.value(QStringLiteral("release")).toString() == QLatin1String("Demon.Slayer.S01E01"));
+                check("parsed item has langCode fa", item.value(QStringLiteral("langCode")).toString() == QLatin1String("fa"));
+                check("parsed item has isExactMatch true", item.value(QStringLiteral("isExactMatch")).toBool() == true);
+            }
+
+            // Test Subdl JSON parsing
+            const QByteArray subdlJson = "{\"status\":true,\"subtitles\":[{\"release_name\":\"Demon.Slayer.S01E01\",\"lang\":\"fa\",\"download_count\":200,\"rating\":4.9,\"url\":\"/sub/1.zip\"}]}";
+            const QVariantList subdlParsed = SubtitleSearchService::parseSubdlJson(subdlJson);
+            check("parseSubdlJson returns 1 item", subdlParsed.size() == 1);
+
+            // Test SubtitleSyncService and SubtitleSearchService access
+            check("subtitleSync is accessible", mpv.subtitleSync() != nullptr);
+            check("subtitleSearch is accessible", mpv.subtitleSearch() != nullptr);
             break;
         }
         default: {

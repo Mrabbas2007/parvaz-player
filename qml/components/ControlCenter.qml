@@ -7,6 +7,7 @@ Item {
     id: root
 
     property bool isOpen: false
+    signal searchSubtitlesRequested()
 
     function toggle() {
         isOpen = !isOpen;
@@ -974,6 +975,88 @@ Item {
                             color: "#FFFFFF"
                             font.family: Theme.fontDigits
                             font.pixelSize: Theme.fontNormal
+                        }
+                    }
+
+                    Rectangle { width: parent.width; height: 1; color: "#202534" }
+
+                    // Online Subtitles & Auto-Sync Actions
+                    Row {
+                        width: parent.width
+                        spacing: 12
+
+                        Rectangle {
+                            width: (parent.width - 12) / 2
+                            height: 32
+                            radius: Theme.radiusSmall
+                            color: searchSubMouse.containsMouse ? "#2B6CB0" : "#1E3A8A"
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+                                Image {
+                                    width: 14; height: 14
+                                    source: "../icons/search.svg"
+                                    sourceSize: Qt.size(14, 14)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Text {
+                                    text: "Search Online Subtitles"
+                                    color: "#FFFFFF"
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSmall
+                                    font.bold: true
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            MouseArea {
+                                id: searchSubMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    root.searchSubtitlesRequested();
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: (parent.width - 12) / 2
+                            height: 32
+                            radius: Theme.radiusSmall
+                            color: autoSyncMouse.containsMouse ? "#2A3348" : "#1A1D27"
+                            border.color: "#282E3E"
+                            border.width: 1
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+                                Image {
+                                    width: 14; height: 14
+                                    source: "../icons/sliders.svg"
+                                    sourceSize: Qt.size(14, 14)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Text {
+                                    text: "Auto-Sync Subtitle"
+                                    color: autoSyncMouse.containsMouse ? "#FFFFFF" : Theme.textSecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSmall
+                                    font.bold: true
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            MouseArea {
+                                id: autoSyncMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    Mpv.autoSyncCurrentSubtitle();
+                                }
+                            }
                         }
                     }
                 }

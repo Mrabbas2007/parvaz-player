@@ -16,6 +16,7 @@ Item {
     signal pokeRequested()
     signal openClicked()
     signal openSubClicked()
+    signal searchSubtitlesRequested()
     signal fullscreenToggled()
     signal playlistToggleRequested()
 
@@ -568,6 +569,11 @@ Item {
         ControlMenuItem {
             text: "Open subtitle file…"
             onTriggered: root.openSubClicked()
+        }
+
+        ControlMenuItem {
+            text: "Search online subtitles… (Ctrl+Shift+S)"
+            onTriggered: root.searchSubtitlesRequested()
         }
     }
 }

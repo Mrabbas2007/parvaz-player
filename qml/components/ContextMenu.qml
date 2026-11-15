@@ -8,6 +8,7 @@ Menu {
 
     signal openMediaRequested()
     signal openSubtitleRequested()
+    signal searchSubtitlesRequested()
     signal windowSizeRequested(int w, int h)
     signal fullscreenToggled()
     signal alwaysOnTopToggled()
@@ -126,6 +127,14 @@ Menu {
         StyledItem {
             text: "Open subtitle file…"
             onTriggered: root.openSubtitleRequested()
+        }
+        StyledItem {
+            text: "Search online subtitles… (Ctrl+Shift+S)"
+            onTriggered: root.searchSubtitlesRequested()
+        }
+        StyledItem {
+            text: "Auto-sync subtitle with audio"
+            onTriggered: Mpv.autoSyncCurrentSubtitle()
         }
     }
 
@@ -333,6 +342,14 @@ Menu {
         StyledItem {
             text: "Open subtitle file…"
             onTriggered: root.openSubtitleRequested()
+        }
+        StyledItem {
+            text: "Search online subtitles… (Ctrl+Shift+S)"
+            onTriggered: root.searchSubtitlesRequested()
+        }
+        StyledItem {
+            text: "Auto-sync subtitle with audio"
+            onTriggered: Mpv.autoSyncCurrentSubtitle()
         }
     }
 

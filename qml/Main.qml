@@ -56,7 +56,7 @@ Window {
         interval: Theme.autoHideTimeout
         repeat: false
         onTriggered: {
-            if (!Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen && !(controlCenter && controlCenter.isOpen)) {
+            if (!Mpv.paused && !root.pointerOnBar && !(titleBar && titleBar.pointerOnBar) && !controlBar.isDraggingSeek && !playlistDrawer.isOpen && !(controlCenter && controlCenter.isOpen) && !(subSearchDialog && subSearchDialog.isOpen)) {
                 root.chromeVisible = false
             }
         }
@@ -177,7 +177,7 @@ Window {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
-        cursorShape: (!root.chromeVisible && !Mpv.paused && Mpv.duration > 0) ? Qt.BlankCursor : Qt.ArrowCursor
+        cursorShape: (!root.chromeVisible && !Mpv.paused && Mpv.duration > 0 && !(subSearchDialog && subSearchDialog.isOpen)) ? Qt.BlankCursor : Qt.ArrowCursor
         onPositionChanged: root.poke()
         onWheel: (wheel) => {
             if (wheel.angleDelta.y > 0) {
@@ -308,6 +308,7 @@ Window {
         onPokeRequested: root.poke()
         onOpenClicked: openDialog.open()
         onOpenSubClicked: subDialog.open()
+        onSearchSubtitlesRequested: { subSearchDialog.openDialog(); root.poke() }
         onFullscreenToggled: root.toggleFullscreen()
     }
 
@@ -335,6 +336,7 @@ Window {
         isAlwaysOnTop: root.alwaysOnTop
         onOpenMediaRequested: openDialog.open()
         onOpenSubtitleRequested: subDialog.open()
+        onSearchSubtitlesRequested: { subSearchDialog.openDialog(); root.poke() }
         onFullscreenToggled: root.toggleFullscreen()
         onAlwaysOnTopToggled: root.toggleAlwaysOnTop()
         onPlaylistToggled: { playlistDrawer.toggle(); root.poke() }
@@ -350,6 +352,13 @@ Window {
     // --- Control Center Floater (F7) --------------------------------------
     ControlCenter {
         id: controlCenter
+        onSearchSubtitlesRequested: { subSearchDialog.openDialog(); root.poke() }
+    }
+
+    // --- Subtitle Online Search Dialog (Ctrl+Shift+S) ---------------------
+    SubtitleSearchDialog {
+        id: subSearchDialog
+        z: 30
     }
 
     // --- Technical Media Info Overlay (Tab) -------------------------------
@@ -412,7 +421,9 @@ Window {
     PlayerShortcut {
         sequence: "Escape"
         onActivated: {
-            if (controlCenter.isOpen) {
+            if (subSearchDialog.isOpen) {
+                subSearchDialog.closeDialog()
+            } else if (controlCenter.isOpen) {
                 controlCenter.close()
             } else if (technicalInfoOverlay.isOpen) {
                 technicalInfoOverlay.close()
@@ -421,6 +432,15 @@ Window {
             } else if (root.visibility === Window.FullScreen) {
                 root.visibility = Window.Windowed
             }
+        }
+    }
+
+    // Subtitle Online Search (Ctrl+Shift+S)
+    PlayerShortcut {
+        sequence: "Ctrl+Shift+S"
+        onActivated: {
+            subSearchDialog.openDialog()
+            root.poke()
         }
     }
 
