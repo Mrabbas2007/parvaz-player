@@ -8,14 +8,20 @@ Item {
 
     property bool isOpen: false
     signal searchSubtitlesRequested()
+    signal closed()
 
     function toggle() {
         isOpen = !isOpen;
         if (isOpen)
             root.forceActiveFocus();
+        else
+            closed();
     }
     function open() { isOpen = true; root.forceActiveFocus(); }
-    function close() { isOpen = false; }
+    function close() {
+        isOpen = false;
+        closed();
+    }
 
     visible: opacity > 0.0
     opacity: isOpen ? 1.0 : 0.0

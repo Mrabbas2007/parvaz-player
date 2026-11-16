@@ -8,9 +8,19 @@ Item {
     width: Math.min(340, Math.round(parent.width * 0.75))
 
     property bool isOpen: false
-    function toggle() { isOpen = !isOpen }
+    readonly property bool isFilterFocused: filterInput.activeFocus
+    signal closed()
+
+    function toggle() {
+        isOpen = !isOpen
+        if (!isOpen)
+            closed()
+    }
     function open() { isOpen = true }
-    function close() { isOpen = false }
+    function close() {
+        isOpen = false
+        closed()
+    }
 
     signal addFilesRequested()
 

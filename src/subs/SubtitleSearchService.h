@@ -22,6 +22,8 @@ class SubtitleSearchService : public QObject {
 
     Q_PROPERTY(bool searching READ searching NOTIFY searchingChanged)
     Q_PROPERTY(bool downloading READ downloading NOTIFY downloadingChanged)
+    Q_PROPERTY(int downloadingIndex READ downloadingIndex NOTIFY downloadingIndexChanged)
+    Q_PROPERTY(int appliedIndex READ appliedIndex NOTIFY appliedIndexChanged)
     Q_PROPERTY(QVariantList results READ results NOTIFY resultsChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(QString fileHash READ fileHash NOTIFY fileHashChanged)
@@ -34,6 +36,8 @@ public:
 
     bool searching() const { return m_searching; }
     bool downloading() const { return m_downloading; }
+    int downloadingIndex() const { return m_downloadingIndex; }
+    int appliedIndex() const { return m_appliedIndex; }
     QVariantList results() const { return m_results; }
     QString statusMessage() const { return m_statusMessage; }
     QString fileHash() const { return m_fileHash; }
@@ -73,6 +77,8 @@ public:
 signals:
     void searchingChanged();
     void downloadingChanged();
+    void downloadingIndexChanged();
+    void appliedIndexChanged();
     void resultsChanged();
     void statusMessageChanged();
     void fileHashChanged();
@@ -109,4 +115,5 @@ private:
     QString m_currentLanguage = QStringLiteral("all");
     QString m_currentFilePath;
     int m_downloadingIndex = -1;
+    int m_appliedIndex = -1;
 };

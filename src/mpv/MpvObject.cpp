@@ -111,6 +111,32 @@ MpvObject::MpvObject(QObject *parent)
     mpv_set_option_string(m_mpv, "target-colorspace-hint", "yes");
     mpv_set_option_string(m_mpv, "hdr-compute-peak", "auto"); // Use static HDR metadata when available
 
+    // Subtitle typography & Persian font clarity:
+    // Ensure font directory exists and Vazirmatn is placed on disk for libass/fontconfig
+    const QString cacheFontsDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/fonts");
+    QDir().mkpath(cacheFontsDir);
+    const QString vazirTarget = cacheFontsDir + QStringLiteral("/Vazirmatn.ttf");
+    if (!QFile::exists(vazirTarget)) {
+        if (QFile::exists(QStringLiteral(":/Parvaz/qml/fonts/Vazirmatn.ttf"))) {
+            QFile::copy(QStringLiteral(":/Parvaz/qml/fonts/Vazirmatn.ttf"), vazirTarget);
+        } else if (QFile::exists(QCoreApplication::applicationDirPath() + QStringLiteral("/../qml/fonts/Vazirmatn.ttf"))) {
+            QFile::copy(QCoreApplication::applicationDirPath() + QStringLiteral("/../qml/fonts/Vazirmatn.ttf"), vazirTarget);
+        } else if (QFile::exists(QCoreApplication::applicationDirPath() + QStringLiteral("/qml/fonts/Vazirmatn.ttf"))) {
+            QFile::copy(QCoreApplication::applicationDirPath() + QStringLiteral("/qml/fonts/Vazirmatn.ttf"), vazirTarget);
+        }
+    }
+    if (QFile::exists(vazirTarget)) {
+        QFile::setPermissions(vazirTarget, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther);
+    }
+
+    // Configure subtitle typography:
+    // 1. sub-fonts-dir tells libass where to discover fonts
+    // 2. sub-font="Vazirmatn" provides high-quality Persian/Arabic rendering for SRT/plain subtitles
+    // 3. sub-ass-override="scale" strictly respects custom fonts and styling defined in ASS/SSA scripts
+    mpv_set_option_string(m_mpv, "sub-fonts-dir", QFile::encodeName(cacheFontsDir).constData());
+    mpv_set_option_string(m_mpv, "sub-font", "Vazirmatn");
+    mpv_set_option_string(m_mpv, "sub-ass-override", "scale");
+
     // Adaptive demuxer cache: smooth readahead preventing buffer starvation on high-bitrate media
     mpv_set_option_string(m_mpv, "demuxer-max-bytes", "96MiB");
     mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "32MiB");

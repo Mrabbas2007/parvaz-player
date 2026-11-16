@@ -22,8 +22,11 @@ Item {
         urlField.forceActiveFocus();
     }
 
+    signal closed()
+
     function closeDialog() {
         isOpen = false;
+        root.closed();
     }
 
     function playCurrent() {

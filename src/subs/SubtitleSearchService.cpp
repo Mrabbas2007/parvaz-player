@@ -322,6 +322,8 @@ void SubtitleSearchService::executeSearch(const QString &hash, const QString &qu
     Q_UNUSED(hash);
     Q_UNUSED(language);
     cancelSearch();
+    m_appliedIndex = -1;
+    emit appliedIndexChanged();
     setSearching(true);
     setStatus(QStringLiteral("Searching subtitles online…"));
     m_rawSearchResults.clear();
@@ -551,6 +553,7 @@ void SubtitleSearchService::downloadAndApply(int resultIndex)
         return;
 
     m_downloadingIndex = resultIndex;
+    emit downloadingIndexChanged();
     setDownloading(true);
     setStatus(QStringLiteral("Downloading subtitle…"));
 
@@ -558,6 +561,8 @@ void SubtitleSearchService::downloadAndApply(int resultIndex)
     QString downloadUrl = item.value(QStringLiteral("downloadUrl")).toString();
 
     if (downloadUrl.isEmpty()) {
+        m_downloadingIndex = -1;
+        emit downloadingIndexChanged();
         setDownloading(false);
         setStatus(QStringLiteral("Download URL not available for this item"));
         return;
@@ -580,6 +585,9 @@ void SubtitleSearchService::onDownloadReplyFinished()
     QNetworkReply *reply = m_activeDownloadReply;
     m_activeDownloadReply = nullptr;
     reply->deleteLater();
+    const int completedIndex = m_downloadingIndex;
+    m_downloadingIndex = -1;
+    emit downloadingIndexChanged();
     setDownloading(false);
 
     if (reply->error() != QNetworkReply::NoError) {
@@ -599,8 +607,8 @@ void SubtitleSearchService::onDownloadReplyFinished()
     QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/subtitles");
     QDir().mkpath(cacheDir);
 
-    QVariantMap item = (m_downloadingIndex >= 0 && m_downloadingIndex < m_results.size())
-                           ? m_results.at(m_downloadingIndex).toMap()
+    QVariantMap item = (completedIndex >= 0 && completedIndex < m_results.size())
+                           ? m_results.at(completedIndex).toMap()
                            : QVariantMap();
 
     QString releaseName = item.value(QStringLiteral("release")).toString();
@@ -648,6 +656,8 @@ void SubtitleSearchService::onDownloadReplyFinished()
     }
 
     setStatus(QStringLiteral("Subtitle downloaded successfully!"));
+    m_appliedIndex = completedIndex;
+    emit appliedIndexChanged();
     emit subtitleReadyToApply(finalSubtitlePath);
 }
 
@@ -669,6 +679,10 @@ void SubtitleSearchService::cancelSearch()
         m_activeDownloadReply->abort();
         m_activeDownloadReply->deleteLater();
         m_activeDownloadReply = nullptr;
+    }
+    if (m_downloadingIndex != -1) {
+        m_downloadingIndex = -1;
+        emit downloadingIndexChanged();
     }
     setSearching(false);
     setDownloading(false);

@@ -41,6 +41,43 @@ Window {
         }
     }
 
+    Keys.onPressed: (event) => {
+        if (openDialog.visible || subDialog.visible || addPlaylistDialog.visible ||
+            (subSearchDialog && subSearchDialog.isOpen) ||
+            (openUrlDialog && openUrlDialog.isOpen) ||
+            (playlistDrawer && playlistDrawer.isOpen && playlistDrawer.isFilterFocused)) {
+            return
+        }
+        if (event.key === Qt.Key_Space) {
+            Mpv.togglePause()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Left) {
+            if (event.modifiers & Qt.ControlModifier && event.modifiers & Qt.ShiftModifier) {
+                Mpv.seekRelative(-300)
+            } else if (event.modifiers & Qt.ShiftModifier) {
+                Mpv.seekRelative(-60)
+            } else if (event.modifiers & Qt.ControlModifier) {
+                Mpv.seekRelative(-30)
+            } else {
+                Mpv.seekRelative(-5)
+            }
+            root.poke()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Right) {
+            if (event.modifiers & Qt.ControlModifier && event.modifiers & Qt.ShiftModifier) {
+                Mpv.seekRelative(300)
+            } else if (event.modifiers & Qt.ShiftModifier) {
+                Mpv.seekRelative(60)
+            } else if (event.modifiers & Qt.ControlModifier) {
+                Mpv.seekRelative(30)
+            } else {
+                Mpv.seekRelative(5)
+            }
+            root.poke()
+            event.accepted = true
+        }
+    }
+
     function toggleAlwaysOnTop() {
         alwaysOnTop = !alwaysOnTop
         Config.setAlwaysOnTop(alwaysOnTop)
@@ -130,6 +167,8 @@ Window {
     }
 
     Component.onCompleted: {
+        root.requestActivate()
+        root.forceActiveFocus()
         poke()
         if (Config.windowWidth >= root.minimumWidth && Config.windowHeight >= root.minimumHeight) {
             root.width = Config.windowWidth
@@ -145,7 +184,15 @@ Window {
             "Media (*.mkv *.mp4 *.webm *.avi *.mov *.flv *.ts *.ogm *.mp3 *.flac *.ogg *.opus *.wav)",
             "All files (*)"
         ]
-        onAccepted: Mpv.loadFile(Mpv.urlToLocalPath(openDialog.selectedFile))
+        onAccepted: {
+            root.requestActivate()
+            root.forceActiveFocus()
+            Mpv.loadFile(Mpv.urlToLocalPath(openDialog.selectedFile))
+        }
+        onRejected: {
+            root.requestActivate()
+            root.forceActiveFocus()
+        }
     }
 
     FileDialog {
@@ -154,6 +201,8 @@ Window {
         fileMode: FileDialog.OpenFiles
         nameFilters: openDialog.nameFilters
         onAccepted: {
+            root.requestActivate()
+            root.forceActiveFocus()
             var paths = []
             for (var i = 0; i < selectedFiles.length; ++i) {
                 paths.push(Mpv.urlToLocalPath(selectedFiles[i]))
@@ -162,6 +211,10 @@ Window {
                 Mpv.loadFiles(paths, "append")
                 Mpv.showOsd(paths.length === 1 ? "1 file queued" : paths.length + " files queued")
             }
+        }
+        onRejected: {
+            root.requestActivate()
+            root.forceActiveFocus()
         }
     }
 
@@ -172,7 +225,15 @@ Window {
             "Subtitles (*.srt *.ass *.ssa *.sub *.vtt *.sup)",
             "All files (*)"
         ]
-        onAccepted: Mpv.addSubtitleFile(Mpv.urlToLocalPath(subDialog.selectedFile))
+        onAccepted: {
+            root.requestActivate()
+            root.forceActiveFocus()
+            Mpv.addSubtitleFile(Mpv.urlToLocalPath(subDialog.selectedFile))
+        }
+        onRejected: {
+            root.requestActivate()
+            root.forceActiveFocus()
+        }
     }
 
     // --- Video Viewport (libmpv direct FBO) --------------------------------
@@ -207,7 +268,13 @@ Window {
             }
             root.poke()
         }
+        onPressed: (mouse) => {
+            root.requestActivate()
+            root.forceActiveFocus()
+        }
         onClicked: (mouse) => {
+            root.requestActivate()
+            root.forceActiveFocus()
             if (playlistDrawer.isOpen) {
                 playlistDrawer.close()
                 return
@@ -355,6 +422,10 @@ Window {
                 root.poke()
         }
         onAddFilesRequested: addPlaylistDialog.open()
+        onClosed: {
+            root.requestActivate()
+            root.forceActiveFocus()
+        }
     }
 
     // --- Non-intrusive Top Corner OSD (PotPlayer/mpv standard) ------------
@@ -389,24 +460,40 @@ Window {
             root.width = w
             root.height = h
         }
+        onClosed: {
+            root.requestActivate()
+            root.forceActiveFocus()
+        }
     }
 
     // --- Control Center Floater (F7) --------------------------------------
     ControlCenter {
         id: controlCenter
         onSearchSubtitlesRequested: { subSearchDialog.openDialog(); root.poke() }
+        onClosed: {
+            root.requestActivate()
+            root.forceActiveFocus()
+        }
     }
 
     // --- Subtitle Online Search Dialog (Ctrl+Shift+S) ---------------------
     SubtitleSearchDialog {
         id: subSearchDialog
         z: 30
+        onClosed: {
+            root.requestActivate()
+            root.forceActiveFocus()
+        }
     }
 
     // --- Open Stream / URL Dialog (Ctrl+U) --------------------------------
     OpenUrlDialog {
         id: openUrlDialog
         z: 35
+        onClosed: {
+            root.requestActivate()
+            root.forceActiveFocus()
+        }
     }
 
     // --- Technical Media Info Overlay (Tab) -------------------------------
@@ -418,7 +505,11 @@ Window {
 
     // --- Keyboard Shortcuts (PotPlayer Standard) ---------------------------
     component PlayerShortcut: Shortcut {
-        enabled: !openDialog.visible && !subDialog.visible
+        context: Qt.ApplicationShortcut
+        enabled: !openDialog.visible && !subDialog.visible && !addPlaylistDialog.visible &&
+                 !(subSearchDialog && subSearchDialog.isOpen) &&
+                 !(openUrlDialog && openUrlDialog.isOpen) &&
+                 !(playlistDrawer && playlistDrawer.isOpen && playlistDrawer.isFilterFocused)
     }
 
     // Playback
@@ -468,8 +559,9 @@ Window {
     PlayerShortcut { sequence: "Ctrl+Enter"; onActivated: root.toggleFullscreen() }
     PlayerShortcut { sequence: "Ctrl+Return"; onActivated: root.toggleFullscreen() }
     PlayerShortcut { sequence: "F"; onActivated: root.toggleFullscreen() }
-    PlayerShortcut {
+    Shortcut {
         sequence: "Escape"
+        context: Qt.ApplicationShortcut
         onActivated: {
             if (openUrlDialog.isOpen) {
                 openUrlDialog.closeDialog()
@@ -486,6 +578,8 @@ Window {
             } else if (root.visibility === Window.FullScreen) {
                 root.visibility = Window.Windowed
             }
+            root.requestActivate()
+            root.forceActiveFocus()
         }
     }
 

@@ -9,6 +9,7 @@ Item {
     visible: isOpen
 
     property bool isOpen: false
+    signal closed()
 
     function openDialog() {
         isOpen = true;
@@ -22,6 +23,7 @@ Item {
     function closeDialog() {
         isOpen = false;
         Mpv.subtitleSearch.cancelSearch();
+        root.closed();
     }
 
     // Modal Dim Backdrop
@@ -421,12 +423,21 @@ Item {
                             }
 
                             // Download & Apply Action Button
+                            readonly property bool isAppliedThis: Mpv.subtitleSearch.appliedIndex === index
+                            readonly property bool isDownloadingThis: Mpv.subtitleSearch.downloading && Mpv.subtitleSearch.downloadingIndex === index
+
                             Rectangle {
-                                width: 124
+                                width: isAppliedThis ? 116 : 124
                                 height: 30
                                 anchors.verticalCenter: parent.verticalCenter
                                 radius: 5
-                                color: dlMouse.containsMouse ? "#2563EB" : "#1D4ED8"
+                                color: isAppliedThis
+                                       ? (dlMouse.containsMouse ? "#059669" : "#10B981")
+                                       : (isDownloadingThis
+                                          ? "#374151"
+                                          : (dlMouse.containsMouse ? "#2563EB" : "#1D4ED8"))
+                                border.color: isAppliedThis ? "#34D399" : "transparent"
+                                border.width: isAppliedThis ? 1 : 0
 
                                 Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -438,14 +449,16 @@ Item {
                                         width: 12
                                         height: 12
                                         anchors.verticalCenter: parent.verticalCenter
-                                        source: "../icons/subtitles.svg"
+                                        source: isAppliedThis ? "../icons/check.svg" : "../icons/subtitles.svg"
                                         sourceSize: Qt.size(12, 12)
-                                        visible: !Mpv.subtitleSearch.downloading
+                                        visible: !isDownloadingThis
                                     }
 
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        text: (Mpv.subtitleSearch.downloading) ? "Downloading…" : "Download & Apply"
+                                        text: isAppliedThis
+                                              ? "✓ Active"
+                                              : (isDownloadingThis ? "Downloading…" : "Download & Apply")
                                         color: "#FFFFFF"
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSmall

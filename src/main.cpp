@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVariantMap>
+#include <QFontDatabase>
 #include <qqml.h>
 
 #include "config/ConfigManager.h"
@@ -607,6 +608,10 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("Parvaz"));
     app.setOrganizationName(QStringLiteral("Parvaz"));
     app.setApplicationVersion(QStringLiteral("0.1.0"));
+
+    QFontDatabase::addApplicationFont(QStringLiteral(":/Parvaz/qml/fonts/Vazirmatn.ttf"));
+    QFontDatabase::addApplicationFont(QStringLiteral(":/Parvaz/qml/fonts/JetBrainsMono-Medium.otf"));
+    QFontDatabase::addApplicationFont(QStringLiteral(":/Parvaz/qml/fonts/JetBrainsMono-Regular.otf"));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Parvaz - a PotPlayer-style player for Linux"));
