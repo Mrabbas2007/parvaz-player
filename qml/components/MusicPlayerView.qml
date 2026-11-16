@@ -13,7 +13,7 @@ Item {
     readonly property bool isAudio: Mpv.isAudioOnly
     readonly property bool hasCover: Mpv.coverArtUrl.length > 0
     readonly property bool showVisualizer: root.height >= 460 && root.width >= 360 && Mpv.duration > 0
-    readonly property real cardSize: Math.max(140, Math.min(320, Math.min(parent.width - 60, parent.height - (root.showVisualizer ? 260 : 220))))
+    readonly property real cardSize: Math.max(140, Math.min(320, Math.min(parent.width - 60, parent.height - (root.showVisualizer ? 280 : 220))))
 
     visible: isAudio
     opacity: isAudio ? 1.0 : 0.0
@@ -270,21 +270,23 @@ Item {
             // Studio Equalizer Visualizer (Responsive: automatically hides when window height < 460 or width < 360)
             Item {
                 width: audioVisualizer.width
-                height: root.showVisualizer ? (audioVisualizer.height + 6) : 0
+                height: root.showVisualizer ? (audioVisualizer.height + (root.cardSize > 240 ? 26 : 18)) : 0
                 visible: height > 0
-                clip: true
+                clip: false
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 Behavior on height { NumberAnimation { duration: Theme.animNormal } }
 
                 AudioVisualizer {
                     id: audioVisualizer
-                    anchors.centerIn: parent
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 2
+                    anchors.horizontalCenter: parent.horizontalCenter
                     opacity: root.showVisualizer ? 1.0 : 0.0
-                    barCount: 24
+                    barCount: 32
                     maxBarHeight: root.cardSize > 240 ? 18 : 13
-                    barWidth: root.cardSize > 240 ? 3.2 : 2.6
-                    barSpacing: 2.8
+                    barWidth: root.cardSize > 240 ? 4.5 : 3.5
+                    barSpacing: root.cardSize > 240 ? 3.5 : 2.5
 
                     Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
                 }

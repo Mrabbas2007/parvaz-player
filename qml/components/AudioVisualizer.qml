@@ -5,9 +5,9 @@ import ".."
 Item {
     id: root
 
-    property int barCount: 24
-    property real barWidth: 3.2
-    property real barSpacing: 2.8
+    property int barCount: 32
+    property real barWidth: 4.5
+    property real barSpacing: 3.5
     property real maxBarHeight: 18
     property real minBarHeight: 2.5
     property bool active: !Mpv.paused && Mpv.duration > 0 && !Mpv.muted
@@ -28,14 +28,14 @@ Item {
     }
 
     width: barCount * barWidth + (barCount - 1) * barSpacing
-    height: maxBarHeight + 6
+    height: maxBarHeight + 8
 
     // Main Equalizer Bars (100% driven by real audio stream telemetrics from libmpv)
     Row {
         id: barsRow
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 3
+        anchors.bottomMargin: 7
         spacing: root.barSpacing
 
         Repeater {

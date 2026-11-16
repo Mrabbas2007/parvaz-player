@@ -2602,7 +2602,7 @@ void MpvObject::ensureVisualizerFilter(bool enable)
 
 void MpvObject::resetAudioBands()
 {
-    const int numBands = 24;
+    const int numBands = 32;
     bool hadSignal = false;
     QVariantList emptyBands;
     emptyBands.reserve(numBands);
@@ -2689,7 +2689,7 @@ void MpvObject::updateAudioVisualization()
         punch = qBound(0.9, 1.0 + (crest - 3.0) * 0.04, 1.35);
     }
 
-    const int numBands = 24;
+    const int numBands = 32;
     if (m_prevBands.size() != numBands)
         m_prevBands.fill(0.0, numBands);
 
