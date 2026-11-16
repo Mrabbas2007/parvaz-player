@@ -515,7 +515,12 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             mpv.setVideoSharpen(0.0);
             check("videoSharpen reset to 0.0", qAbs(mpv.videoSharpen() - 0.0) < 0.001);
 
+            mpv.setHwdecMode(QStringLiteral("auto-copy"));
+            check("hwdecMode is auto-copy", mpv.hwdecMode() == QLatin1String("auto-copy"));
+
             if (parvaz::ConfigManager::instance()) {
+                parvaz::ConfigManager::instance()->setHwdecMode(QStringLiteral("auto-copy"));
+                check("config hwdecMode is auto-copy", parvaz::ConfigManager::instance()->hwdecMode() == QLatin1String("auto-copy"));
                 parvaz::ConfigManager::instance()->setTheme(QStringLiteral("potplayer"));
                 check("theme set to potplayer", parvaz::ConfigManager::instance()->theme() == QLatin1String("potplayer"));
                 parvaz::ConfigManager::instance()->setKeymapPreset(QStringLiteral("potplayer"));

@@ -131,6 +131,40 @@ Item {
                 color: "#1F2636"
             }
 
+            // 4K CPU Decode Alert Banner
+            Rectangle {
+                visible: !!root.stats.hwdecWarning
+                width: parent.width
+                implicitHeight: warnRow.implicitHeight + 12
+                radius: Theme.radiusSmall
+                color: "#2D1D05"
+                border.color: "#D97706"
+                border.width: 1
+
+                Row {
+                    id: warnRow
+                    anchors.centerIn: parent
+                    width: parent.width - 16
+                    spacing: 8
+
+                    Text {
+                        text: "⚠️"
+                        font.pixelSize: 13
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    Text {
+                        width: parent.width - 24
+                        text: (root.stats.hwdecWarning || "") + " — Switch to Auto-Copy in F7"
+                        color: "#FDE68A"
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 10
+                        font.bold: true
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
             // Section 1: Video
             Column {
                 width: parent.width

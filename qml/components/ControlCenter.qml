@@ -35,7 +35,7 @@ Item {
     Rectangle {
         id: panel
         width: 520
-        height: 500
+        height: 570
         x: Math.round((root.width - width) / 2)
         y: Math.round((root.height - height) / 2)
 
@@ -519,6 +519,112 @@ Item {
                                     onClicked: {
                                         Mpv.setHdrToneMapping(modelData.id);
                                         Config.setHdrToneMapping(modelData.id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // HW Acceleration Row
+                    Row {
+                        width: parent.width
+                        spacing: 6
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 78
+                            text: "HW Decode:"
+                            color: Theme.textSecondary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontNormal
+                        }
+
+                        Repeater {
+                            model: [
+                                { id: "auto-copy", name: "Auto-Copy" },
+                                { id: "auto-safe", name: "Auto-Safe" },
+                                { id: "vaapi-copy", name: "VA-API" },
+                                { id: "nvdec-copy", name: "NVDEC" },
+                                { id: "no", name: "CPU" }
+                            ]
+
+                            delegate: Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Math.round((parent.width - 78 - (4 * 6)) / 5)
+                                height: 26
+                                radius: Theme.radiusSmall
+                                color: (Mpv.hwdecMode === modelData.id || (Mpv.hwdecMode === "" && modelData.id === "auto-copy")) ? "#2A3348" : (hwMouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                                border.color: (Mpv.hwdecMode === modelData.id || (Mpv.hwdecMode === "" && modelData.id === "auto-copy")) ? "#4A90E2" : "#242938"
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.name
+                                    color: (Mpv.hwdecMode === modelData.id || (Mpv.hwdecMode === "" && modelData.id === "auto-copy")) ? "#FFFFFF" : Theme.textSecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 10
+                                    font.bold: (Mpv.hwdecMode === modelData.id || (Mpv.hwdecMode === "" && modelData.id === "auto-copy"))
+                                }
+
+                                MouseArea {
+                                    id: hwMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        Mpv.setHwdecMode(modelData.id);
+                                        Config.setHwdecMode(modelData.id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Performance Profile Row
+                    Row {
+                        width: parent.width
+                        spacing: 8
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 78
+                            text: "Profile:"
+                            color: Theme.textSecondary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontNormal
+                        }
+
+                        Repeater {
+                            model: [
+                                { id: "auto", name: "Auto (Adaptive)" },
+                                { id: "high-quality", name: "High Quality" },
+                                { id: "low-spec", name: "Low-Spec / Eco" }
+                            ]
+
+                            delegate: Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 114
+                                height: 26
+                                radius: Theme.radiusSmall
+                                color: (Mpv.performanceProfile === modelData.id || (Mpv.performanceProfile === "" && modelData.id === "auto")) ? "#2A3348" : (profMouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                                border.color: (Mpv.performanceProfile === modelData.id || (Mpv.performanceProfile === "" && modelData.id === "auto")) ? "#4A90E2" : "#242938"
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.name
+                                    color: (Mpv.performanceProfile === modelData.id || (Mpv.performanceProfile === "" && modelData.id === "auto")) ? "#FFFFFF" : Theme.textSecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSmall
+                                    font.bold: (Mpv.performanceProfile === modelData.id || (Mpv.performanceProfile === "" && modelData.id === "auto"))
+                                }
+
+                                MouseArea {
+                                    id: profMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        Mpv.setPerformanceProfile(modelData.id);
+                                        Config.setPerformanceProfile(modelData.id);
                                     }
                                 }
                             }

@@ -29,6 +29,8 @@ class MpvObject : public QObject {
     Q_PROPERTY(QString mediaTitle READ mediaTitle NOTIFY mediaTitleChanged)
     Q_PROPERTY(QString currentFile READ currentFile NOTIFY currentFileChanged)
     Q_PROPERTY(QString hwdec READ hwdec NOTIFY hwdecChanged)
+    Q_PROPERTY(QString hwdecMode READ hwdecMode WRITE setHwdecMode NOTIFY hwdecModeChanged)
+    Q_PROPERTY(bool is4k READ is4k NOTIFY is4kChanged)
     Q_PROPERTY(bool hasVideo READ hasVideo NOTIFY hasVideoChanged)
     /// One QVariantMap per track: id, type, title, lang, codec, external,
     /// selected, default, forced. Derived from mpv's "track-list".
@@ -127,6 +129,9 @@ public:
     QString mediaTitle() const { return m_mediaTitle; }
     QString currentFile() const { return m_currentFile; }
     QString hwdec() const { return m_hwdec; }
+    QString hwdecMode() const { return m_hwdecMode; }
+    void setHwdecMode(const QString &mode);
+    bool is4k() const { return m_is4k; }
     bool hasVideo() const;
     bool isAudioOnly() const;
     QVariantMap metadata() const { return m_metadata; }
@@ -371,6 +376,8 @@ signals:
     void mediaTitleChanged();
     void currentFileChanged();
     void hwdecChanged();
+    void hwdecModeChanged();
+    void is4kChanged();
     void hasVideoChanged();
     void tracksChanged();
     void subtitleDelayChanged();
@@ -447,6 +454,8 @@ private:
     QString m_mediaTitle;
     QString m_currentFile;
     QString m_hwdec;
+    QString m_hwdecMode = QStringLiteral("auto-copy");
+    bool m_is4k = false;
 
     int m_playlistCount = 0;
     int m_playlistIndex = -1;

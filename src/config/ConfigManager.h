@@ -24,6 +24,7 @@ class ConfigManager : public QObject {
     // Video
     Q_PROPERTY(QString videoAspect READ videoAspect WRITE setVideoAspect NOTIFY videoAspectChanged)
     Q_PROPERTY(QString performanceProfile READ performanceProfile WRITE setPerformanceProfile NOTIFY performanceProfileChanged)
+    Q_PROPERTY(QString hwdecMode READ hwdecMode WRITE setHwdecMode NOTIFY hwdecModeChanged)
     Q_PROPERTY(double brightness READ brightness WRITE setBrightness NOTIFY videoAdjustmentsChanged)
     Q_PROPERTY(double contrast READ contrast WRITE setContrast NOTIFY videoAdjustmentsChanged)
     Q_PROPERTY(double saturation READ saturation WRITE setSaturation NOTIFY videoAdjustmentsChanged)
@@ -66,6 +67,7 @@ public:
     bool audioNormalizer() const { return m_audioNormalizer; }
     QString videoAspect() const { return m_videoAspect; }
     QString performanceProfile() const { return m_performanceProfile; }
+    QString hwdecMode() const { return m_hwdecMode; }
     double subtitleFontSize() const { return m_subtitleFontSize; }
     double subtitlePosition() const { return m_subtitlePosition; }
     double subtitleDelay() const { return m_subtitleDelay; }
@@ -102,6 +104,7 @@ public:
 
     Q_INVOKABLE void setVideoAspect(const QString &a);
     Q_INVOKABLE void setPerformanceProfile(const QString &p);
+    Q_INVOKABLE void setHwdecMode(const QString &m);
     Q_INVOKABLE void setBrightness(double b);
     Q_INVOKABLE void setContrast(double c);
     Q_INVOKABLE void setSaturation(double s);
@@ -135,6 +138,7 @@ signals:
     void audioNormalizerChanged();
     void videoAspectChanged();
     void performanceProfileChanged();
+    void hwdecModeChanged();
     void subtitleFontSizeChanged();
     void subtitlePositionChanged();
     void subtitleDelayChanged();
@@ -173,6 +177,7 @@ private:
     bool m_audioNormalizer = false;
     QString m_videoAspect = QStringLiteral("default");
     QString m_performanceProfile = QStringLiteral("auto");
+    QString m_hwdecMode = QStringLiteral("auto-copy");
     double m_subtitleFontSize = 38.0;
     double m_subtitlePosition = 100.0;
     double m_subtitleDelay = 0.0;

@@ -68,6 +68,10 @@ ConfigManager::ConfigManager(MpvObject *mpv, const QString &explicitPath, QObjec
             if (!m_applyingToPlayer && m_mpv)
                 setPerformanceProfile(m_mpv->performanceProfile());
         });
+        connect(m_mpv, &MpvObject::hwdecModeChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setHwdecMode(m_mpv->hwdecMode());
+        });
         connect(m_mpv, &MpvObject::subtitleFontSizeChanged, this, [this]() {
             if (!m_applyingToPlayer && m_mpv)
                 setSubtitleFontSize(m_mpv->subtitleFontSize());
@@ -182,6 +186,8 @@ void ConfigManager::load()
                 m_videoAspect = QString::fromStdString(*a);
             if (auto p = (*video)["performance_profile"].value<std::string>())
                 m_performanceProfile = QString::fromStdString(*p);
+            if (auto hm = (*video)["hwdec_mode"].value<std::string>())
+                m_hwdecMode = QString::fromStdString(*hm);
             if (auto b = (*video)["brightness"].value<double>())
                 m_brightness = *b;
             if (auto c = (*video)["contrast"].value<double>())
@@ -290,6 +296,7 @@ void ConfigManager::applyToPlayer()
     m_mpv->setAudioNormalizer(m_audioNormalizer);
     m_mpv->setVideoAspect(m_videoAspect);
     m_mpv->setPerformanceProfile(m_performanceProfile);
+    m_mpv->setHwdecMode(m_hwdecMode);
     m_mpv->setBrightness(m_brightness);
     m_mpv->setContrast(m_contrast);
     m_mpv->setSaturation(m_saturation);
@@ -344,6 +351,7 @@ void ConfigManager::writeToDisk()
     tbl.insert_or_assign("video", toml::table{
         { "aspect", m_videoAspect.toStdString() },
         { "performance_profile", m_performanceProfile.toStdString() },
+        { "hwdec_mode", m_hwdecMode.toStdString() },
         { "brightness", m_brightness },
         { "contrast", m_contrast },
         { "saturation", m_saturation },
@@ -480,6 +488,20 @@ void ConfigManager::setPerformanceProfile(const QString &p)
         return;
     m_performanceProfile = p;
     emit performanceProfileChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setHwdecMode(const QString &m)
+{
+    const QString trimmed = m.trimmed();
+    if (m_hwdecMode == trimmed || trimmed.isEmpty())
+        return;
+    m_hwdecMode = trimmed;
+    emit hwdecModeChanged();
+
+    if (m_mpv && !m_applyingToPlayer) {
+        m_mpv->setHwdecMode(m_hwdecMode);
+    }
     scheduleSave();
 }
 

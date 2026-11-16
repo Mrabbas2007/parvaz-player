@@ -511,19 +511,78 @@ Menu {
             text: "Auto (Adapt to hardware)"
             checkable: true
             checked: Mpv.performanceProfile === "auto"
-            onTriggered: Mpv.setPerformanceProfile("auto")
+            onTriggered: {
+                Mpv.setPerformanceProfile("auto");
+                Config.setPerformanceProfile("auto");
+            }
         }
         StyledItem {
             text: "Low-Spec / Eco (Bilinear & Low RAM)"
             checkable: true
             checked: Mpv.performanceProfile === "low-spec"
-            onTriggered: Mpv.setPerformanceProfile("low-spec")
+            onTriggered: {
+                Mpv.setPerformanceProfile("low-spec");
+                Config.setPerformanceProfile("low-spec");
+            }
         }
         StyledItem {
             text: "High Quality (Spline36 & Deband)"
             checkable: true
             checked: Mpv.performanceProfile === "high-quality"
-            onTriggered: Mpv.setPerformanceProfile("high-quality")
+            onTriggered: {
+                Mpv.setPerformanceProfile("high-quality");
+                Config.setPerformanceProfile("high-quality");
+            }
+        }
+    }
+
+    // 10. Hardware Acceleration
+    StyledMenu {
+        title: "Hardware Acceleration"
+        StyledItem {
+            text: "Auto-Copy (4K & High Compatibility)"
+            checkable: true
+            checked: Mpv.hwdecMode === "auto-copy"
+            onTriggered: {
+                Mpv.setHwdecMode("auto-copy");
+                Config.setHwdecMode("auto-copy");
+            }
+        }
+        StyledItem {
+            text: "Auto-Safe (Direct GL Interop)"
+            checkable: true
+            checked: Mpv.hwdecMode === "auto-safe"
+            onTriggered: {
+                Mpv.setHwdecMode("auto-safe");
+                Config.setHwdecMode("auto-safe");
+            }
+        }
+        StyledItem {
+            text: "VA-API (Linux AMD / Intel)"
+            checkable: true
+            checked: Mpv.hwdecMode === "vaapi-copy"
+            onTriggered: {
+                Mpv.setHwdecMode("vaapi-copy");
+                Config.setHwdecMode("vaapi-copy");
+            }
+        }
+        StyledItem {
+            text: "NVDEC (NVIDIA)"
+            checkable: true
+            checked: Mpv.hwdecMode === "nvdec-copy"
+            onTriggered: {
+                Mpv.setHwdecMode("nvdec-copy");
+                Config.setHwdecMode("nvdec-copy");
+            }
+        }
+        StyledItem {
+            text: "Disabled (CPU Software)"
+            checkable: true
+            checked: Mpv.hwdecMode === "no"
+            onTriggered: {
+                Mpv.setHwdecMode("no");
+                Config.setHwdecMode("no");
+            }
         }
     }
 

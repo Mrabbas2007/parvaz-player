@@ -90,7 +90,13 @@ MpvObject::MpvObject(QObject *parent)
     mpv_set_wakeup_callback(m_mpv, &MpvObject::wakeupCallback, this);
 
     mpv_set_option_string(m_mpv, "vo", "libmpv");   // we render into our own FBO
-    mpv_set_option_string(m_mpv, "hwdec", "auto-safe");
+    // Default to auto-copy: hardware-accelerated decode with safe copyback to GL textures.
+    // Works reliably across Intel VAAPI/QSV, AMD VAAPI, NVIDIA NVDEC, and Vulkan on Linux/Windows.
+    mpv_set_option_string(m_mpv, "hwdec", "auto-copy");
+    mpv_set_option_string(m_mpv, "hwdec-codecs", "all");
+    mpv_set_option_string(m_mpv, "vd-lavc-dr", "yes");   // Direct rendering in FFmpeg
+    mpv_set_option_string(m_mpv, "framedrop", "vo");     // Drop late frames at VO to preserve audio sync
+    mpv_set_option_string(m_mpv, "video-sync", "audio"); // Audio clock as master reference
     mpv_set_option_string(m_mpv, "keep-open", "yes");
     mpv_set_option_string(m_mpv, "idle", "yes");
     mpv_set_option_string(m_mpv, "osc", "no");
@@ -102,11 +108,13 @@ MpvObject::MpvObject(QObject *parent)
     // Place secondary subtitles at top of video (10% from top)
     mpv_set_option_string(m_mpv, "secondary-sub-pos", "10");
     mpv_set_option_string(m_mpv, "target-colorspace-hint", "yes");
-    mpv_set_option_string(m_mpv, "hdr-compute-peak", "yes");
+    mpv_set_option_string(m_mpv, "hdr-compute-peak", "auto"); // Use static HDR metadata when available
 
-    // Memory & CPU optimizations for low-end systems
-    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "32MiB");
-    mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "16MiB");
+    // Adaptive demuxer cache: smooth readahead preventing buffer starvation on high-bitrate media
+    mpv_set_option_string(m_mpv, "demuxer-max-bytes", "96MiB");
+    mpv_set_option_string(m_mpv, "demuxer-max-back-bytes", "32MiB");
+    mpv_set_option_string(m_mpv, "demuxer-readahead-secs", "10");
+    mpv_set_option_string(m_mpv, "demuxer-hysteresis-secs", "3");
     mpv_set_option_string(m_mpv, "vd-lavc-threads", "0"); // auto detect all available CPU cores
 
     if (mpv_initialize(m_mpv) < 0) {
@@ -169,6 +177,7 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "deband",                MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "tone-mapping",          MPV_FORMAT_STRING);
     mpv_observe_property(m_mpv, 0, "sharpen",               MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 0, "video-params",          MPV_FORMAT_NODE);
 
     // Apply cover-art extraction results to the current file only; the file
     // identity check here is the final guard against stale async results.
@@ -399,6 +408,17 @@ void MpvObject::drainEvents()
                     m_videoSharpen = v;
                     emit videoSharpenChanged();
                 }
+            } else if (name == QLatin1String("video-params")) {
+                int64_t w = 0, h = 0;
+                mpv_get_property(m_mpv, "video-params/w", MPV_FORMAT_INT64, &w);
+                mpv_get_property(m_mpv, "video-params/h", MPV_FORMAT_INT64, &h);
+                const bool is4kNow = (w >= 2560 || h >= 1440);
+                if (is4kNow != m_is4k) {
+                    m_is4k = is4kNow;
+                    emit is4kChanged();
+                }
+                applyPerformanceProfile();
+                emit technicalStatsChanged();
             }
             break;
         }
@@ -436,8 +456,29 @@ void MpvObject::drainEvents()
             refreshBookmarks();
             refreshMetadata();
             refreshCoverArt();
+            int64_t w = 0, h = 0;
+            mpv_get_property(m_mpv, "video-params/w", MPV_FORMAT_INT64, &w);
+            mpv_get_property(m_mpv, "video-params/h", MPV_FORMAT_INT64, &h);
+            const bool is4kNow = (w >= 2560 || h >= 1440);
+            if (is4kNow != m_is4k) {
+                m_is4k = is4kNow;
+                emit is4kChanged();
+            }
             applyPerformanceProfile();
             emit fileLoaded();
+            break;
+        }
+        case MPV_EVENT_VIDEO_RECONFIG: {
+            int64_t w = 0, h = 0;
+            mpv_get_property(m_mpv, "video-params/w", MPV_FORMAT_INT64, &w);
+            mpv_get_property(m_mpv, "video-params/h", MPV_FORMAT_INT64, &h);
+            const bool is4kNow = (w >= 2560 || h >= 1440);
+            if (is4kNow != m_is4k) {
+                m_is4k = is4kNow;
+                emit is4kChanged();
+            }
+            applyPerformanceProfile();
+            emit technicalStatsChanged();
             break;
         }
         case MPV_EVENT_END_FILE:
@@ -1864,7 +1905,30 @@ QVariantMap MpvObject::technicalStats() const
     map.insert(QStringLiteral("performanceProfile"), m_performanceProfile);
     map.insert(QStringLiteral("isLowSpecActive"), m_lowSpecActive);
 
+    const bool isSoftware = (hwdec.isEmpty() || hwdec == QLatin1String("no"));
+    const bool is4k = (width >= 2560 || height >= 1440);
+    QString hwWarning;
+    if (is4k && isSoftware) {
+        hwWarning = QStringLiteral("4K Software Decoding (High CPU - Lag Risk)");
+    }
+    map.insert(QStringLiteral("is4k"), is4k);
+    map.insert(QStringLiteral("hwdecWarning"), hwWarning);
+    map.insert(QStringLiteral("hwdecMode"), m_hwdecMode);
+
     return map;
+}
+
+void MpvObject::setHwdecMode(const QString &mode)
+{
+    const QString m = mode.toLower().trimmed();
+    if (m_hwdecMode == m || !m_mpv)
+        return;
+
+    m_hwdecMode = m;
+    mpv_set_property_string(m_mpv, "hwdec", m_hwdecMode.toUtf8().constData());
+    emit hwdecModeChanged();
+    applyPerformanceProfile();
+    emit technicalStatsChanged();
 }
 
 void MpvObject::setPerformanceProfile(const QString &profile)
@@ -1883,41 +1947,68 @@ void MpvObject::applyPerformanceProfile()
     if (!m_mpv)
         return;
 
+    int64_t w = 0, h = 0;
+    mpv_get_property(m_mpv, "video-params/w", MPV_FORMAT_INT64, &w);
+    mpv_get_property(m_mpv, "video-params/h", MPV_FORMAT_INT64, &h);
+    const bool is4k = (w >= 2560 || h >= 1440);
+    const bool hasVideoTrack = (w > 0 && h > 0);
+
     bool enableLowSpec = false;
     if (m_performanceProfile == QLatin1String("low-spec")) {
         enableLowSpec = true;
     } else if (m_performanceProfile == QLatin1String("high-quality")) {
         enableLowSpec = false;
     } else { // "auto"
-        // If hwdec is absent or disabled, activate low-spec optimizations automatically
-        enableLowSpec = (m_hwdec.isEmpty() || m_hwdec == QLatin1String("no"));
+        const bool isSoftware = (m_hwdec.isEmpty() || m_hwdec == QLatin1String("no"));
+        enableLowSpec = (isSoftware && is4k);
     }
 
-    if (enableLowSpec != m_lowSpecActive) {
-        m_lowSpecActive = enableLowSpec;
-        if (m_lowSpecActive) {
-            // Low-spec / Software-fallback mode: Bilinear scaling, disable deband, reduce demuxer limits
-            mpv_set_property_string(m_mpv, "scale", "bilinear");
-            mpv_set_property_string(m_mpv, "cscale", "bilinear");
-            mpv_set_property_string(m_mpv, "dscale", "bilinear");
-            mpv_set_property_string(m_mpv, "deband", "no");
-            mpv_set_property_string(m_mpv, "vd-lavc-fast", "yes");
-            mpv_set_property_string(m_mpv, "vd-lavc-skiploopfilter", "nonref"); // Skip deblocking filter for non-reference frames on slow CPUs
-            mpv_set_property_string(m_mpv, "demuxer-max-bytes", "24MiB");
-            mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "8MiB");
+    // Dynamic adaptive demuxer buffer management:
+    // Prevents buffer starvation on high-bitrate 4K files, while conserving memory on lower-tier hardware.
+    if (is4k) {
+        if (enableLowSpec) {
+            mpv_set_property_string(m_mpv, "demuxer-max-bytes", "192MiB");
+            mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "48MiB");
         } else {
-            // High-quality mode: Spline scaling, deband enabled, normal fast decode
-            mpv_set_property_string(m_mpv, "scale", "spline36");
-            mpv_set_property_string(m_mpv, "cscale", "spline36");
-            mpv_set_property_string(m_mpv, "dscale", "mitchell");
-            mpv_set_property_string(m_mpv, "deband", "auto");
-            mpv_set_property_string(m_mpv, "vd-lavc-fast", "no");
-            mpv_set_property_string(m_mpv, "vd-lavc-skiploopfilter", "default");
-            mpv_set_property_string(m_mpv, "demuxer-max-bytes", "64MiB");
-            mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "32MiB");
+            mpv_set_property_string(m_mpv, "demuxer-max-bytes", "256MiB");
+            mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "64MiB");
         }
-        emit technicalStatsChanged();
+        mpv_set_property_string(m_mpv, "demuxer-readahead-secs", "20");
+    } else if (hasVideoTrack) {
+        if (enableLowSpec) {
+            mpv_set_property_string(m_mpv, "demuxer-max-bytes", "48MiB");
+            mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "16MiB");
+            mpv_set_property_string(m_mpv, "demuxer-readahead-secs", "8");
+        } else {
+            mpv_set_property_string(m_mpv, "demuxer-max-bytes", "96MiB");
+            mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "32MiB");
+            mpv_set_property_string(m_mpv, "demuxer-readahead-secs", "12");
+        }
+    } else {
+        mpv_set_property_string(m_mpv, "demuxer-max-bytes", "32MiB");
+        mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", "16MiB");
+        mpv_set_property_string(m_mpv, "demuxer-readahead-secs", "5");
     }
+
+    m_lowSpecActive = enableLowSpec;
+    if (m_lowSpecActive) {
+        // Low-spec / Software-fallback mode: Bilinear scaling, disable deband, fast decode
+        mpv_set_property_string(m_mpv, "scale", "bilinear");
+        mpv_set_property_string(m_mpv, "cscale", "bilinear");
+        mpv_set_property_string(m_mpv, "dscale", "bilinear");
+        mpv_set_property_string(m_mpv, "deband", "no");
+        mpv_set_property_string(m_mpv, "vd-lavc-fast", "yes");
+        mpv_set_property_string(m_mpv, "vd-lavc-skiploopfilter", "nonref");
+    } else {
+        // High-quality / Standard mode
+        mpv_set_property_string(m_mpv, "scale", "spline36");
+        mpv_set_property_string(m_mpv, "cscale", "spline36");
+        mpv_set_property_string(m_mpv, "dscale", "mitchell");
+        mpv_set_property_string(m_mpv, "deband", m_debandEnabled ? "yes" : "no");
+        mpv_set_property_string(m_mpv, "vd-lavc-fast", "no");
+        mpv_set_property_string(m_mpv, "vd-lavc-skiploopfilter", "default");
+    }
+    emit technicalStatsChanged();
 }
 
 bool MpvObject::copyScreenshotToClipboard()
