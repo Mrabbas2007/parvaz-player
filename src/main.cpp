@@ -491,6 +491,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("bufferPercent is valid", mpv.bufferPercent() >= 0 && mpv.bufferPercent() <= 100);
             check("isLoading is accessible", mpv.isLoading() == true || mpv.isLoading() == false);
             check("isBuffering is accessible", mpv.isBuffering() == true || mpv.isBuffering() == false);
+            check("eofReached is accessible", mpv.eofReached() == true || mpv.eofReached() == false);
             break;
         }
         default: {

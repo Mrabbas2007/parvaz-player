@@ -100,6 +100,7 @@ class MpvObject : public QObject {
     Q_PROPERTY(bool loading READ isLoading NOTIFY loadingChanged)
     Q_PROPERTY(bool buffering READ isBuffering NOTIFY bufferingChanged)
     Q_PROPERTY(int bufferPercent READ bufferPercent NOTIFY bufferPercentChanged)
+    Q_PROPERTY(bool eofReached READ eofReached NOTIFY eofReachedChanged)
 
 public:
     explicit MpvObject(QObject *parent = nullptr);
@@ -179,6 +180,7 @@ public:
     bool isLoading() const { return m_isLoading; }
     bool isBuffering() const { return m_isLoading || m_pausedForCache || (m_seeking && m_coreIdle); }
     int bufferPercent() const { return m_bufferPercent; }
+    bool eofReached() const { return m_eofReached; }
 
     void setHistory(parvaz::PlaybackHistory *history);
     void setAudioNormalizer(bool enabled);
@@ -371,6 +373,7 @@ signals:
     void loadingChanged();
     void bufferingChanged();
     void bufferPercentChanged();
+    void eofReachedChanged();
     void metadataChanged();
     void coverArtUrlChanged();
     void fileLoaded();
@@ -469,4 +472,5 @@ private:
     bool m_seeking = false;
     bool m_coreIdle = false;
     int m_bufferPercent = 100;
+    bool m_eofReached = false;
 };

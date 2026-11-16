@@ -163,6 +163,7 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "cache-buffering-state", MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, 0, "seeking",               MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "core-idle",             MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "eof-reached",           MPV_FORMAT_FLAG);
 
     // Apply cover-art extraction results to the current file only; the file
     // identity check here is the final guard against stale async results.
@@ -368,19 +369,29 @@ void MpvObject::drainEvents()
                 m_seeking = *static_cast<int *>(prop->data) != 0;
             } else if (name == QLatin1String("core-idle") && prop->format == MPV_FORMAT_FLAG) {
                 m_coreIdle = *static_cast<int *>(prop->data) != 0;
+            } else if (name == QLatin1String("eof-reached") && prop->format == MPV_FORMAT_FLAG) {
+                const bool reached = *static_cast<int *>(prop->data) != 0;
+                if (m_eofReached != reached) {
+                    m_eofReached = reached;
+                    emit eofReachedChanged();
+                }
             }
             break;
         }
         case MPV_EVENT_START_FILE:
             m_isLoading = true;
+            m_eofReached = false;
             m_bufferPercent = 0;
             emit loadingChanged();
+            emit eofReachedChanged();
             setCoverArtUrl(QString());
             break;
         case MPV_EVENT_FILE_LOADED: {
             m_isLoading = false;
+            m_eofReached = false;
             m_bufferPercent = 100;
             emit loadingChanged();
+            emit eofReachedChanged();
             char *path = mpv_get_property_string(m_mpv, "path");
             if (path) {
                 m_currentFile = QString::fromUtf8(path);
@@ -589,6 +600,13 @@ void MpvObject::setPaused(bool paused)
 {
     if (!m_mpv)
         return;
+    if (!paused) {
+        // If at EOF (or within 0.5s of end), rewind to start before unpausing.
+        if (m_eofReached || (m_duration > 0.0 && m_position >= m_duration - 0.5)) {
+            seekAbsolute(0.0);
+            m_eofReached = false;
+        }
+    }
     mpv_set_property_string(m_mpv, "pause", paused ? "yes" : "no");
 }
 
@@ -689,6 +707,13 @@ void MpvObject::playIndex(int index)
 {
     if (!m_mpv || index < 0)
         return;
+    if (index == m_playlistIndex && (m_eofReached || (m_duration > 0.0 && m_position >= m_duration - 0.5))) {
+        seekAbsolute(0.0);
+        m_eofReached = false;
+        setPaused(false);
+        return;
+    }
+    m_eofReached = false;
     const QByteArray idxStr = QByteArray::number(index);
     const char *cmd[] = {"playlist-play-index", idxStr.constData(), nullptr};
     mpv_command(m_mpv, cmd);
@@ -721,6 +746,12 @@ void MpvObject::shufflePlaylist()
 
 void MpvObject::togglePause()
 {
+    if (m_eofReached || (m_duration > 0.0 && m_position >= m_duration - 0.5)) {
+        seekAbsolute(0.0);
+        m_eofReached = false;
+        setPaused(false);
+        return;
+    }
     setPaused(!m_paused);
 }
 
@@ -728,6 +759,7 @@ void MpvObject::seekRelative(double seconds)
 {
     if (!m_mpv)
         return;
+    m_eofReached = false;
     const QByteArray arg = QByteArray::number(seconds, 'f', 3);
     const char *cmd[] = {"seek", arg.constData(), "relative", nullptr};
     if (mpv_command(m_mpv, cmd) >= 0)
@@ -953,6 +985,7 @@ void MpvObject::seekAbsolute(double seconds)
         return;
     if (!(seconds >= 0.0))
         seconds = 0.0;
+    m_eofReached = false;
     const QByteArray arg = QByteArray::number(seconds, 'f', 3);
     const char *cmd[] = {"seek", arg.constData(), "absolute", nullptr};
     if (mpv_command(m_mpv, cmd) >= 0)
