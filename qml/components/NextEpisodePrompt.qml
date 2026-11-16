@@ -40,31 +40,21 @@ Item {
         }
     }
 
-    // Glassmorphism Card
+    // Solid Studio Card
     Rectangle {
         id: card
         anchors.fill: parent
-        radius: 12
-        color: Theme.bgGlass
-        border.color: Theme.borderGlass
+        radius: 10
+        color: "#14161F"
+        border.color: "#282D3E"
         border.width: 1
         clip: true
-
-        // Top Accent Progress / Highlight Line
-        Rectangle {
-            id: accentBar
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            height: 2
-            color: Theme.accentColor
-        }
 
         // Inner Layout
         Column {
             anchors.fill: parent
             anchors.margins: 12
-            anchors.topMargin: 10
+            anchors.topMargin: 12
             spacing: 8
 
             // Header Row: Icon + Title + Close Button

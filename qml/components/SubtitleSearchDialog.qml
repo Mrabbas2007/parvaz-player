@@ -24,10 +24,10 @@ Item {
         Mpv.subtitleSearch.cancelSearch();
     }
 
-    // Semi-transparent backdrop
+    // Modal Dim Backdrop
     Rectangle {
         anchors.fill: parent
-        color: "#80000000"
+        color: "#B3000000"
 
         MouseArea {
             anchors.fill: parent
@@ -35,16 +35,17 @@ Item {
         }
     }
 
-    // Modal dialog box
+    // Modal Dialog Box (100% Solid Studio Opaque Surface)
     Rectangle {
         id: dialogBox
-        width: Math.min(600, parent.width - 40)
-        height: Math.min(520, parent.height - 60)
+        width: Math.min(620, parent.width - 40)
+        height: Math.min(540, parent.height - 60)
         anchors.centerIn: parent
-        color: "#14161F"
-        border.color: "#282D3E"
+        color: "#12141C"
+        border.color: "#242938"
         border.width: 1
-        radius: 8
+        radius: 10
+        clip: true
 
         // Prevent click-through
         MouseArea {
@@ -58,7 +59,7 @@ Item {
             anchors.margins: 16
             spacing: 12
 
-            // --- 1. Header ---
+            // --- 1. Header (Clean & Solid) ---
             Item {
                 width: parent.width
                 height: 28
@@ -90,8 +91,8 @@ Item {
                         width: hashText.implicitWidth + 8
                         height: 18
                         radius: 3
-                        color: "#1E2638"
-                        border.color: "#2E3A56"
+                        color: "#181D2A"
+                        border.color: "#28334A"
                         border.width: 1
                         anchors.verticalCenter: parent.verticalCenter
 
@@ -106,7 +107,7 @@ Item {
                     }
                 }
 
-                // Close button
+                // Close button (X)
                 IconButton {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
@@ -121,22 +122,22 @@ Item {
             Rectangle {
                 width: parent.width
                 height: 1
-                color: "#202534"
+                color: "#1E2332"
             }
 
             // --- 2. Search Input & Search Action ---
             Row {
                 width: parent.width
-                height: 34
+                height: 36
                 spacing: 8
 
                 Rectangle {
-                    width: parent.width - 90
+                    width: parent.width - 92
                     height: parent.height
-                    color: "#181B26"
-                    border.color: searchField.activeFocus ? "#3B82F6" : "#282D3E"
+                    color: "#171924"
+                    border.color: searchField.activeFocus ? "#3B82F6" : "#282E40"
                     border.width: 1
-                    radius: 4
+                    radius: 6
 
                     Row {
                         anchors.fill: parent
@@ -179,10 +180,12 @@ Item {
 
                 // Search Button
                 Rectangle {
-                    width: 82
+                    width: 84
                     height: parent.height
-                    radius: 4
+                    radius: 6
                     color: searchBtnMouse.containsMouse ? "#2563EB" : "#1D4ED8"
+
+                    Behavior on color { ColorAnimation { duration: 120 } }
 
                     Text {
                         anchors.centerIn: parent
@@ -206,7 +209,7 @@ Item {
             // --- 3. Language Filter Pills & Status ---
             Row {
                 width: parent.width
-                height: 24
+                height: 26
                 spacing: 8
 
                 Text {
@@ -225,20 +228,20 @@ Item {
                     ]
 
                     delegate: Rectangle {
-                        width: pillText.implicitWidth + 12
-                        height: 22
-                        radius: 11
+                        width: pillText.implicitWidth + 14
+                        height: 24
+                        radius: 12
                         anchors.verticalCenter: parent.verticalCenter
                         property bool selected: Mpv.subtitleSearch.currentLanguage === modelData.code
-                        color: selected ? "#2A4365" : (pillMouse.containsMouse ? "#1E2433" : "#161922")
-                        border.color: selected ? "#3182CE" : "#282D3E"
+                        color: selected ? "#1E2B45" : (pillMouse.containsMouse ? "#1C202E" : "#141722")
+                        border.color: selected ? "#3B82F6" : "#242938"
                         border.width: 1
 
                         Text {
                             id: pillText
                             anchors.centerIn: parent
                             text: modelData.label
-                            color: parent.selected ? "#63B3ED" : Theme.textSecondary
+                            color: parent.selected ? "#60A5FA" : Theme.textSecondary
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSmall
                             font.bold: parent.selected
@@ -256,22 +259,31 @@ Item {
                     }
                 }
 
-                Item { width: 1; height: 1 }
+                Item { width: 4; height: 1 }
 
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: Mpv.subtitleSearch.statusMessage
-                    color: Theme.textSecondary
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSmall
-                    elide: Text.ElideRight
+                // Status Text Container (Bounded, Never Overflows!)
+                Item {
+                    width: Math.max(100, parent.width - 310)
+                    height: parent.height
+                    clip: true
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Mpv.subtitleSearch.statusMessage
+                        color: Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSmall
+                        elide: Text.ElideRight
+                    }
                 }
             }
 
             Rectangle {
                 width: parent.width
                 height: 1
-                color: "#202534"
+                color: "#1E2332"
             }
 
             // --- 4. Results List View ---
@@ -319,10 +331,10 @@ Item {
 
                     delegate: Rectangle {
                         width: resultsList.width - 8
-                        height: 52
-                        radius: 5
-                        color: dMouse.containsMouse ? "#1A1F2C" : "#131620"
-                        border.color: dMouse.containsMouse ? "#2F384C" : "#202534"
+                        height: 56
+                        radius: 6
+                        color: dMouse.containsMouse ? "#1B202D" : "#151823"
+                        border.color: dMouse.containsMouse ? "#2E384D" : "#1E2332"
                         border.width: 1
 
                         MouseArea {
@@ -336,27 +348,27 @@ Item {
                             anchors.margins: 8
                             spacing: 10
 
-                            // Language badge
+                            // Language Badge
                             Rectangle {
-                                width: 34
-                                height: 24
-                                radius: 3
+                                width: 38
+                                height: 26
+                                radius: 4
                                 anchors.verticalCenter: parent.verticalCenter
-                                color: modelData.langCode === "fa" ? "#422800" : "#0D2538"
-                                border.color: modelData.langCode === "fa" ? "#B7791F" : "#2B6CB0"
+                                color: modelData.langCode === "fa" ? "#3D2708" : (modelData.langCode === "en" ? "#0C243B" : "#1A1F2C")
+                                border.color: modelData.langCode === "fa" ? "#B7791F" : (modelData.langCode === "en" ? "#2B6CB0" : "#2E374D")
                                 border.width: 1
 
                                 Text {
                                     anchors.centerIn: parent
                                     text: modelData.langCode ? modelData.langCode.toUpperCase() : "SUB"
-                                    color: modelData.langCode === "fa" ? "#ECC94B" : "#90CDF4"
+                                    color: modelData.langCode === "fa" ? "#F6AD55" : (modelData.langCode === "en" ? "#90CDF4" : "#A0AEC0")
                                     font.family: Theme.fontDigits
                                     font.pixelSize: 11
                                     font.bold: true
                                 }
                             }
 
-                            // Subtitle Details
+                            // Subtitle Title & Metadata
                             Column {
                                 width: parent.width - 190
                                 anchors.verticalCenter: parent.verticalCenter
@@ -377,11 +389,18 @@ Item {
 
                                     Text {
                                         visible: modelData.isExactMatch
-                                        text: "✓ Exact Hash Match"
+                                        text: "✓ Exact Match"
                                         color: "#38A169"
                                         font.family: Theme.fontFamily
                                         font.pixelSize: 10
                                         font.bold: true
+                                    }
+
+                                    Text {
+                                        text: modelData.source ? ("• " + modelData.source) : ""
+                                        color: "#4A5568"
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 10
                                     }
 
                                     Text {
@@ -398,32 +417,40 @@ Item {
                                         font.family: Theme.fontDigits
                                         font.pixelSize: 11
                                     }
-
-                                    Text {
-                                        visible: modelData.rating > 0
-                                        text: "★ " + modelData.rating.toFixed(1)
-                                        color: "#D69E2E"
-                                        font.family: Theme.fontDigits
-                                        font.pixelSize: 11
-                                    }
                                 }
                             }
 
-                            // Download & Apply Button
+                            // Download & Apply Action Button
                             Rectangle {
-                                width: 120
-                                height: 28
+                                width: 124
+                                height: 30
                                 anchors.verticalCenter: parent.verticalCenter
-                                radius: 4
-                                color: dlMouse.containsMouse ? "#2B6CB0" : "#1E3A8A"
+                                radius: 5
+                                color: dlMouse.containsMouse ? "#2563EB" : "#1D4ED8"
 
-                                Text {
+                                Behavior on color { ColorAnimation { duration: 120 } }
+
+                                Row {
                                     anchors.centerIn: parent
-                                    text: (Mpv.subtitleSearch.downloading) ? "Downloading…" : "Download & Apply"
-                                    color: "#FFFFFF"
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSmall
-                                    font.bold: true
+                                    spacing: 6
+
+                                    Image {
+                                        width: 12
+                                        height: 12
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        source: "../icons/subtitles.svg"
+                                        sourceSize: Qt.size(12, 12)
+                                        visible: !Mpv.subtitleSearch.downloading
+                                    }
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: (Mpv.subtitleSearch.downloading) ? "Downloading…" : "Download & Apply"
+                                        color: "#FFFFFF"
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSmall
+                                        font.bold: true
+                                    }
                                 }
 
                                 MouseArea {

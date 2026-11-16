@@ -467,6 +467,17 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             const QVariantList subdlParsed = SubtitleSearchService::parseSubdlJson(subdlJson);
             check("parseSubdlJson returns 1 item", subdlParsed.size() == 1);
 
+            // Test Stremio / SubSource JSON parsing
+            const QByteArray stremioJson = "{\"subtitles\":[{\"id\":\"3005066\",\"url\":\"https://example.com/sub.srt\",\"lang\":\"fas\",\"title\":\"Breaking Bad S04E11\"}]}";
+            const QVariantList stremioParsed = SubtitleSearchService::parseStremioSubtitlesJson(stremioJson, QStringLiteral("SubSource"));
+            check("parseStremioSubtitlesJson returns 1 item", stremioParsed.size() == 1);
+            if (!stremioParsed.isEmpty()) {
+                const QVariantMap item = stremioParsed.first().toMap();
+                check("stremio item has release Breaking Bad S04E11", item.value(QStringLiteral("release")).toString() == QLatin1String("Breaking Bad S04E11"));
+                check("stremio item maps fas to fa", item.value(QStringLiteral("langCode")).toString() == QLatin1String("fa"));
+                check("stremio item has source SubSource", item.value(QStringLiteral("source")).toString() == QLatin1String("SubSource"));
+            }
+
             // Test SubtitleSyncService and SubtitleSearchService access
             check("subtitleSync is accessible", mpv.subtitleSync() != nullptr);
             check("subtitleSearch is accessible", mpv.subtitleSearch() != nullptr);

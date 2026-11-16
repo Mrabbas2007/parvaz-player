@@ -39,7 +39,7 @@ Item {
         x: Math.round((root.width - width) / 2)
         y: Math.round((root.height - height) / 2)
 
-        color: "#F20E1017"
+        color: "#12141C"
         border.color: "#282D3E"
         border.width: 1
         radius: Theme.radiusLarge

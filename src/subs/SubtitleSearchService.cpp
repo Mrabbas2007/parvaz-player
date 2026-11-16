@@ -221,6 +221,62 @@ QVariantList SubtitleSearchService::parseSubdlJson(const QByteArray &jsonData)
     return list;
 }
 
+QVariantList SubtitleSearchService::parseStremioSubtitlesJson(const QByteArray &jsonData, const QString &sourceName)
+{
+    QVariantList list;
+    QJsonParseError err;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject())
+        return list;
+
+    QJsonArray subsArr = doc.object().value(QStringLiteral("subtitles")).toArray();
+    for (const QJsonValue &val : subsArr) {
+        if (!val.isObject())
+            continue;
+        QJsonObject obj = val.toObject();
+
+        QVariantMap item;
+        item.insert(QStringLiteral("id"), obj.value(QStringLiteral("id")).toVariant());
+
+        QString title = obj.value(QStringLiteral("title")).toString();
+        if (title.isEmpty())
+            title = obj.value(QStringLiteral("subtitleFileName")).toString();
+        if (title.isEmpty())
+            title = obj.value(QStringLiteral("movieReleaseName")).toString();
+
+        item.insert(QStringLiteral("release"), title.isEmpty() ? QStringLiteral("Subtitle Track") : title);
+
+        QString rawLang = obj.value(QStringLiteral("lang")).toString().toLower();
+        QString langCode;
+        QString langName;
+
+        if (rawLang == QLatin1String("fas") || rawLang == QLatin1String("fa") || rawLang == QLatin1String("per")) {
+            langCode = QStringLiteral("fa");
+            langName = QStringLiteral("Persian (FA)");
+        } else if (rawLang == QLatin1String("eng") || rawLang == QLatin1String("en")) {
+            langCode = QStringLiteral("en");
+            langName = QStringLiteral("English (EN)");
+        } else {
+            langCode = rawLang;
+            langName = rawLang.toUpper();
+        }
+
+        item.insert(QStringLiteral("langCode"), langCode);
+        item.insert(QStringLiteral("language"), langName);
+        item.insert(QStringLiteral("downloads"), obj.value(QStringLiteral("downloads")).toInt());
+        item.insert(QStringLiteral("rating"), 0.0);
+        item.insert(QStringLiteral("hearingImpaired"), false);
+        item.insert(QStringLiteral("isExactMatch"), false);
+        item.insert(QStringLiteral("source"), sourceName);
+        item.insert(QStringLiteral("downloadUrl"), obj.value(QStringLiteral("url")).toString());
+
+        if (!item.value(QStringLiteral("downloadUrl")).toString().isEmpty()) {
+            list.append(item);
+        }
+    }
+    return list;
+}
+
 void SubtitleSearchService::searchForCurrentFile(const QString &filePath)
 {
     m_currentFilePath = filePath;
@@ -246,78 +302,244 @@ void SubtitleSearchService::searchForCurrentFile(const QString &filePath)
 
 void SubtitleSearchService::searchByQuery(const QString &query, const QString &language)
 {
-    m_currentQuery = query;
-    emit currentQueryChanged();
+    bool languageChanged = (m_currentLanguage != language);
     m_currentLanguage = language;
     emit currentLanguageChanged();
+
+    if (!m_rawSearchResults.isEmpty() && m_currentQuery == query && languageChanged) {
+        applyLanguageFilter();
+        return;
+    }
+
+    m_currentQuery = query;
+    emit currentQueryChanged();
 
     executeSearch(QString(), query, language);
 }
 
 void SubtitleSearchService::executeSearch(const QString &hash, const QString &query, const QString &language)
 {
+    Q_UNUSED(hash);
+    Q_UNUSED(language);
     cancelSearch();
     setSearching(true);
     setStatus(QStringLiteral("Searching subtitles online…"));
+    m_rawSearchResults.clear();
     m_results.clear();
     emit resultsChanged();
 
-    // Build OpenSubtitles query URL
-    QUrl url(QStringLiteral("https://api.opensubtitles.com/api/v1/subtitles"));
-    QUrlQuery q;
-    if (!hash.isEmpty()) {
-        q.addQueryItem(QStringLiteral("moviehash"), hash);
+    // If query is an explicit IMDb ID: tt1234567 or tt1234567:1:2
+    static const QRegularExpression imdbRegex(QStringLiteral("^tt\\d+(:\\d+:\\d+)?$"));
+    if (imdbRegex.match(query.trimmed()).hasMatch()) {
+        QString fullId = query.trimmed();
+        QString type = fullId.contains(QLatin1Char(':')) ? QStringLiteral("series") : QStringLiteral("movie");
+        fetchSubtitlesForImdb(type, fullId, 0, 0);
+        return;
     }
-    if (!query.isEmpty()) {
-        q.addQueryItem(QStringLiteral("query"), query);
+
+    QString target = query.trimmed();
+    if (target.isEmpty() && !m_currentFilePath.isEmpty()) {
+        target = cleanMediaTitle(QFileInfo(m_currentFilePath).fileName());
     }
-    if (language != QLatin1String("all") && !language.isEmpty()) {
-        q.addQueryItem(QStringLiteral("languages"), language);
+
+    if (target.isEmpty()) {
+        setSearching(false);
+        setStatus(QStringLiteral("Please enter a title to search"));
+        return;
+    }
+
+    int season = -1;
+    int episode = -1;
+    QString cleanTitle = target;
+
+    // 1. Detect TV season and episode: S01E02 or 1x02
+    static const QRegularExpression tvPattern(QStringLiteral("(?i)\\b(?:s(\\d{1,3})[\\s._-]*e(\\d{1,4})|(\\d{1,2})x(\\d{1,4}))\\b"));
+    QRegularExpressionMatch tvMatch = tvPattern.match(target);
+    if (tvMatch.hasMatch()) {
+        season = tvMatch.captured(1).isEmpty() ? tvMatch.captured(3).toInt() : tvMatch.captured(1).toInt();
+        episode = tvMatch.captured(2).isEmpty() ? tvMatch.captured(4).toInt() : tvMatch.captured(2).toInt();
+        cleanTitle = target.left(tvMatch.capturedStart()).trimmed();
     } else {
-        q.addQueryItem(QStringLiteral("languages"), QStringLiteral("fa,en"));
+        // 2. Detect Anime dash-episode pattern: "Title - 17"
+        static const QRegularExpression animeDash(QStringLiteral("^(.*?)\\s*-\\s*(\\d{1,4})(?:v\\d+)?(?:\\b|[.\\s_\\[\\(-]|$)"));
+        QRegularExpressionMatch aMatch = animeDash.match(target);
+        if (aMatch.hasMatch()) {
+            int ep = aMatch.captured(2).toInt();
+            if (ep > 0 && (ep < 1900 || ep > 2100)) {
+                season = 1;
+                episode = ep;
+                cleanTitle = aMatch.captured(1).trimmed();
+            }
+        }
     }
 
-    url.setQuery(q);
+    cleanTitle.remove(QRegularExpression(QStringLiteral("^\\[[^\\]]*\\]\\s*")));
+    cleanTitle.replace(QLatin1Char('.'), QLatin1Char(' '));
+    cleanTitle.replace(QLatin1Char('_'), QLatin1Char(' '));
+    cleanTitle = cleanTitle.simplified();
 
-    QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("ParvazPlayer v0.1.0"));
-    request.setRawHeader("Accept", "application/json");
+    QString catalogType = (season > 0 && episode > 0) ? QStringLiteral("series") : QStringLiteral("movie");
 
-    m_activeSearchReply = m_nam.get(request);
-    connect(m_activeSearchReply, &QNetworkReply::finished,
-            this, &SubtitleSearchService::onSearchReplyFinished);
+    // Query Cinemeta catalog to resolve Title to IMDb ID
+    QUrl cinemetaUrl(QStringLiteral("https://v3-cinemeta.strem.io/catalog/%1/top/search=%2.json")
+                         .arg(catalogType, QString::fromUtf8(QUrl::toPercentEncoding(cleanTitle))));
+
+    QNetworkRequest req(cinemetaUrl);
+    req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Mozilla/5.0 (X11; Linux x86_64)"));
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+
+    QNetworkReply *reply = m_nam.get(req);
+    m_pendingSearchReplies.append(reply);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, catalogType, cleanTitle, season, episode]() {
+        m_pendingSearchReplies.removeOne(reply);
+        reply->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            std::fprintf(stderr, "parvaz: cinemeta search error: %s\n", qPrintable(reply->errorString()));
+            setSearching(false);
+            setStatus(QStringLiteral("Unable to reach subtitle server. Check your connection."));
+            return;
+        }
+
+        QByteArray data = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        QJsonArray metas = doc.object().value(QStringLiteral("metas")).toArray();
+
+        if (metas.isEmpty()) {
+            // Fallback between series and movie
+            QString fallbackType = (catalogType == QLatin1String("series")) ? QStringLiteral("movie") : QStringLiteral("series");
+            QUrl fallbackUrl(QStringLiteral("https://v3-cinemeta.strem.io/catalog/%1/top/search=%2.json")
+                                 .arg(fallbackType, QString::fromUtf8(QUrl::toPercentEncoding(cleanTitle))));
+            QNetworkRequest fReq(fallbackUrl);
+            fReq.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Mozilla/5.0 (X11; Linux x86_64)"));
+            fReq.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+
+            QNetworkReply *fReply = m_nam.get(fReq);
+            m_pendingSearchReplies.append(fReply);
+            connect(fReply, &QNetworkReply::finished, this, [this, fReply, fallbackType, season, episode]() {
+                m_pendingSearchReplies.removeOne(fReply);
+                fReply->deleteLater();
+                if (fReply->error() == QNetworkReply::NoError) {
+                    QJsonDocument fDoc = QJsonDocument::fromJson(fReply->readAll());
+                    QJsonArray fMetas = fDoc.object().value(QStringLiteral("metas")).toArray();
+                    if (!fMetas.isEmpty()) {
+                        QString imdbId = fMetas.first().toObject().value(QStringLiteral("id")).toString();
+                        fetchSubtitlesForImdb(fallbackType, imdbId, season, episode);
+                        return;
+                    }
+                }
+                setSearching(false);
+                setStatus(QStringLiteral("No subtitles found for this title"));
+            });
+            return;
+        }
+
+        QString imdbId = metas.first().toObject().value(QStringLiteral("id")).toString();
+        fetchSubtitlesForImdb(catalogType, imdbId, season, episode);
+    });
+}
+
+void SubtitleSearchService::fetchSubtitlesForImdb(const QString &mediaType, const QString &imdbId, int season, int episode)
+{
+    QString queryId = imdbId;
+    if (mediaType == QLatin1String("series") && season > 0 && episode > 0 && !queryId.contains(QLatin1Char(':'))) {
+        queryId = QStringLiteral("%1:%2:%3").arg(imdbId).arg(season).arg(episode);
+    }
+
+    m_pendingRepliesCount = 0;
+
+    // 1. OpenSubtitles v3 Mirror (Global / English / Multi)
+    QUrl osUrl(QStringLiteral("https://opensubtitles-v3.strem.io/subtitles/%1/%2.json").arg(mediaType, queryId));
+    QNetworkRequest osReq(osUrl);
+    osReq.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Mozilla/5.0 (X11; Linux x86_64)"));
+    osReq.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+
+    QNetworkReply *osReply = m_nam.get(osReq);
+    m_pendingSearchReplies.append(osReply);
+    m_pendingRepliesCount++;
+
+    connect(osReply, &QNetworkReply::finished, this, [this, osReply]() {
+        m_pendingSearchReplies.removeOne(osReply);
+        osReply->deleteLater();
+        if (osReply->error() == QNetworkReply::NoError) {
+            QVariantList osList = parseStremioSubtitlesJson(osReply->readAll(), QStringLiteral("OpenSubtitles"));
+            m_rawSearchResults.append(osList);
+        }
+        m_pendingRepliesCount--;
+        if (m_pendingRepliesCount <= 0) {
+            setSearching(false);
+            applyLanguageFilter();
+        }
+    });
+
+    // 2. Persian SubSource / Stremio Mirror
+    QUrl faUrl(QStringLiteral("https://stremio.alirostami.com/subtitles/%1/%2.json").arg(mediaType, queryId));
+    QNetworkRequest faReq(faUrl);
+    faReq.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Mozilla/5.0 (X11; Linux x86_64)"));
+    faReq.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+
+    QNetworkReply *faReply = m_nam.get(faReq);
+    m_pendingSearchReplies.append(faReply);
+    m_pendingRepliesCount++;
+
+    connect(faReply, &QNetworkReply::finished, this, [this, faReply]() {
+        m_pendingSearchReplies.removeOne(faReply);
+        faReply->deleteLater();
+        if (faReply->error() == QNetworkReply::NoError) {
+            QVariantList faList = parseStremioSubtitlesJson(faReply->readAll(), QStringLiteral("SubSource"));
+            for (int i = faList.size() - 1; i >= 0; --i) {
+                m_rawSearchResults.prepend(faList.at(i));
+            }
+        }
+        m_pendingRepliesCount--;
+        if (m_pendingRepliesCount <= 0) {
+            setSearching(false);
+            applyLanguageFilter();
+        }
+    });
+}
+
+void SubtitleSearchService::applyLanguageFilter()
+{
+    QVariantList filtered;
+    int faCount = 0;
+    int enCount = 0;
+
+    for (const QVariant &v : m_rawSearchResults) {
+        QVariantMap item = v.toMap();
+        QString lang = item.value(QStringLiteral("langCode")).toString();
+        if (lang == QLatin1String("fa"))
+            faCount++;
+        else if (lang == QLatin1String("en"))
+            enCount++;
+
+        if (m_currentLanguage == QLatin1String("all")) {
+            filtered.append(item);
+        } else if (m_currentLanguage == lang) {
+            filtered.append(item);
+        }
+    }
+
+    m_results = filtered;
+    emit resultsChanged();
+
+    if (m_rawSearchResults.isEmpty()) {
+        setStatus(QStringLiteral("No subtitles found for this title"));
+    } else if (filtered.isEmpty()) {
+        setStatus(QStringLiteral("No %1 subtitles found (%2 total available)")
+                      .arg(m_currentLanguage == QLatin1String("fa") ? QStringLiteral("Persian") : QStringLiteral("English"),
+                           QString::number(m_rawSearchResults.size())));
+    } else {
+        setStatus(QStringLiteral("Found %1 subtitle(s) (%2 Persian, %3 English)")
+                      .arg(filtered.size())
+                      .arg(faCount)
+                      .arg(enCount));
+    }
 }
 
 void SubtitleSearchService::onSearchReplyFinished()
 {
-    if (!m_activeSearchReply)
-        return;
-
-    QNetworkReply *reply = m_activeSearchReply;
-    m_activeSearchReply = nullptr;
-    reply->deleteLater();
-    setSearching(false);
-
-    if (reply->error() != QNetworkReply::NoError) {
-        QString errStr = reply->errorString();
-        std::fprintf(stderr, "parvaz: subtitle search network error: %s\n", qPrintable(errStr));
-        setStatus(QStringLiteral("Search failed: %1").arg(errStr));
-        emit searchFailed(errStr);
-        return;
-    }
-
-    QByteArray data = reply->readAll();
-    bool isHashMatch = !m_fileHash.isEmpty();
-    QVariantList parsed = parseOpenSubtitlesJson(data, isHashMatch);
-
-    if (parsed.isEmpty()) {
-        setStatus(QStringLiteral("No subtitles found for this title"));
-    } else {
-        setStatus(QStringLiteral("Found %1 subtitle(s)").arg(parsed.size()));
-    }
-
-    m_results = parsed;
-    emit resultsChanged();
 }
 
 void SubtitleSearchService::downloadAndApply(int resultIndex)
@@ -342,7 +564,8 @@ void SubtitleSearchService::downloadAndApply(int resultIndex)
     }
 
     QNetworkRequest request((QUrl(downloadUrl)));
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("ParvazPlayer v0.1.0"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Mozilla/5.0 (X11; Linux x86_64)"));
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
 
     m_activeDownloadReply = m_nam.get(request);
     connect(m_activeDownloadReply, &QNetworkReply::finished,
@@ -430,6 +653,13 @@ void SubtitleSearchService::onDownloadReplyFinished()
 
 void SubtitleSearchService::cancelSearch()
 {
+    for (QNetworkReply *rep : m_pendingSearchReplies) {
+        rep->abort();
+        rep->deleteLater();
+    }
+    m_pendingSearchReplies.clear();
+    m_pendingRepliesCount = 0;
+
     if (m_activeSearchReply) {
         m_activeSearchReply->abort();
         m_activeSearchReply->deleteLater();

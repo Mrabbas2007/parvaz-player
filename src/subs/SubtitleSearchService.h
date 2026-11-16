@@ -55,6 +55,9 @@ public:
     /// Parses Subdl API JSON payload into structured QVariantList.
     static QVariantList parseSubdlJson(const QByteArray &jsonData);
 
+    /// Parses Stremio / OpenSubtitles v3 / SubSource JSON payload into structured QVariantList.
+    static QVariantList parseStremioSubtitlesJson(const QByteArray &jsonData, const QString &sourceName);
+
     /// Searches subtitles matching the currently playing media file (using file hash & clean title).
     Q_INVOKABLE void searchForCurrentFile(const QString &filePath);
 
@@ -84,6 +87,8 @@ private slots:
 
 private:
     void executeSearch(const QString &hash, const QString &query, const QString &language);
+    void fetchSubtitlesForImdb(const QString &mediaType, const QString &imdbId, int season, int episode);
+    void applyLanguageFilter();
     void setSearching(bool s);
     void setDownloading(bool d);
     void setStatus(const QString &msg);
@@ -91,6 +96,9 @@ private:
     QNetworkAccessManager m_nam;
     QNetworkReply *m_activeSearchReply = nullptr;
     QNetworkReply *m_activeDownloadReply = nullptr;
+    QList<QNetworkReply*> m_pendingSearchReplies;
+    QVariantList m_rawSearchResults;
+    int m_pendingRepliesCount = 0;
 
     bool m_searching = false;
     bool m_downloading = false;
