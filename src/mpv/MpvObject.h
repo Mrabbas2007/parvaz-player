@@ -119,6 +119,7 @@ class MpvObject : public QObject {
     Q_PROPERTY(bool isShaderBypassedFor4k READ isShaderBypassedFor4k NOTIFY shaderPresetChanged)
 
     // Smart Ending Credits & Next Episode Detection
+    Q_PROPERTY(bool isSeries READ isSeries NOTIFY isSeriesChanged)
     Q_PROPERTY(bool creditsZoneActive READ isCreditsZoneActive NOTIFY creditsZoneChanged)
     Q_PROPERTY(double creditsStartTime READ creditsStartTime NOTIFY creditsZoneChanged)
     Q_PROPERTY(QString nextEpisodeTitle READ nextEpisodeTitle NOTIFY nextEpisodeChanged)
@@ -147,6 +148,10 @@ public:
     QString shaderPreset() const;
     void setShaderPreset(const QString &preset);
     bool isShaderBypassedFor4k() const;
+
+    bool isSeries() const { return m_isSeries; }
+    Q_INVOKABLE bool isSeriesMedia(const QString &filePath) const;
+    bool isSeriesMedia(const QString &filePath, QString *outSeriesTitle, int *outSeason, int *outEpisode) const;
 
     bool isCreditsZoneActive() const { return m_creditsZoneActive; }
     double creditsStartTime() const { return m_creditsStartTime; }
@@ -429,6 +434,7 @@ signals:
     void equalizerPresetChanged();
     void equalizerGainsChanged();
     void shaderPresetChanged();
+    void isSeriesChanged();
     void creditsZoneChanged();
     void nextEpisodeChanged();
     void autoSkipCreditsChanged();
@@ -555,6 +561,7 @@ private:
     parvaz::ShaderManager *m_shaderManager = nullptr;
 
     // Credits & Next Episode Detection
+    bool m_isSeries = false;
     bool m_creditsZoneActive = false;
     double m_creditsStartTime = 0.0;
     double m_postCreditsTime = 0.0;

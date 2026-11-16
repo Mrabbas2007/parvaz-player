@@ -94,16 +94,16 @@ Item {
                     spacing: 2
 
                     Text {
-                        text: Mpv.hasNextEpisode ? "قسمت بعدی" : "تیتراژ پایانی"
+                        text: Mpv.hasNextEpisode ? "NEXT EPISODE" : "ENDING CREDITS"
                         font.family: Theme.fontFamily
-                        font.pixelSize: 11
+                        font.pixelSize: 10
                         font.bold: true
                         color: Theme.accentColor
                     }
 
                     Text {
                         width: parent.width
-                        text: Mpv.hasNextEpisode ? (Mpv.nextEpisodeTitle || "Next Episode") : "پرش به انتهای تیتراژ"
+                        text: Mpv.hasNextEpisode ? (Mpv.nextEpisodeTitle || "Next Episode") : "Skip Ending Credits"
                         font.family: Theme.fontFamily
                         font.pixelSize: 13
                         font.bold: true
@@ -167,7 +167,7 @@ Item {
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: Mpv.hasNextEpisode ? "پخش بعدی (S)" : "رد تیتراژ (S)"
+                            text: Mpv.hasNextEpisode ? "Next Episode (S)" : "Skip Credits (S)"
                             font.family: Theme.fontFamily
                             font.pixelSize: 12
                             font.bold: true
@@ -208,7 +208,7 @@ Item {
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "رد خودکار"
+                            text: "Auto-skip"
                             font.family: Theme.fontFamily
                             font.pixelSize: 11
                             color: Config.autoSkipCredits ? Theme.accentColor : Theme.textSecondary

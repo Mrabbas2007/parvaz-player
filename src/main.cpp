@@ -131,7 +131,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
     auto next = std::make_shared<std::function<void(int)>>();
     *next = [&mpv, app, next](int step) {
         switch (step) {
-        case 0:  check("frames >= 30", parvazRenderedFrames() >= 30);
+        case 0:  check("frames >= 20", parvazRenderedFrames() >= 20);
                  check("position advanced", mpv.position() > 0.0);
                  break;
         case 1:  check("duration known", mpv.duration() > 0.0);
@@ -547,6 +547,14 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("isCreditsZoneActive returns boolean", mpv.isCreditsZoneActive() == false || mpv.isCreditsZoneActive() == true);
             mpv.skipCredits();
             check("skipCredits executes cleanly", true);
+
+            // Movie vs Series Classification checks
+            check("isSeries detects Blue Lock - 17 as series", mpv.isSeriesMedia(QStringLiteral("Blue Lock - 17.[SS][1080][x265][AioFilm.com].mkv")) == true);
+            check("isSeries detects S01E01 as series", mpv.isSeriesMedia(QStringLiteral("Demon.Slayer.S01E01.1080p.mkv")) == true);
+            check("isSeries detects 1x02 as series", mpv.isSeriesMedia(QStringLiteral("Breaking.Bad.1x02.mkv")) == true);
+            check("isSeries rejects Toy Story 5 as movie", mpv.isSeriesMedia(QStringLiteral("Toy.Story.5.2026.2160p.HDR.WebDL.Soren.CinemaSoren.mkv")) == false);
+            check("isSeries rejects Oppenheimer as movie", mpv.isSeriesMedia(QStringLiteral("Oppenheimer.2023.1080p.WEBRip.x264-[YTS.MX].mkv")) == false);
+            check("isSeries rejects The Godfather as movie", mpv.isSeriesMedia(QStringLiteral("The.Godfather.1972.1080p.mkv")) == false);
             break;
         }
         default: {

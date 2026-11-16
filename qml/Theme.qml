@@ -23,7 +23,7 @@ QtObject {
         { id: "cyber", name: "Cyber Neon", accent: "#00F0FF", surface: "#0B0E17" }
     ]
 
-    // ---- سطوح گرافیتی و شیشه‌ای استودیویی ----
+    // ---- Studio Glass & Graphite Surfaces ----
     readonly property color bgBase: {
         if (currentTheme === "oled") return "#000000";
         if (currentTheme === "potplayer") return "#121316";
@@ -57,7 +57,7 @@ QtObject {
         return "#F00C0D12";
     }
 
-    // ---- حاشیه‌های ظریف و محو ----
+    // ---- Subtle Glass Borders ----
     readonly property color borderGlass: {
         if (currentTheme === "oled") return "#222222";
         if (currentTheme === "potplayer") return "#363B48";
@@ -77,7 +77,7 @@ QtObject {
         return "#26FFFFFF";
     }
 
-    // ---- پالت رنگ و تایپوگرافی ----
+    // ---- Color Palette & Typography ----
     readonly property color textPrimary: "#FFFFFF"
     readonly property color textSecondary: {
         if (currentTheme === "oled") return "#9E9E9E";
@@ -115,9 +115,9 @@ QtObject {
     readonly property color timelineRail: "#26FFFFFF"
     readonly property color statusGreen: "#10B981"
 
-    // ---- تایپوگرافی دوگانه استودیویی ----
-    readonly property string fontFamily: "Vazirmatn, Segoe UI, Inter, sans-serif"
-    readonly property string fontDigits: "JetBrains Mono, Vazirmatn, monospace"
+    // ---- Studio Dual Typography ----
+    readonly property string fontFamily: "Inter, Segoe UI, -apple-system, sans-serif, Vazirmatn"
+    readonly property string fontDigits: "JetBrains Mono, monospace, Vazirmatn"
 
     readonly property int fontSmall: 11
     readonly property int fontNormal: 12
@@ -125,14 +125,14 @@ QtObject {
     readonly property int fontLarge: 15
     readonly property int fontTitle: 15
 
-    // ---- ابعاد و شعاع‌ها ----
+    // ---- Dimensions & Radii ----
     readonly property real radiusLarge: 12
     readonly property real radiusMedium: 6
     readonly property real radiusSmall: 4
     readonly property real controlBarHeight: 80
     readonly property real titleBarHeight: 44
 
-    // ---- زمان‌بندی انیمیشن‌ها ----
+    // ---- Animation Timings ----
     readonly property int animFast: 120
     readonly property int animNormal: 200
     readonly property int animSlow: 300

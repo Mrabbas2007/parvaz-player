@@ -8,6 +8,7 @@
 #include <QDirIterator>
 #include <QCollator>
 #include <QSet>
+#include <QRegularExpression>
 #include <QUrl>
 #include <QDebug>
 #include <QVariantMap>
@@ -2310,6 +2311,109 @@ void MpvObject::playNextEpisode()
     }
 }
 
+bool MpvObject::isSeriesMedia(const QString &filePath) const
+{
+    return isSeriesMedia(filePath, nullptr, nullptr, nullptr);
+}
+
+bool MpvObject::isSeriesMedia(const QString &filePath, QString *outSeriesTitle, int *outSeason, int *outEpisode) const
+{
+    if (filePath.isEmpty())
+        return false;
+
+    QString base = QFileInfo(filePath).completeBaseName();
+    if (base.isEmpty())
+        return false;
+
+    // 1. Standard TV pattern: S01E02, s2e10, 1x02
+    static const QRegularExpression tvPattern(
+        QStringLiteral("(?i)\\b(?:s(\\d{1,3})[\\s._-]*e(\\d{1,4})|(\\d{1,2})x(\\d{1,4}))\\b")
+    );
+    QRegularExpressionMatch tvMatch = tvPattern.match(base);
+    if (tvMatch.hasMatch()) {
+        int s = tvMatch.captured(1).isEmpty() ? tvMatch.captured(3).toInt() : tvMatch.captured(1).toInt();
+        int e = tvMatch.captured(2).isEmpty() ? tvMatch.captured(4).toInt() : tvMatch.captured(2).toInt();
+        QString title = base.left(tvMatch.capturedStart()).replace(QLatin1Char('.'), QLatin1Char(' ')).replace(QLatin1Char('_'), QLatin1Char(' ')).trimmed();
+        if (outSeriesTitle) *outSeriesTitle = title;
+        if (outSeason) *outSeason = s;
+        if (outEpisode) *outEpisode = e;
+        return true;
+    }
+
+    // 2. Explicit Season / Episode words: "Episode 12", "Ep 05", "Part 2"
+    static const QRegularExpression epWordPattern(
+        QStringLiteral("(?i)\\b(?:ep|episode)[\\s._-]*(\\d{1,4})\\b")
+    );
+    QRegularExpressionMatch epMatch = epWordPattern.match(base);
+    if (epMatch.hasMatch()) {
+        int e = epMatch.captured(1).toInt();
+        static const QRegularExpression sPattern(QStringLiteral("(?i)\\b(?:season|fasl)[\\s._-]*(\\d{1,3})\\b"));
+        QRegularExpressionMatch sMatch = sPattern.match(base);
+        int s = sMatch.hasMatch() ? sMatch.captured(1).toInt() : 1;
+        QString title = base.left(epMatch.capturedStart()).replace(QLatin1Char('.'), QLatin1Char(' ')).replace(QLatin1Char('_'), QLatin1Char(' ')).trimmed();
+        if (outSeriesTitle) *outSeriesTitle = title;
+        if (outSeason) *outSeason = s;
+        if (outEpisode) *outEpisode = e;
+        return true;
+    }
+
+    // 3. Anime dash-number pattern:
+    // e.g. "Blue Lock - 17.[SS][1080][x265][AioFilm...", "[SubsPlease] Frieren - 28 (1080p)"
+    QString stripped = base;
+    stripped.remove(QRegularExpression(QStringLiteral("^\\[[^\\]]*\\]\\s*")));
+
+    static const QRegularExpression animePattern(
+        QStringLiteral("^(.*?)\\s*-\\s*(\\d{1,4})(?:v\\d+)?(?:\\b|[.\\s_\\[\\(-]|$)")
+    );
+    QRegularExpressionMatch animeMatch = animePattern.match(stripped);
+    if (animeMatch.hasMatch()) {
+        int epNum = animeMatch.captured(2).toInt();
+        // Exclude release years (e.g. 1920..2099)
+        if (epNum > 0 && (epNum < 1900 || epNum > 2100)) {
+            QString title = animeMatch.captured(1).trimmed();
+            if (outSeriesTitle) *outSeriesTitle = title;
+            if (outSeason) *outSeason = 1;
+            if (outEpisode) *outEpisode = epNum;
+            return true;
+        }
+    }
+
+    // 4. Sibling comparison in local folder (must have matching series prefix and sequential numbers)
+    if (!filePath.contains(QLatin1String("://"))) {
+        const QFileInfo curFi(filePath);
+        const QDir dir = curFi.dir();
+        static const QRegularExpression numPattern(QStringLiteral("^(.*?)(?:[\\s._-]+)(\\d{1,4})(?:[\\s._-]|$)"));
+        QRegularExpressionMatch numMatch = numPattern.match(stripped);
+        if (numMatch.hasMatch()) {
+            int candidateEp = numMatch.captured(2).toInt();
+            if (candidateEp > 0 && (candidateEp < 1900 || candidateEp > 2100)) {
+                QString candidatePrefix = numMatch.captured(1).trimmed().toLower();
+                if (candidatePrefix.length() >= 3) {
+                    const QStringList files = dir.entryList(QDir::Files | QDir::Readable);
+                    int matchingSiblings = 0;
+                    for (const QString &f : files) {
+                        if (f == curFi.fileName() || !isMediaFile(f))
+                            continue;
+                        QString s = QFileInfo(f).completeBaseName().toLower();
+                        s.remove(QRegularExpression(QStringLiteral("^\\[[^\\]]*\\]\\s*")));
+                        if (s.startsWith(candidatePrefix)) {
+                            matchingSiblings++;
+                        }
+                    }
+                    if (matchingSiblings >= 1) {
+                        if (outSeriesTitle) *outSeriesTitle = numMatch.captured(1).trimmed();
+                        if (outSeason) *outSeason = 1;
+                        if (outEpisode) *outEpisode = candidateEp;
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 void MpvObject::detectCreditsAndNextEpisode()
 {
     m_creditsStartTime = 0.0;
@@ -2318,6 +2422,25 @@ void MpvObject::detectCreditsAndNextEpisode()
     m_hasPostCredits = false;
     m_creditsZoneActive = false;
     m_creditsSkippedThisEpisode = false;
+    m_nextEpisodeFile.clear();
+    m_nextEpisodeTitle.clear();
+    m_hasNextEpisode = false;
+
+    // Distinguish TV Series / Anime from Feature Films / Movies
+    QString curSeriesTitle;
+    int curSeason = 1;
+    int curEpisode = -1;
+    bool wasSeries = m_isSeries;
+    m_isSeries = isSeriesMedia(m_currentFile, &curSeriesTitle, &curSeason, &curEpisode);
+    if (wasSeries != m_isSeries)
+        emit isSeriesChanged();
+
+    // STRICT RULE: Movies do NOT trigger credits skip prompts or binge auto-skips!
+    if (!m_isSeries) {
+        emit creditsZoneChanged();
+        emit nextEpisodeChanged();
+        return;
+    }
 
     // 1. Chapter-based credits detection
     if (m_duration > 30.0 && !m_chapters.isEmpty()) {
@@ -2354,52 +2477,74 @@ void MpvObject::detectCreditsAndNextEpisode()
         }
     }
 
-    // 2. Fallback heuristic for videos/series without named chapters:
+    // 2. Fallback heuristic for series episodes without named chapters:
     if (!m_hasCreditsChapter && m_duration >= 600.0) {
         m_creditsStartTime = m_duration - 90.0;
     }
 
-    // 3. Next Episode Discovery
-    m_nextEpisodeFile.clear();
-    m_nextEpisodeTitle.clear();
-    m_hasNextEpisode = false;
-
+    // 3. Next Episode Discovery (strictly matching the same series!)
     if (hasNext()) {
         if (m_playlistIndex + 1 < m_playlist.size()) {
             const QVariantMap nextItem = m_playlist[m_playlistIndex + 1].toMap();
-            m_nextEpisodeFile = nextItem.value(QStringLiteral("filename")).toString();
-            m_nextEpisodeTitle = nextItem.value(QStringLiteral("title")).toString();
-            if (m_nextEpisodeTitle.isEmpty())
-                m_nextEpisodeTitle = QFileInfo(m_nextEpisodeFile).completeBaseName();
-            m_hasNextEpisode = true;
+            const QString nextFile = nextItem.value(QStringLiteral("filename")).toString();
+            QString nextSeriesTitle;
+            int nextSeason = 1;
+            int nextEpisode = -1;
+            if (isSeriesMedia(nextFile, &nextSeriesTitle, &nextSeason, &nextEpisode)) {
+                if (nextSeriesTitle.compare(curSeriesTitle, Qt::CaseInsensitive) == 0 ||
+                    (curEpisode > 0 && nextEpisode == curEpisode + 1)) {
+                    m_nextEpisodeFile = nextFile;
+                    m_nextEpisodeTitle = nextItem.value(QStringLiteral("title")).toString();
+                    if (m_nextEpisodeTitle.isEmpty())
+                        m_nextEpisodeTitle = QFileInfo(m_nextEpisodeFile).completeBaseName();
+                    m_hasNextEpisode = true;
+                }
+            }
         }
     } else if (!m_currentFile.isEmpty() && !m_currentFile.contains(QLatin1String("://"))) {
         const QFileInfo curFi(m_currentFile);
         const QDir dir = curFi.dir();
-        QStringList files = dir.entryList(QDir::Files | QDir::Readable);
-        QStringList mediaFiles;
+        const QStringList files = dir.entryList(QDir::Files | QDir::Readable);
+
+        struct SiblingEp {
+            QString path;
+            int ep;
+        };
+        QVector<SiblingEp> seriesSiblings;
+
         for (const QString &f : files) {
-            if (isMediaFile(f))
-                mediaFiles.append(dir.absoluteFilePath(f));
-        }
-
-        QCollator collator;
-        collator.setNumericMode(true);
-        std::sort(mediaFiles.begin(), mediaFiles.end(), collator);
-
-        int curIdx = -1;
-        const QString curAbs = curFi.absoluteFilePath();
-        for (int i = 0; i < mediaFiles.size(); ++i) {
-            if (QFileInfo(mediaFiles[i]).absoluteFilePath() == curAbs) {
-                curIdx = i;
-                break;
+            if (!isMediaFile(f))
+                continue;
+            const QString absPath = dir.absoluteFilePath(f);
+            QString sibSeries;
+            int sibSeason = 1;
+            int sibEp = -1;
+            if (isSeriesMedia(absPath, &sibSeries, &sibSeason, &sibEp)) {
+                if (sibSeries.compare(curSeriesTitle, Qt::CaseInsensitive) == 0 &&
+                    (curSeason <= 0 || sibSeason == curSeason)) {
+                    seriesSiblings.append({ absPath, sibEp });
+                }
             }
         }
 
-        if (curIdx >= 0 && curIdx + 1 < mediaFiles.size()) {
-            m_nextEpisodeFile = mediaFiles[curIdx + 1];
-            m_nextEpisodeTitle = QFileInfo(m_nextEpisodeFile).completeBaseName();
-            m_hasNextEpisode = true;
+        std::sort(seriesSiblings.begin(), seriesSiblings.end(), [](const SiblingEp &a, const SiblingEp &b) {
+            return a.ep < b.ep;
+        });
+
+        for (const SiblingEp &sib : seriesSiblings) {
+            if (curEpisode > 0 && sib.ep == curEpisode + 1) {
+                m_nextEpisodeFile = sib.path;
+                m_nextEpisodeTitle = QFileInfo(m_nextEpisodeFile).completeBaseName();
+                m_hasNextEpisode = true;
+                break;
+            } else if (curEpisode <= 0 && sib.path != curFi.absoluteFilePath()) {
+                if (sib.path > curFi.absoluteFilePath()) {
+                    m_nextEpisodeFile = sib.path;
+                    m_nextEpisodeTitle = QFileInfo(m_nextEpisodeFile).completeBaseName();
+                    m_hasNextEpisode = true;
+                    break;
+                }
+            }
         }
     }
 
