@@ -41,41 +41,9 @@ Window {
         }
     }
 
-    Keys.onPressed: (event) => {
-        if (openDialog.visible || subDialog.visible || addPlaylistDialog.visible ||
-            (subSearchDialog && subSearchDialog.isOpen) ||
-            (openUrlDialog && openUrlDialog.isOpen) ||
-            (playlistDrawer && playlistDrawer.isOpen && playlistDrawer.isFilterFocused)) {
-            return
-        }
-        if (event.key === Qt.Key_Space) {
-            Mpv.togglePause()
-            event.accepted = true
-        } else if (event.key === Qt.Key_Left) {
-            if (event.modifiers & Qt.ControlModifier && event.modifiers & Qt.ShiftModifier) {
-                Mpv.seekRelative(-300)
-            } else if (event.modifiers & Qt.ShiftModifier) {
-                Mpv.seekRelative(-60)
-            } else if (event.modifiers & Qt.ControlModifier) {
-                Mpv.seekRelative(-30)
-            } else {
-                Mpv.seekRelative(-5)
-            }
-            root.poke()
-            event.accepted = true
-        } else if (event.key === Qt.Key_Right) {
-            if (event.modifiers & Qt.ControlModifier && event.modifiers & Qt.ShiftModifier) {
-                Mpv.seekRelative(300)
-            } else if (event.modifiers & Qt.ShiftModifier) {
-                Mpv.seekRelative(60)
-            } else if (event.modifiers & Qt.ControlModifier) {
-                Mpv.seekRelative(30)
-            } else {
-                Mpv.seekRelative(5)
-            }
-            root.poke()
-            event.accepted = true
-        }
+    function restorePlayerFocus() {
+        root.requestActivate()
+        videoMouseArea.forceActiveFocus()
     }
 
     function toggleAlwaysOnTop() {
@@ -167,9 +135,8 @@ Window {
     }
 
     Component.onCompleted: {
-        root.requestActivate()
-        root.forceActiveFocus()
         poke()
+        root.restorePlayerFocus()
         if (Config.windowWidth >= root.minimumWidth && Config.windowHeight >= root.minimumHeight) {
             root.width = Config.windowWidth
             root.height = Config.windowHeight
@@ -185,13 +152,11 @@ Window {
             "All files (*)"
         ]
         onAccepted: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
             Mpv.loadFile(Mpv.urlToLocalPath(openDialog.selectedFile))
         }
         onRejected: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
         }
     }
 
@@ -201,8 +166,7 @@ Window {
         fileMode: FileDialog.OpenFiles
         nameFilters: openDialog.nameFilters
         onAccepted: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
             var paths = []
             for (var i = 0; i < selectedFiles.length; ++i) {
                 paths.push(Mpv.urlToLocalPath(selectedFiles[i]))
@@ -213,8 +177,7 @@ Window {
             }
         }
         onRejected: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
         }
     }
 
@@ -226,13 +189,11 @@ Window {
             "All files (*)"
         ]
         onAccepted: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
             Mpv.addSubtitleFile(Mpv.urlToLocalPath(subDialog.selectedFile))
         }
         onRejected: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
         }
     }
 
@@ -256,6 +217,7 @@ Window {
     MouseArea {
         id: videoMouseArea
         anchors.fill: parent
+        focus: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
         cursorShape: (!root.chromeVisible && !Mpv.paused && root.canAutoHide && Mpv.duration > 0 && !(subSearchDialog && subSearchDialog.isOpen) && !(openUrlDialog && openUrlDialog.isOpen)) ? Qt.BlankCursor : Qt.ArrowCursor
@@ -274,7 +236,7 @@ Window {
                 return
             }
             if (mouse.button === Qt.LeftButton) {
-                root.forceActiveFocus()
+                videoMouseArea.forceActiveFocus()
                 Mpv.togglePause()
             } else if (mouse.button === Qt.RightButton) {
                 contextMenu.popup()
@@ -283,6 +245,43 @@ Window {
         onDoubleClicked: (mouse) => {
             if (mouse.button === Qt.LeftButton)
                 root.toggleFullscreen()
+        }
+
+        Keys.onPressed: (event) => {
+            if (openDialog.visible || subDialog.visible || addPlaylistDialog.visible ||
+                (subSearchDialog && subSearchDialog.isOpen) ||
+                (openUrlDialog && openUrlDialog.isOpen) ||
+                (playlistDrawer && playlistDrawer.isOpen && playlistDrawer.isFilterFocused)) {
+                return
+            }
+            if (event.key === Qt.Key_Space) {
+                Mpv.togglePause()
+                event.accepted = true
+            } else if (event.key === Qt.Key_Left) {
+                if (event.modifiers & Qt.ControlModifier && event.modifiers & Qt.ShiftModifier) {
+                    Mpv.seekRelative(-300)
+                } else if (event.modifiers & Qt.ShiftModifier) {
+                    Mpv.seekRelative(-60)
+                } else if (event.modifiers & Qt.ControlModifier) {
+                    Mpv.seekRelative(-30)
+                } else {
+                    Mpv.seekRelative(-5)
+                }
+                root.poke()
+                event.accepted = true
+            } else if (event.key === Qt.Key_Right) {
+                if (event.modifiers & Qt.ControlModifier && event.modifiers & Qt.ShiftModifier) {
+                    Mpv.seekRelative(300)
+                } else if (event.modifiers & Qt.ShiftModifier) {
+                    Mpv.seekRelative(60)
+                } else if (event.modifiers & Qt.ControlModifier) {
+                    Mpv.seekRelative(30)
+                } else {
+                    Mpv.seekRelative(5)
+                }
+                root.poke()
+                event.accepted = true
+            }
         }
     }
 
@@ -418,8 +417,7 @@ Window {
         }
         onAddFilesRequested: addPlaylistDialog.open()
         onClosed: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
         }
     }
 
@@ -462,8 +460,7 @@ Window {
         id: controlCenter
         onSearchSubtitlesRequested: { subSearchDialog.openDialog(); root.poke() }
         onClosed: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
         }
     }
 
@@ -472,8 +469,7 @@ Window {
         id: subSearchDialog
         z: 30
         onClosed: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
         }
     }
 
@@ -482,8 +478,7 @@ Window {
         id: openUrlDialog
         z: 35
         onClosed: {
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
         }
     }
 
@@ -569,8 +564,7 @@ Window {
             } else if (root.visibility === Window.FullScreen) {
                 root.visibility = Window.Windowed
             }
-            root.requestActivate()
-            root.forceActiveFocus()
+            root.restorePlayerFocus()
         }
     }
 

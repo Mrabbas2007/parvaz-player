@@ -332,6 +332,7 @@ Item {
                     }
 
                     delegate: Rectangle {
+                        id: resultDelegate
                         width: resultsList.width - 8
                         height: 56
                         radius: 6
@@ -339,141 +340,145 @@ Item {
                         border.color: dMouse.containsMouse ? "#2E384D" : "#1E2332"
                         border.width: 1
 
+                        readonly property bool isAppliedThis: Mpv.subtitleSearch.appliedIndex === index
+                        readonly property bool isDownloadingThis: Mpv.subtitleSearch.downloading && Mpv.subtitleSearch.downloadingIndex === index
+
                         MouseArea {
                             id: dMouse
                             anchors.fill: parent
                             hoverEnabled: true
                         }
 
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: 8
-                            spacing: 10
+                        // Language Badge (Left edge)
+                        Rectangle {
+                            id: langBadge
+                            width: 38
+                            height: 26
+                            radius: 4
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: modelData.langCode === "fa" ? "#3D2708" : (modelData.langCode === "en" ? "#0C243B" : "#1A1F2C")
+                            border.color: modelData.langCode === "fa" ? "#B7791F" : (modelData.langCode === "en" ? "#2B6CB0" : "#2E374D")
+                            border.width: 1
 
-                            // Language Badge
-                            Rectangle {
-                                width: 38
-                                height: 26
-                                radius: 4
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: modelData.langCode === "fa" ? "#3D2708" : (modelData.langCode === "en" ? "#0C243B" : "#1A1F2C")
-                                border.color: modelData.langCode === "fa" ? "#B7791F" : (modelData.langCode === "en" ? "#2B6CB0" : "#2E374D")
-                                border.width: 1
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: modelData.langCode ? modelData.langCode.toUpperCase() : "SUB"
-                                    color: modelData.langCode === "fa" ? "#F6AD55" : (modelData.langCode === "en" ? "#90CDF4" : "#A0AEC0")
-                                    font.family: Theme.fontDigits
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                }
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.langCode ? modelData.langCode.toUpperCase() : "SUB"
+                                color: modelData.langCode === "fa" ? "#F6AD55" : (modelData.langCode === "en" ? "#90CDF4" : "#A0AEC0")
+                                font.family: Theme.fontDigits
+                                font.pixelSize: 11
+                                font.bold: true
                             }
+                        }
 
-                            // Subtitle Title & Metadata
-                            Column {
-                                width: parent.width - 190
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 3
+                        // Download & Apply Action Button (Right edge - 100% visible and anchored)
+                        Rectangle {
+                            id: dlActionBtn
+                            width: resultDelegate.isAppliedThis ? 116 : 124
+                            height: 30
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            radius: 5
+                            color: resultDelegate.isAppliedThis
+                                   ? (dlMouse.containsMouse ? "#059669" : "#10B981")
+                                   : (resultDelegate.isDownloadingThis
+                                      ? "#374151"
+                                      : (dlMouse.containsMouse ? "#2563EB" : "#1D4ED8"))
+                            border.color: resultDelegate.isAppliedThis ? "#34D399" : "transparent"
+                            border.width: resultDelegate.isAppliedThis ? 1 : 0
+
+                            Behavior on color { ColorAnimation { duration: 120 } }
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+
+                                Image {
+                                    width: 12
+                                    height: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    source: resultDelegate.isAppliedThis ? "../icons/check.svg" : "../icons/subtitles.svg"
+                                    sourceSize: Qt.size(12, 12)
+                                    visible: !resultDelegate.isDownloadingThis
+                                }
 
                                 Text {
-                                    width: parent.width
-                                    text: modelData.release || modelData.fileName || "Subtitle Track"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: resultDelegate.isAppliedThis
+                                          ? "✓ Active"
+                                          : (resultDelegate.isDownloadingThis ? "Downloading…" : "Download & Apply")
                                     color: "#FFFFFF"
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontNormal
+                                    font.pixelSize: Theme.fontSmall
                                     font.bold: true
-                                    elide: Text.ElideRight
-                                }
-
-                                Row {
-                                    spacing: 8
-
-                                    Text {
-                                        visible: modelData.isExactMatch
-                                        text: "✓ Exact Match"
-                                        color: "#38A169"
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: 10
-                                        font.bold: true
-                                    }
-
-                                    Text {
-                                        text: modelData.source ? ("• " + modelData.source) : ""
-                                        color: "#4A5568"
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: 10
-                                    }
-
-                                    Text {
-                                        text: modelData.language || ""
-                                        color: Theme.textMuted
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: 11
-                                    }
-
-                                    Text {
-                                        visible: modelData.downloads > 0
-                                        text: "↓ " + modelData.downloads
-                                        color: Theme.textMuted
-                                        font.family: Theme.fontDigits
-                                        font.pixelSize: 11
-                                    }
                                 }
                             }
 
-                            // Download & Apply Action Button
-                            readonly property bool isAppliedThis: Mpv.subtitleSearch.appliedIndex === index
-                            readonly property bool isDownloadingThis: Mpv.subtitleSearch.downloading && Mpv.subtitleSearch.downloadingIndex === index
+                            MouseArea {
+                                id: dlMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    Mpv.subtitleSearch.downloadAndApply(index);
+                                }
+                            }
+                        }
 
-                            Rectangle {
-                                width: isAppliedThis ? 116 : 124
-                                height: 30
-                                anchors.verticalCenter: parent.verticalCenter
-                                radius: 5
-                                color: isAppliedThis
-                                       ? (dlMouse.containsMouse ? "#059669" : "#10B981")
-                                       : (isDownloadingThis
-                                          ? "#374151"
-                                          : (dlMouse.containsMouse ? "#2563EB" : "#1D4ED8"))
-                                border.color: isAppliedThis ? "#34D399" : "transparent"
-                                border.width: isAppliedThis ? 1 : 0
+                        // Subtitle Title & Metadata (Middle - spans cleanly between Badge and Button)
+                        Column {
+                            anchors.left: langBadge.right
+                            anchors.leftMargin: 10
+                            anchors.right: dlActionBtn.left
+                            anchors.rightMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 3
+                            clip: true
 
-                                Behavior on color { ColorAnimation { duration: 120 } }
+                            Text {
+                                width: parent.width
+                                text: modelData.release || modelData.fileName || "Subtitle Track"
+                                color: "#FFFFFF"
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontNormal
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
 
-                                Row {
-                                    anchors.centerIn: parent
-                                    spacing: 6
+                            Row {
+                                spacing: 8
 
-                                    Image {
-                                        width: 12
-                                        height: 12
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        source: isAppliedThis ? "../icons/check.svg" : "../icons/subtitles.svg"
-                                        sourceSize: Qt.size(12, 12)
-                                        visible: !isDownloadingThis
-                                    }
-
-                                    Text {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: isAppliedThis
-                                              ? "✓ Active"
-                                              : (isDownloadingThis ? "Downloading…" : "Download & Apply")
-                                        color: "#FFFFFF"
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSmall
-                                        font.bold: true
-                                    }
+                                Text {
+                                    visible: modelData.isExactMatch
+                                    text: "✓ Exact Match"
+                                    color: "#38A169"
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 10
+                                    font.bold: true
                                 }
 
-                                MouseArea {
-                                    id: dlMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        Mpv.subtitleSearch.downloadAndApply(index);
-                                    }
+                                Text {
+                                    text: modelData.source ? ("• " + modelData.source) : ""
+                                    color: "#4A5568"
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 10
+                                }
+
+                                Text {
+                                    text: modelData.language || ""
+                                    color: Theme.textMuted
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 11
+                                }
+
+                                Text {
+                                    visible: modelData.downloads > 0
+                                    text: "↓ " + modelData.downloads
+                                    color: Theme.textMuted
+                                    font.family: Theme.fontDigits
+                                    font.pixelSize: 11
                                 }
                             }
                         }
