@@ -141,6 +141,14 @@ ConfigManager::ConfigManager(MpvObject *mpv, const QString &explicitPath, QObjec
                 scheduleSave();
             }
         });
+        connect(m_mpv, &MpvObject::shaderPresetChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setShaderPreset(m_mpv->shaderPreset());
+        });
+        connect(m_mpv, &MpvObject::autoSkipCreditsChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv)
+                setAutoSkipCredits(m_mpv->autoSkipCredits());
+        });
 
         applyToPlayer();
     }
@@ -212,6 +220,14 @@ void ConfigManager::load()
                 m_hdrComputePeak = *hcp;
             if (auto sh = (*video)["sharpen"].value<double>())
                 m_videoSharpen = *sh;
+            if (auto sp = (*video)["shader_preset"].value<std::string>())
+                m_shaderPreset = QString::fromStdString(*sp);
+        }
+
+        // [playback]
+        if (auto pb = tbl["playback"].as_table()) {
+            if (auto asc = (*pb)["auto_skip_credits"].value<bool>())
+                m_autoSkipCredits = *asc;
         }
 
         // [equalizer]
@@ -309,6 +325,8 @@ void ConfigManager::applyToPlayer()
     m_mpv->setHdrToneMapping(m_hdrToneMapping);
     m_mpv->setHdrComputePeak(m_hdrComputePeak);
     m_mpv->setVideoSharpen(m_videoSharpen);
+    m_mpv->setShaderPreset(m_shaderPreset);
+    m_mpv->setAutoSkipCredits(m_autoSkipCredits);
     m_mpv->setEqualizerEnabled(m_equalizerEnabled);
     if (!m_equalizerPreset.isEmpty())
         m_mpv->applyEqualizerPreset(m_equalizerPreset);
@@ -363,7 +381,13 @@ void ConfigManager::writeToDisk()
         { "deband_range", m_debandRange },
         { "hdr_tone_mapping", m_hdrToneMapping.toStdString() },
         { "hdr_compute_peak", m_hdrComputePeak },
-        { "sharpen", m_videoSharpen }
+        { "sharpen", m_videoSharpen },
+        { "shader_preset", m_shaderPreset.toStdString() }
+    });
+
+    // [playback]
+    tbl.insert_or_assign("playback", toml::table{
+        { "auto_skip_credits", m_autoSkipCredits }
     });
 
     // [equalizer]
@@ -732,6 +756,29 @@ void ConfigManager::setKeymapPreset(const QString &preset)
         return;
     m_keymapPreset = preset;
     emit keymapPresetChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setShaderPreset(const QString &preset)
+{
+    const QString p = preset.toLower().trimmed();
+    if (m_shaderPreset == p || p.isEmpty())
+        return;
+    m_shaderPreset = p;
+    emit shaderPresetChanged();
+    if (m_mpv && !m_applyingToPlayer)
+        m_mpv->setShaderPreset(m_shaderPreset);
+    scheduleSave();
+}
+
+void ConfigManager::setAutoSkipCredits(bool autoSkip)
+{
+    if (m_autoSkipCredits == autoSkip)
+        return;
+    m_autoSkipCredits = autoSkip;
+    emit autoSkipCreditsChanged();
+    if (m_mpv && !m_applyingToPlayer)
+        m_mpv->setAutoSkipCredits(m_autoSkipCredits);
     scheduleSave();
 }
 

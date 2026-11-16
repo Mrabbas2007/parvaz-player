@@ -39,6 +39,8 @@ class ConfigManager : public QObject {
     Q_PROPERTY(QString hdrToneMapping READ hdrToneMapping WRITE setHdrToneMapping NOTIFY hdrToneMappingChanged)
     Q_PROPERTY(bool hdrComputePeak READ hdrComputePeak WRITE setHdrComputePeak NOTIFY hdrToneMappingChanged)
     Q_PROPERTY(double videoSharpen READ videoSharpen WRITE setVideoSharpen NOTIFY videoSharpenChanged)
+    Q_PROPERTY(QString shaderPreset READ shaderPreset WRITE setShaderPreset NOTIFY shaderPresetChanged)
+    Q_PROPERTY(bool autoSkipCredits READ autoSkipCredits WRITE setAutoSkipCredits NOTIFY autoSkipCreditsChanged)
 
     // Appearance & Keymap
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
@@ -88,6 +90,8 @@ public:
     QString hdrToneMapping() const { return m_hdrToneMapping; }
     bool hdrComputePeak() const { return m_hdrComputePeak; }
     double videoSharpen() const { return m_videoSharpen; }
+    QString shaderPreset() const { return m_shaderPreset; }
+    bool autoSkipCredits() const { return m_autoSkipCredits; }
     QString theme() const { return m_theme; }
     QString keymapPreset() const { return m_keymapPreset; }
 
@@ -118,6 +122,8 @@ public:
     Q_INVOKABLE void setHdrToneMapping(const QString &algorithm);
     Q_INVOKABLE void setHdrComputePeak(bool computePeak);
     Q_INVOKABLE void setVideoSharpen(double amount);
+    Q_INVOKABLE void setShaderPreset(const QString &preset);
+    Q_INVOKABLE void setAutoSkipCredits(bool autoSkip);
     Q_INVOKABLE void setTheme(const QString &theme);
     Q_INVOKABLE void setKeymapPreset(const QString &preset);
 
@@ -148,6 +154,8 @@ signals:
     void debandChanged();
     void hdrToneMappingChanged();
     void videoSharpenChanged();
+    void shaderPresetChanged();
+    void autoSkipCreditsChanged();
     void themeChanged();
     void keymapPresetChanged();
     void equalizerChanged();
@@ -200,6 +208,8 @@ private:
     QString m_hdrToneMapping = QStringLiteral("auto");
     bool m_hdrComputePeak = true;
     double m_videoSharpen = 0.0;
+    QString m_shaderPreset = QStringLiteral("off");
+    bool m_autoSkipCredits = false;
     QString m_theme = QStringLiteral("midnight");
     QString m_keymapPreset = QStringLiteral("parvaz");
 

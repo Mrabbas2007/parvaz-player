@@ -123,6 +123,11 @@ MpvObject::MpvObject(QObject *parent)
     }
     m_subtitles.setHandle(m_mpv);
     m_screenshot.setHandle(m_mpv);
+    m_shaderManager = new parvaz::ShaderManager(m_mpv, this);
+    connect(m_shaderManager, &parvaz::ShaderManager::shaderPresetChanged,
+            this, &MpvObject::shaderPresetChanged);
+    connect(m_shaderManager, &parvaz::ShaderManager::performanceWarning,
+            this, &MpvObject::showOsd);
 
     // Subtitle state lives in the controller; re-expose its change signals
     // under the MpvObject NOTIFY names QML binds to.
@@ -275,9 +280,24 @@ void MpvObject::drainEvents()
             if (name == QLatin1String("time-pos") && prop->format == MPV_FORMAT_DOUBLE) {
                 m_position = *static_cast<double *>(prop->data);
                 hasPos = true;
+
+                // Intelligent credits zone detection & auto-skip
+                if (m_creditsStartTime > 0.0 && m_duration > 0.0 && m_position >= m_creditsStartTime && m_position < m_duration - 1.0) {
+                    if (m_autoSkipCredits && !m_creditsSkippedThisEpisode) {
+                        m_creditsSkippedThisEpisode = true;
+                        skipCredits();
+                    } else if (!m_creditsZoneActive) {
+                        m_creditsZoneActive = true;
+                        emit creditsZoneChanged();
+                    }
+                } else if (m_creditsZoneActive && (m_position < m_creditsStartTime || m_position >= m_duration - 1.0)) {
+                    m_creditsZoneActive = false;
+                    emit creditsZoneChanged();
+                }
             } else if (name == QLatin1String("duration") && prop->format == MPV_FORMAT_DOUBLE) {
                 m_duration = *static_cast<double *>(prop->data);
                 hasDur = true;
+                detectCreditsAndNextEpisode();
             } else if (name == QLatin1String("pause") && prop->format == MPV_FORMAT_FLAG) {
                 m_paused = *static_cast<int *>(prop->data) != 0;
                 hasPause = true;
@@ -456,6 +476,7 @@ void MpvObject::drainEvents()
             refreshBookmarks();
             refreshMetadata();
             refreshCoverArt();
+            detectCreditsAndNextEpisode();
             int64_t w = 0, h = 0;
             mpv_get_property(m_mpv, "video-params/w", MPV_FORMAT_INT64, &w);
             mpv_get_property(m_mpv, "video-params/h", MPV_FORMAT_INT64, &h);
@@ -624,6 +645,7 @@ void MpvObject::refreshPlaylist()
     if (mpv_get_property(m_mpv, "playlist-pos", MPV_FORMAT_INT64, &pos) >= 0) {
         m_playlistIndex = static_cast<int>(pos);
     }
+    detectCreditsAndNextEpisode();
 }
 
 QStringList MpvObject::expandAndSortPaths(const QStringList &rawPaths)
@@ -1490,6 +1512,7 @@ void MpvObject::refreshChapters()
     if (out != m_chapters) {
         m_chapters = out;
         emit chaptersChanged();
+        detectCreditsAndNextEpisode();
     }
 }
 
@@ -2008,6 +2031,14 @@ void MpvObject::applyPerformanceProfile()
         mpv_set_property_string(m_mpv, "vd-lavc-fast", "no");
         mpv_set_property_string(m_mpv, "vd-lavc-skiploopfilter", "default");
     }
+
+    if (m_shaderManager) {
+        m_shaderManager->onVideoParamsChanged(w, h);
+        int64_t voDrops = 0;
+        mpv_get_property(m_mpv, "frame-drop-count", MPV_FORMAT_INT64, &voDrops);
+        m_shaderManager->checkPerformanceGuard(voDrops);
+    }
+
     emit technicalStatsChanged();
 }
 
@@ -2219,4 +2250,159 @@ void MpvObject::clearRecentUrls()
         m_recentUrls.clear();
         emit recentUrlsChanged();
     }
+}
+
+QString MpvObject::shaderPreset() const
+{
+    return m_shaderManager ? m_shaderManager->shaderPreset() : QStringLiteral("off");
+}
+
+void MpvObject::setShaderPreset(const QString &preset)
+{
+    if (m_shaderManager)
+        m_shaderManager->setShaderPreset(preset);
+}
+
+bool MpvObject::isShaderBypassedFor4k() const
+{
+    return m_shaderManager ? m_shaderManager->isBypassedFor4k() : false;
+}
+
+void MpvObject::setAutoSkipCredits(bool autoSkip)
+{
+    if (m_autoSkipCredits == autoSkip)
+        return;
+    m_autoSkipCredits = autoSkip;
+    emit autoSkipCreditsChanged();
+    if (m_autoSkipCredits && m_creditsZoneActive && !m_creditsSkippedThisEpisode) {
+        m_creditsSkippedThisEpisode = true;
+        skipCredits();
+    }
+}
+
+void MpvObject::skipCredits()
+{
+    if (m_hasPostCredits && m_position < m_postCreditsTime) {
+        seekAbsolute(m_postCreditsTime);
+        showOsd(QStringLiteral("Post-Credits Scene"));
+        m_creditsZoneActive = false;
+        emit creditsZoneChanged();
+        return;
+    }
+
+    if (m_hasNextEpisode) {
+        playNextEpisode();
+    } else if (m_duration > 0.0) {
+        seekAbsolute(m_duration - 0.5);
+    }
+    m_creditsZoneActive = false;
+    emit creditsZoneChanged();
+}
+
+void MpvObject::playNextEpisode()
+{
+    if (hasNext()) {
+        next();
+        showOsd(QStringLiteral("Next Episode"));
+    } else if (!m_nextEpisodeFile.isEmpty()) {
+        loadFile(m_nextEpisodeFile);
+        showOsd(QStringLiteral("Playing: %1").arg(m_nextEpisodeTitle));
+    }
+}
+
+void MpvObject::detectCreditsAndNextEpisode()
+{
+    m_creditsStartTime = 0.0;
+    m_postCreditsTime = 0.0;
+    m_hasCreditsChapter = false;
+    m_hasPostCredits = false;
+    m_creditsZoneActive = false;
+    m_creditsSkippedThisEpisode = false;
+
+    // 1. Chapter-based credits detection
+    if (m_duration > 30.0 && !m_chapters.isEmpty()) {
+        static const QStringList creditKeywords = {
+            QStringLiteral("credit"), QStringLiteral("ending"), QStringLiteral("outro"),
+            QStringLiteral(" ed"), QStringLiteral("ed "), QStringLiteral("ed-"),
+            QStringLiteral("end credits"), QStringLiteral("rolling credits"),
+            QStringLiteral("تیتراژ"), QStringLiteral("پایان")
+        };
+
+        for (int i = 0; i < m_chapters.size(); ++i) {
+            const QVariantMap ch = m_chapters[i].toMap();
+            const QString title = ch.value(QStringLiteral("title")).toString().toLower();
+            const double chTime = ch.value(QStringLiteral("time")).toDouble();
+
+            if (chTime > m_duration * 0.5) {
+                bool matched = false;
+                for (const QString &kw : creditKeywords) {
+                    if (title.contains(kw)) {
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) {
+                    m_creditsStartTime = chTime;
+                    m_hasCreditsChapter = true;
+                    if (i + 1 < m_chapters.size()) {
+                        m_postCreditsTime = m_chapters[i + 1].toMap().value(QStringLiteral("time")).toDouble();
+                        m_hasPostCredits = (m_postCreditsTime > m_creditsStartTime);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    // 2. Fallback heuristic for videos/series without named chapters:
+    if (!m_hasCreditsChapter && m_duration >= 600.0) {
+        m_creditsStartTime = m_duration - 90.0;
+    }
+
+    // 3. Next Episode Discovery
+    m_nextEpisodeFile.clear();
+    m_nextEpisodeTitle.clear();
+    m_hasNextEpisode = false;
+
+    if (hasNext()) {
+        if (m_playlistIndex + 1 < m_playlist.size()) {
+            const QVariantMap nextItem = m_playlist[m_playlistIndex + 1].toMap();
+            m_nextEpisodeFile = nextItem.value(QStringLiteral("filename")).toString();
+            m_nextEpisodeTitle = nextItem.value(QStringLiteral("title")).toString();
+            if (m_nextEpisodeTitle.isEmpty())
+                m_nextEpisodeTitle = QFileInfo(m_nextEpisodeFile).completeBaseName();
+            m_hasNextEpisode = true;
+        }
+    } else if (!m_currentFile.isEmpty() && !m_currentFile.contains(QLatin1String("://"))) {
+        const QFileInfo curFi(m_currentFile);
+        const QDir dir = curFi.dir();
+        QStringList files = dir.entryList(QDir::Files | QDir::Readable);
+        QStringList mediaFiles;
+        for (const QString &f : files) {
+            if (isMediaFile(f))
+                mediaFiles.append(dir.absoluteFilePath(f));
+        }
+
+        QCollator collator;
+        collator.setNumericMode(true);
+        std::sort(mediaFiles.begin(), mediaFiles.end(), collator);
+
+        int curIdx = -1;
+        const QString curAbs = curFi.absoluteFilePath();
+        for (int i = 0; i < mediaFiles.size(); ++i) {
+            if (QFileInfo(mediaFiles[i]).absoluteFilePath() == curAbs) {
+                curIdx = i;
+                break;
+            }
+        }
+
+        if (curIdx >= 0 && curIdx + 1 < mediaFiles.size()) {
+            m_nextEpisodeFile = mediaFiles[curIdx + 1];
+            m_nextEpisodeTitle = QFileInfo(m_nextEpisodeFile).completeBaseName();
+            m_hasNextEpisode = true;
+        }
+    }
+
+    emit creditsZoneChanged();
+    emit nextEpisodeChanged();
 }

@@ -25,6 +25,7 @@ qt_add_executable(parvaz
     src/playback/CoverArtProvider.h src/playback/CoverArtProvider.cpp
     src/playback/ScreenshotController.h src/playback/ScreenshotController.cpp
     src/playback/CacheMaintenance.h src/playback/CacheMaintenance.cpp
+    src/playback/ShaderManager.h src/playback/ShaderManager.cpp
 )
 
 # QML lives inside the binary: the executable must run from anywhere (install
@@ -55,6 +56,7 @@ qt_add_qml_module(parvaz
         qml/components/IconButton.qml
         qml/components/LoadingSpinner.qml
         qml/components/MusicPlayerView.qml
+        qml/components/NextEpisodePrompt.qml
         qml/components/OpenUrlDialog.qml
         qml/components/OsdOverlay.qml
         qml/components/PlaylistDrawer.qml

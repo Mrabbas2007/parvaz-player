@@ -349,6 +349,13 @@ Window {
         id: osdOverlay
     }
 
+    // --- Smart Ending Credits & Next Episode Prompt ------------------------
+    NextEpisodePrompt {
+        id: nextEpisodePrompt
+        controlBarVisible: root.chromeVisible
+        z: 22
+    }
+
     // --- Right-click Context Menu (PotPlayer style) -----------------------
     ContextMenu {
         id: contextMenu
@@ -459,6 +466,8 @@ Window {
                 technicalInfoOverlay.close()
             } else if (playlistDrawer.isOpen) {
                 playlistDrawer.close()
+            } else if (nextEpisodePrompt.visible && !nextEpisodePrompt.dismissed) {
+                nextEpisodePrompt.dismissed = true
             } else if (root.visibility === Window.FullScreen) {
                 root.visibility = Window.Windowed
             }
@@ -499,7 +508,16 @@ Window {
     PlayerShortcut { sequence: "Shift+["; onActivated: Mpv.previousChapter() }
 
     // Subtitles & Audio tracks
-    PlayerShortcut { sequence: "S"; onActivated: Mpv.cycleSubtitleTrack() }
+    PlayerShortcut {
+        sequence: "S"
+        onActivated: {
+            if (Mpv.creditsZoneActive && !nextEpisodePrompt.dismissed) {
+                Mpv.skipCredits()
+            } else {
+                Mpv.cycleSubtitleTrack()
+            }
+        }
+    }
     PlayerShortcut { sequence: "Alt+S"; onActivated: Mpv.cycleSecondarySubtitleTrack() }
     PlayerShortcut { sequence: "A"; onActivated: Mpv.cycleAudioTrack() }
     PlayerShortcut { sequence: "N"; onActivated: Mpv.toggleAudioNormalizer() }

@@ -403,6 +403,46 @@ Menu {
         }
         StyledSeparator {}
         StyledMenu {
+            title: "Upscaling Shaders (FSR / Anime4K)"
+            StyledItem {
+                text: "Off (Native)"
+                checkable: true
+                checked: Mpv.shaderPreset === "off" || Mpv.shaderPreset === ""
+                onTriggered: {
+                    Mpv.setShaderPreset("off");
+                    Config.setShaderPreset("off");
+                }
+            }
+            StyledItem {
+                text: "AMD FSR 1.0 (Universal)"
+                checkable: true
+                checked: Mpv.shaderPreset === "fsr"
+                onTriggered: {
+                    Mpv.setShaderPreset("fsr");
+                    Config.setShaderPreset("fsr");
+                }
+            }
+            StyledItem {
+                text: "Anime4K Lite (Fast / iGPU)"
+                checkable: true
+                checked: Mpv.shaderPreset === "anime4k-lite"
+                onTriggered: {
+                    Mpv.setShaderPreset("anime4k-lite");
+                    Config.setShaderPreset("anime4k-lite");
+                }
+            }
+            StyledItem {
+                text: "Anime4K High (Quality / dGPU)"
+                checkable: true
+                checked: Mpv.shaderPreset === "anime4k-high"
+                onTriggered: {
+                    Mpv.setShaderPreset("anime4k-high");
+                    Config.setShaderPreset("anime4k-high");
+                }
+            }
+        }
+        StyledSeparator {}
+        StyledMenu {
             title: "HDR Tone-mapping"
             StyledItem {
                 text: "Auto"
@@ -444,6 +484,11 @@ Menu {
             onTriggered: Mpv.clearBookmarks()
         }
         StyledSeparator {}
+        StyledItem {
+            text: "Skip ending credits (S)"
+            visible: Mpv.creditsZoneActive
+            onTriggered: Mpv.skipCredits()
+        }
         StyledItem {
             text: "Next chapter (Shift+])"
             enabled: Mpv.chapters.length > 0

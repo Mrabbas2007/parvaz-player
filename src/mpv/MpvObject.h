@@ -10,6 +10,7 @@
 #include <mpv/SubtitleController.h>
 #include <playback/CoverArtProvider.h>
 #include <playback/ScreenshotController.h>
+#include <playback/ShaderManager.h>
 #include <subs/SubtitleSearchService.h>
 #include <subs/SubtitleSyncService.h>
 
@@ -113,6 +114,17 @@ class MpvObject : public QObject {
     Q_PROPERTY(int bufferPercent READ bufferPercent NOTIFY bufferPercentChanged)
     Q_PROPERTY(bool eofReached READ eofReached NOTIFY eofReachedChanged)
 
+    // AI / Upscaling Shaders (AMD FSR & Anime4K)
+    Q_PROPERTY(QString shaderPreset READ shaderPreset WRITE setShaderPreset NOTIFY shaderPresetChanged)
+    Q_PROPERTY(bool isShaderBypassedFor4k READ isShaderBypassedFor4k NOTIFY shaderPresetChanged)
+
+    // Smart Ending Credits & Next Episode Detection
+    Q_PROPERTY(bool creditsZoneActive READ isCreditsZoneActive NOTIFY creditsZoneChanged)
+    Q_PROPERTY(double creditsStartTime READ creditsStartTime NOTIFY creditsZoneChanged)
+    Q_PROPERTY(QString nextEpisodeTitle READ nextEpisodeTitle NOTIFY nextEpisodeChanged)
+    Q_PROPERTY(bool hasNextEpisode READ hasNextEpisode NOTIFY nextEpisodeChanged)
+    Q_PROPERTY(bool autoSkipCredits READ autoSkipCredits WRITE setAutoSkipCredits NOTIFY autoSkipCreditsChanged)
+
 public:
     explicit MpvObject(QObject *parent = nullptr);
     ~MpvObject() override;
@@ -132,6 +144,18 @@ public:
     QString hwdecMode() const { return m_hwdecMode; }
     void setHwdecMode(const QString &mode);
     bool is4k() const { return m_is4k; }
+    QString shaderPreset() const;
+    void setShaderPreset(const QString &preset);
+    bool isShaderBypassedFor4k() const;
+
+    bool isCreditsZoneActive() const { return m_creditsZoneActive; }
+    double creditsStartTime() const { return m_creditsStartTime; }
+    QString nextEpisodeTitle() const { return m_nextEpisodeTitle; }
+    bool hasNextEpisode() const { return m_hasNextEpisode; }
+    bool autoSkipCredits() const { return m_autoSkipCredits; }
+    void setAutoSkipCredits(bool autoSkip);
+    Q_INVOKABLE void skipCredits();
+    Q_INVOKABLE void playNextEpisode();
     bool hasVideo() const;
     bool isAudioOnly() const;
     QVariantMap metadata() const { return m_metadata; }
@@ -404,6 +428,10 @@ signals:
     void equalizerEnabledChanged();
     void equalizerPresetChanged();
     void equalizerGainsChanged();
+    void shaderPresetChanged();
+    void creditsZoneChanged();
+    void nextEpisodeChanged();
+    void autoSkipCreditsChanged();
     void recentUrlsChanged();
     void secondarySubtitleTrackChanged();
     void technicalStatsChanged();
@@ -522,4 +550,20 @@ private:
     bool m_coreIdle = false;
     int m_bufferPercent = 100;
     bool m_eofReached = false;
+
+    // Shader Manager
+    parvaz::ShaderManager *m_shaderManager = nullptr;
+
+    // Credits & Next Episode Detection
+    bool m_creditsZoneActive = false;
+    double m_creditsStartTime = 0.0;
+    double m_postCreditsTime = 0.0;
+    bool m_hasCreditsChapter = false;
+    bool m_hasPostCredits = false;
+    bool m_autoSkipCredits = false;
+    bool m_creditsSkippedThisEpisode = false;
+    QString m_nextEpisodeFile;
+    QString m_nextEpisodeTitle;
+    bool m_hasNextEpisode = false;
+    void detectCreditsAndNextEpisode();
 };

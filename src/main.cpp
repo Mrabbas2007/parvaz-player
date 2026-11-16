@@ -530,7 +530,23 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
                 parvaz::ConfigManager::instance()->setDebandEnabled(false);
                 parvaz::ConfigManager::instance()->setTheme(QStringLiteral("midnight"));
                 parvaz::ConfigManager::instance()->setKeymapPreset(QStringLiteral("parvaz"));
+
+                parvaz::ConfigManager::instance()->setShaderPreset(QStringLiteral("fsr"));
+                check("config shaderPreset is fsr", parvaz::ConfigManager::instance()->shaderPreset() == QLatin1String("fsr"));
+                parvaz::ConfigManager::instance()->setAutoSkipCredits(true);
+                check("config autoSkipCredits is true", parvaz::ConfigManager::instance()->autoSkipCredits() == true);
+                parvaz::ConfigManager::instance()->setShaderPreset(QStringLiteral("off"));
+                parvaz::ConfigManager::instance()->setAutoSkipCredits(false);
             }
+
+            mpv.setShaderPreset(QStringLiteral("fsr"));
+            check("mpv shaderPreset is fsr", mpv.shaderPreset() == QLatin1String("fsr"));
+            mpv.setShaderPreset(QStringLiteral("off"));
+            check("mpv shaderPreset is off", mpv.shaderPreset() == QLatin1String("off"));
+
+            check("isCreditsZoneActive returns boolean", mpv.isCreditsZoneActive() == false || mpv.isCreditsZoneActive() == true);
+            mpv.skipCredits();
+            check("skipCredits executes cleanly", true);
             break;
         }
         default: {

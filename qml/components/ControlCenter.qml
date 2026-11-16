@@ -630,6 +630,60 @@ Item {
                             }
                         }
                     }
+
+                    // AI / Upscaling Shaders Row (AMD FSR & Anime4K)
+                    Row {
+                        width: parent.width
+                        spacing: 6
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 78
+                            text: "Upscaling:"
+                            color: Theme.textSecondary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontNormal
+                        }
+
+                        Repeater {
+                            model: [
+                                { id: "off", name: "Off" },
+                                { id: "fsr", name: "AMD FSR" },
+                                { id: "anime4k-lite", name: "Anime4K Lite" },
+                                { id: "anime4k-high", name: "Anime4K High" }
+                            ]
+
+                            delegate: Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Math.round((parent.width - 78 - (3 * 6)) / 4)
+                                height: 26
+                                radius: Theme.radiusSmall
+                                property bool isSelected: (Mpv.shaderPreset === modelData.id || (Mpv.shaderPreset === "" && modelData.id === "off"))
+                                color: isSelected ? "#2A3348" : (shMouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                                border.color: isSelected ? "#4A90E2" : "#242938"
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.name
+                                    color: isSelected ? "#FFFFFF" : Theme.textSecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 10
+                                    font.bold: isSelected
+                                }
+
+                                MouseArea {
+                                    id: shMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        Mpv.setShaderPreset(modelData.id);
+                                        Config.setShaderPreset(modelData.id);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Reset All Video Button
@@ -1508,6 +1562,92 @@ Item {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     onClicked: Mpv.clearAbLoop()
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle { width: parent.width; height: 1; color: "#202534" }
+
+                    // Ending Credits & Binge-Watching
+                    Column {
+                        width: parent.width
+                        spacing: 8
+
+                        Text {
+                            text: "Ending Credits & Binge-Watching:"
+                            color: Theme.textSecondary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontNormal
+                        }
+
+                        Row {
+                            spacing: 10
+
+                            Rectangle {
+                                width: 220
+                                height: 28
+                                radius: Theme.radiusSmall
+                                color: Config.autoSkipCredits ? "#2563EB" : (skipCreditsMouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                                border.color: Config.autoSkipCredits ? "#3B82F6" : "#242938"
+                                border.width: 1
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+
+                                    Image {
+                                        width: 14
+                                        height: 14
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        source: "../icons/check.svg"
+                                        sourceSize: Qt.size(14, 14)
+                                        visible: Config.autoSkipCredits
+                                    }
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "Auto-Skip Ending Credits"
+                                        color: "#FFFFFF"
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSmall
+                                        font.bold: Config.autoSkipCredits
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: skipCreditsMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        Config.setAutoSkipCredits(!Config.autoSkipCredits);
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 140
+                                height: 28
+                                radius: Theme.radiusSmall
+                                color: manualSkipMouse.containsMouse ? "#2A3348" : "#181B26"
+                                border.color: "#282E3E"
+                                border.width: 1
+                                visible: Mpv.creditsZoneActive
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "Skip Credits (S)"
+                                    color: "#00E5FF"
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSmall
+                                    font.bold: true
+                                }
+
+                                MouseArea {
+                                    id: manualSkipMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: Mpv.skipCredits()
                                 }
                             }
                         }
