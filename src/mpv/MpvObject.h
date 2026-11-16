@@ -126,6 +126,9 @@ class MpvObject : public QObject {
     Q_PROPERTY(bool hasNextEpisode READ hasNextEpisode NOTIFY nextEpisodeChanged)
     Q_PROPERTY(bool autoSkipCredits READ autoSkipCredits WRITE setAutoSkipCredits NOTIFY autoSkipCreditsChanged)
 
+    // Real-Time Audio Telemetry & Visualizer Spectrum Bands
+    Q_PROPERTY(QVariantList audioBands READ audioBands NOTIFY audioBandsChanged)
+
 public:
     explicit MpvObject(QObject *parent = nullptr);
     ~MpvObject() override;
@@ -148,6 +151,7 @@ public:
     QString shaderPreset() const;
     void setShaderPreset(const QString &preset);
     bool isShaderBypassedFor4k() const;
+    QVariantList audioBands() const { return m_audioBands; }
 
     bool isSeries() const { return m_isSeries; }
     Q_INVOKABLE bool isSeriesMedia(const QString &filePath) const;
@@ -442,6 +446,7 @@ signals:
     void secondarySubtitleTrackChanged();
     void technicalStatsChanged();
     void isAudioOnlyChanged();
+    void audioBandsChanged();
     void loadingChanged();
     void bufferingChanged();
     void bufferPercentChanged();
@@ -573,4 +578,14 @@ private:
     QString m_nextEpisodeTitle;
     bool m_hasNextEpisode = false;
     void detectCreditsAndNextEpisode();
+
+    // Audio Visualizer
+    void updateAudioVisualization();
+    void ensureVisualizerFilter(bool enable);
+    void resetAudioBands();
+    QTimer *m_audioVizTimer = nullptr;
+    QVariantList m_audioBands;
+    QVector<double> m_prevBands;
+    bool m_vizFilterActive = false;
+    double m_vizPhase = 0.0;
 };

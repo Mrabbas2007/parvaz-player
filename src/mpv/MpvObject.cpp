@@ -212,11 +212,19 @@ MpvObject::MpvObject(QObject *parent)
         showOsd(QStringLiteral("Sync error: %1").arg(err));
     });
 
+    m_audioVizTimer = new QTimer(this);
+    m_audioVizTimer->setInterval(33);
+    connect(m_audioVizTimer, &QTimer::timeout, this, &MpvObject::updateAudioVisualization);
+    resetAudioBands();
+
     drainEvents();
 }
 
 MpvObject::~MpvObject()
 {
+    if (m_audioVizTimer) {
+        m_audioVizTimer->stop();
+    }
     if (m_mpv) {
         // The render context must be freed by its owner (the renderer)
         // before we get here. See MpvFboItem.
@@ -478,6 +486,7 @@ void MpvObject::drainEvents()
             refreshMetadata();
             refreshCoverArt();
             detectCreditsAndNextEpisode();
+            ensureVisualizerFilter(isAudioOnly());
             int64_t w = 0, h = 0;
             mpv_get_property(m_mpv, "video-params/w", MPV_FORMAT_INT64, &w);
             mpv_get_property(m_mpv, "video-params/h", MPV_FORMAT_INT64, &h);
@@ -517,6 +526,8 @@ void MpvObject::drainEvents()
             m_abLoopB = -1.0;
             emit abLoopChanged();
             emit hasVideoChanged();
+            ensureVisualizerFilter(false);
+            resetAudioBands();
             break;
         default:
             break;
@@ -525,7 +536,18 @@ void MpvObject::drainEvents()
 
     if (hasPos)    emit positionChanged();
     if (hasDur)    emit durationChanged();
-    if (hasPause)  emit pausedChanged();
+    if (hasPause) {
+        emit pausedChanged();
+        if (m_paused) {
+            if (m_audioVizTimer && m_audioVizTimer->isActive())
+                m_audioVizTimer->stop();
+            resetAudioBands();
+        } else if (isAudioOnly()) {
+            ensureVisualizerFilter(true);
+            if (m_audioVizTimer && !m_audioVizTimer->isActive())
+                m_audioVizTimer->start();
+        }
+    }
     if (hasVolume) emit volumeChanged();
     if (hasMute)   emit mutedChanged();
     if (hasSpeed)  emit speedChanged();
@@ -596,8 +618,14 @@ void MpvObject::refreshTracks()
 
         if (hasVideo() != oldHasVideo)
             emit hasVideoChanged();
-        if (isAudioOnly() != oldIsAudioOnly)
+        if (isAudioOnly() != oldIsAudioOnly) {
             emit isAudioOnlyChanged();
+            ensureVisualizerFilter(isAudioOnly());
+            if (isAudioOnly() && !m_paused) {
+                if (m_audioVizTimer && !m_audioVizTimer->isActive())
+                    m_audioVizTimer->start();
+            }
+        }
     }
 }
 
@@ -2550,4 +2578,156 @@ void MpvObject::detectCreditsAndNextEpisode()
 
     emit creditsZoneChanged();
     emit nextEpisodeChanged();
+}
+
+void MpvObject::ensureVisualizerFilter(bool enable)
+{
+    if (!m_mpv)
+        return;
+    if (enable && !m_vizFilterActive) {
+        const char *cmd[] = {"af", "add", "@viz:lavfi=[astats=metadata=1:reset=1]", nullptr};
+        mpv_command_async(m_mpv, 0, cmd);
+        m_vizFilterActive = true;
+        if (!m_paused && m_audioVizTimer && !m_audioVizTimer->isActive())
+            m_audioVizTimer->start();
+    } else if (!enable && m_vizFilterActive) {
+        const char *cmd[] = {"af", "remove", "@viz", nullptr};
+        mpv_command_async(m_mpv, 0, cmd);
+        m_vizFilterActive = false;
+        if (m_audioVizTimer)
+            m_audioVizTimer->stop();
+        resetAudioBands();
+    }
+}
+
+void MpvObject::resetAudioBands()
+{
+    const int numBands = 24;
+    bool hadSignal = false;
+    QVariantList emptyBands;
+    emptyBands.reserve(numBands);
+    for (int i = 0; i < numBands; ++i) {
+        if (m_prevBands.size() > i && m_prevBands[i] > 0.01)
+            hadSignal = true;
+        emptyBands.append(0.0);
+    }
+    m_prevBands.fill(0.0, numBands);
+    m_audioBands = emptyBands;
+    if (hadSignal)
+        emit audioBandsChanged();
+}
+
+void MpvObject::updateAudioVisualization()
+{
+    if (!m_mpv || !isAudioOnly() || m_paused || m_duration <= 0.0) {
+        resetAudioBands();
+        return;
+    }
+
+    mpv_node node;
+    if (mpv_get_property(m_mpv, "af-metadata/viz", MPV_FORMAT_NODE, &node) < 0) {
+        return;
+    }
+
+    double peak_db = -99.0;
+    double rms_db = -99.0;
+    double zcr = 0.02;
+    double left_peak_db = -99.0;
+    double right_peak_db = -99.0;
+
+    if (node.format == MPV_FORMAT_NODE_MAP) {
+        mpv_node_list *list = node.u.list;
+        for (int i = 0; i < list->num; ++i) {
+            const char *key = list->keys[i];
+            if (!key) continue;
+            if (std::strcmp(key, "lavfi.astats.Overall.Peak_level") == 0) {
+                if (list->values[i].format == MPV_FORMAT_STRING) {
+                    const char *s = list->values[i].u.string;
+                    if (s && std::strcmp(s, "-inf") != 0)
+                        peak_db = std::atof(s);
+                }
+            } else if (std::strcmp(key, "lavfi.astats.Overall.RMS_level") == 0) {
+                if (list->values[i].format == MPV_FORMAT_STRING) {
+                    const char *s = list->values[i].u.string;
+                    if (s && std::strcmp(s, "-inf") != 0)
+                        rms_db = std::atof(s);
+                }
+            } else if (std::strcmp(key, "lavfi.astats.1.Zero_crossings_rate") == 0) {
+                if (list->values[i].format == MPV_FORMAT_STRING) {
+                    const char *s = list->values[i].u.string;
+                    if (s) zcr = std::atof(s);
+                }
+            } else if (std::strcmp(key, "lavfi.astats.1.Peak_level") == 0) {
+                if (list->values[i].format == MPV_FORMAT_STRING) {
+                    const char *s = list->values[i].u.string;
+                    if (s && std::strcmp(s, "-inf") != 0)
+                        left_peak_db = std::atof(s);
+                }
+            } else if (std::strcmp(key, "lavfi.astats.2.Peak_level") == 0) {
+                if (list->values[i].format == MPV_FORMAT_STRING) {
+                    const char *s = list->values[i].u.string;
+                    if (s && std::strcmp(s, "-inf") != 0)
+                        right_peak_db = std::atof(s);
+                }
+            }
+        }
+    }
+    mpv_free_node_contents(&node);
+
+    // Compute linear amplitude [0.0, 1.0] from real dB
+    // -50 dB is near silence, 0 dB is digital full scale
+    double amp = 0.0;
+    if (peak_db > -50.0) {
+        amp = qBound(0.0, (peak_db + 50.0) / 50.0, 1.0);
+    }
+    if (m_muted) amp = 0.0;
+
+    // Dynamic punch from crest factor (transients like drum hits / slaps)
+    double punch = 1.0;
+    if (peak_db > -50.0 && rms_db > -60.0) {
+        double crest = qMax(0.0, peak_db - rms_db);
+        punch = qBound(0.9, 1.0 + (crest - 3.0) * 0.04, 1.35);
+    }
+
+    const int numBands = 24;
+    if (m_prevBands.size() != numBands)
+        m_prevBands.fill(0.0, numBands);
+
+    // Spectral centroid target derived from actual Zero Crossings Rate
+    // zcr: ~0.005 = 100Hz bass, ~0.03 = 600Hz vocals, ~0.09 = 2000Hz+ treble
+    double centroid = qBound(0.05, zcr / 0.10, 0.95);
+    const double spread = 0.26;
+
+    QVariantList newBands;
+    newBands.reserve(numBands);
+
+    m_vizPhase += 0.18;
+    for (int i = 0; i < numBands; ++i) {
+        double pos = static_cast<double>(i) / (numBands - 1);
+        double freqDiff = (pos - centroid) / spread;
+        double freqResp = std::exp(-0.5 * freqDiff * freqDiff);
+
+        // Organic micro-octave texture so adjacent bars have realistic dynamic contour
+        double texture = 0.85 + 0.15 * std::sin(pos * 3.14159 * 4.0 + m_vizPhase);
+
+        // Stereo bias if available
+        double stereoFactor = 1.0;
+        if (left_peak_db > -90.0 && right_peak_db > -90.0) {
+            double pan = (pos < 0.5) ? (left_peak_db - right_peak_db) : (right_peak_db - left_peak_db);
+            stereoFactor = qBound(0.7, 1.0 + pan * 0.03, 1.3);
+        }
+
+        double raw = amp * (0.15 + 0.85 * freqResp) * texture * stereoFactor * punch;
+        raw = qBound(0.0, raw, 1.0);
+
+        // Fast attack, smooth decay
+        double current = (raw >= m_prevBands[i])
+                             ? raw
+                             : (m_prevBands[i] * 0.76 + raw * 0.24);
+        m_prevBands[i] = current;
+        newBands.append(current);
+    }
+
+    m_audioBands = newBands;
+    emit audioBandsChanged();
 }
