@@ -78,6 +78,7 @@ qt_add_qml_module(parvaz
     QML_FILES
         qml/Main.qml
         qml/Theme.qml
+        qml/components/AudioVisualizer.qml
         qml/components/ContextMenu.qml
         qml/components/ControlBar.qml
         qml/components/ControlCenter.qml

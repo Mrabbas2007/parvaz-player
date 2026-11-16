@@ -12,7 +12,8 @@ Item {
 
     readonly property bool isAudio: Mpv.isAudioOnly
     readonly property bool hasCover: Mpv.coverArtUrl.length > 0
-    readonly property real cardSize: Math.max(160, Math.min(320, Math.min(parent.width - 60, parent.height - 230)))
+    readonly property bool showVisualizer: root.height >= 480 && root.width >= 380 && Mpv.duration > 0
+    readonly property real cardSize: Math.max(140, Math.min(320, Math.min(parent.width - 60, parent.height - (root.showVisualizer ? 290 : 220))))
 
     visible: isAudio
     opacity: isAudio ? 1.0 : 0.0
@@ -264,6 +265,29 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
                 width: parent.width
+            }
+
+            // Studio Equalizer Visualizer (Responsive: automatically hides when window height < 480 or width < 380)
+            Item {
+                width: audioVisualizer.width
+                height: root.showVisualizer ? (audioVisualizer.height + 14) : 0
+                visible: height > 0
+                clip: true
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                Behavior on height { NumberAnimation { duration: Theme.animNormal } }
+
+                AudioVisualizer {
+                    id: audioVisualizer
+                    anchors.centerIn: parent
+                    opacity: root.showVisualizer ? 1.0 : 0.0
+                    barCount: root.cardSize > 240 ? 28 : 20
+                    maxBarHeight: root.cardSize > 240 ? 30 : 22
+                    barWidth: root.cardSize > 240 ? 3.5 : 3.0
+                    barSpacing: 3.0
+
+                    Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                }
             }
         }
     }
