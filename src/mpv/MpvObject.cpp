@@ -2693,22 +2693,33 @@ void MpvObject::updateAudioVisualization()
     if (m_prevBands.size() != numBands)
         m_prevBands.fill(0.0, numBands);
 
-    // Spectral centroid target derived from actual Zero Crossings Rate
-    // zcr: ~0.005 = 100Hz bass, ~0.03 = 600Hz vocals, ~0.09 = 2000Hz+ treble
-    double centroid = qBound(0.05, zcr / 0.10, 0.95);
-    const double spread = 0.26;
-
     QVariantList newBands;
     newBands.reserve(numBands);
 
     m_vizPhase += 0.18;
     for (int i = 0; i < numBands; ++i) {
         double pos = static_cast<double>(i) / (numBands - 1);
-        double freqDiff = (pos - centroid) / spread;
-        double freqResp = std::exp(-0.5 * freqDiff * freqDiff);
+
+        // 1. Bass envelope (peaking around pos=0.15, dominant when zcr is low)
+        double bassDiff = (pos - 0.15) / 0.22;
+        double bassCurve = std::exp(-0.5 * bassDiff * bassDiff);
+        double bassEnergy = bassCurve * qMax(0.2, 1.0 - zcr * 8.0);
+
+        // 2. Midrange envelope (peaking around pos=0.48)
+        double midDiff = (pos - 0.48) / 0.25;
+        double midCurve = std::exp(-0.5 * midDiff * midDiff);
+        double midEnergy = midCurve * 0.85;
+
+        // 3. High/Treble envelope (peaking around pos=0.88, scales with zcr and transients)
+        double trebleDiff = (pos - 0.88) / 0.26;
+        double trebleCurve = std::exp(-0.5 * trebleDiff * trebleDiff);
+        double trebleEnergy = trebleCurve * (0.45 + qMin(0.65, zcr * 8.0));
+
+        // Combined frequency spectrum across all 24 bands (active from sub-bass to air/sparkle)
+        double freqSum = bassEnergy * 0.46 + midEnergy * 0.36 + trebleEnergy * 0.40;
 
         // Organic micro-octave texture so adjacent bars have realistic dynamic contour
-        double texture = 0.85 + 0.15 * std::sin(pos * 3.14159 * 4.0 + m_vizPhase);
+        double texture = 0.88 + 0.12 * std::sin(pos * 3.14159 * 5.0 + m_vizPhase);
 
         // Stereo bias if available
         double stereoFactor = 1.0;
@@ -2717,7 +2728,7 @@ void MpvObject::updateAudioVisualization()
             stereoFactor = qBound(0.7, 1.0 + pan * 0.03, 1.3);
         }
 
-        double raw = amp * (0.15 + 0.85 * freqResp) * texture * stereoFactor * punch;
+        double raw = amp * freqSum * texture * stereoFactor * punch;
         raw = qBound(0.0, raw, 1.0);
 
         // Fast attack, smooth decay
