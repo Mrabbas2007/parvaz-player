@@ -344,9 +344,11 @@ Window {
         onAddFilesRequested: addPlaylistDialog.open()
     }
 
-    // --- Non-intrusive Top Corner OSD --------------------------------------
+    // --- Non-intrusive Top Corner OSD (PotPlayer/mpv standard) ------------
     OsdOverlay {
         id: osdOverlay
+        topInset: (titleBar && titleBar.visible && titleBar.opacity > 0) ? titleBar.height : 0
+        z: 40
     }
 
     // --- Smart Ending Credits & Next Episode Prompt ------------------------

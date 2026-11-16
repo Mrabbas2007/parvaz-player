@@ -5,6 +5,8 @@ import ".."
 Item {
     id: root
 
+    property int topInset: 0
+
     anchors.fill: parent
 
     function show(text) {
@@ -16,9 +18,9 @@ Item {
     Rectangle {
         id: osdCapsule
         anchors.top: parent.top
-        anchors.topMargin: 20
-        anchors.right: parent.right
-        anchors.rightMargin: 20
+        anchors.topMargin: root.topInset + 16
+        anchors.left: parent.left
+        anchors.leftMargin: 24
         width: osdText.implicitWidth + 24
         height: osdText.implicitHeight + 12
         radius: Theme.radiusMedium
@@ -29,6 +31,7 @@ Item {
         visible: opacity > 0.0
 
         Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+        Behavior on anchors.topMargin { NumberAnimation { duration: Theme.animNormal } }
 
         Text {
             id: osdText

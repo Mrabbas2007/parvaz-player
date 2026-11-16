@@ -1,5 +1,7 @@
 #include "platform/MprisService.h"
 
+#if !defined(_WIN32) && defined(QT_DBUS_LIB)
+
 #include <QDBusAbstractAdaptor>
 #include <QDBusError>
 #include <QDBusMessage>
@@ -414,3 +416,5 @@ void MprisService::notifyPropertiesChanged(const QStringList &names)
 } // namespace parvaz
 
 #include "MprisService.moc"
+
+#endif

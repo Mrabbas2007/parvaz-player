@@ -4,11 +4,41 @@ project(parvaz VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui OpenGL Quick QuickControls2 DBus Sql Network)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
+set(QT_COMPONENTS Core Gui OpenGL Quick QuickControls2 Sql Network)
+if(NOT WIN32)
+    list(APPEND QT_COMPONENTS DBus)
+endif()
+find_package(Qt6 6.5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(MPV IMPORTED_TARGET mpv)
+endif()
+
+if(NOT TARGET PkgConfig::MPV)
+    find_path(MPV_INCLUDE_DIR NAMES mpv/client.h)
+    find_library(MPV_LIBRARY NAMES mpv mpv-2 libmpv)
+    if(MPV_INCLUDE_DIR AND MPV_LIBRARY)
+        add_library(PkgConfig::MPV UNKNOWN IMPORTED)
+        set_target_properties(PkgConfig::MPV PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${MPV_INCLUDE_DIR}"
+            IMPORTED_LOCATION "${MPV_LIBRARY}"
+        )
+    else()
+        message(FATAL_ERROR "libmpv development files not found. Set MPV_ROOT or install libmpv-dev.")
+    endif()
+endif()
 
 qt_standard_project_setup()
+
+set(PLATFORM_SOURCES
+    src/platform/IdleInhibitor.h src/platform/IdleInhibitor.cpp
+)
+if(NOT WIN32)
+    list(APPEND PLATFORM_SOURCES
+        src/platform/MprisService.h  src/platform/MprisService.cpp
+    )
+endif()
 
 qt_add_executable(parvaz
     src/main.cpp
@@ -18,8 +48,7 @@ qt_add_executable(parvaz
     src/mpv/SubtitleController.h src/mpv/SubtitleController.cpp
     src/subs/SubtitleSearchService.h src/subs/SubtitleSearchService.cpp
     src/subs/SubtitleSyncService.h src/subs/SubtitleSyncService.cpp
-    src/platform/IdleInhibitor.h src/platform/IdleInhibitor.cpp
-    src/platform/MprisService.h  src/platform/MprisService.cpp
+    ${PLATFORM_SOURCES}
     src/playback/PlaybackHistory.h src/playback/PlaybackHistory.cpp
     src/playback/ThumbnailProvider.h src/playback/ThumbnailProvider.cpp
     src/playback/CoverArtProvider.h src/playback/CoverArtProvider.cpp
@@ -95,9 +124,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 target_link_libraries(parvaz PRIVATE
-    Qt6::Core Qt6::Gui Qt6::OpenGL Qt6::Quick Qt6::QuickControls2 Qt6::DBus Qt6::Sql Qt6::Network
+    Qt6::Core Qt6::Gui Qt6::OpenGL Qt6::Quick Qt6::QuickControls2 Qt6::Sql Qt6::Network
     PkgConfig::MPV
 )
+if(TARGET Qt6::DBus)
+    target_link_libraries(parvaz PRIVATE Qt6::DBus)
+endif()
+if(WIN32)
+    target_link_libraries(parvaz PRIVATE user32 shell32)
+endif()
 
 # make check : build + generate a test clip with one audio and one video track
 # (so the track-list assertions have something to find) + a matching UTF-8

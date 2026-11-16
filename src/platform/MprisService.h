@@ -1,8 +1,10 @@
 #pragma once
 
+#include <QObject>
+
+#if !defined(_WIN32) && defined(QT_DBUS_LIB)
 #include <QDBusConnection>
 #include <QDBusObjectPath>
-#include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -79,3 +81,21 @@ private:
 };
 
 } // namespace parvaz
+
+#else
+
+class MpvObject;
+
+namespace parvaz {
+
+class MprisService : public QObject {
+    Q_OBJECT
+public:
+    explicit MprisService(MpvObject *, QObject *parent = nullptr) : QObject(parent) {}
+    ~MprisService() override = default;
+    bool isRegistered() const { return false; }
+};
+
+} // namespace parvaz
+
+#endif
