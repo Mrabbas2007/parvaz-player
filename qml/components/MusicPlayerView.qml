@@ -6,6 +6,10 @@ import ".."
 Item {
     id: root
 
+    property bool chromeVisible: true
+    property bool isFullscreen: false
+    signal pokeRequested()
+
     readonly property bool isAudio: Mpv.isAudioOnly
     readonly property bool hasCover: Mpv.coverArtUrl.length > 0
     readonly property real cardSize: Math.max(160, Math.min(320, Math.min(parent.width - 60, parent.height - 230)))
@@ -97,7 +101,7 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     color: "#50000000"
-                    opacity: posterMouse.containsMouse ? 1.0 : 0.0
+                    opacity: (posterMouse.containsMouse && (root.chromeVisible || !root.isFullscreen)) ? 1.0 : 0.0
                     Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
 
                     Image {
@@ -206,7 +210,8 @@ Item {
                 id: posterMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
+                cursorShape: (!root.chromeVisible && root.isFullscreen) ? Qt.BlankCursor : Qt.PointingHandCursor
+                onPositionChanged: root.pokeRequested()
                 onClicked: Mpv.togglePause()
             }
         }
