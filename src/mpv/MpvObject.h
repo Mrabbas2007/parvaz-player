@@ -83,6 +83,15 @@ class MpvObject : public QObject {
     Q_PROPERTY(double gamma READ gamma WRITE setGamma NOTIFY gammaChanged)
     Q_PROPERTY(int videoRotate READ videoRotate WRITE setVideoRotate NOTIFY videoRotateChanged)
 
+    // Video Processing & Quality (Deband, HDR, Sharpen)
+    Q_PROPERTY(bool debandEnabled READ debandEnabled WRITE setDebandEnabled NOTIFY debandChanged)
+    Q_PROPERTY(int debandIterations READ debandIterations WRITE setDebandIterations NOTIFY debandChanged)
+    Q_PROPERTY(int debandThreshold READ debandThreshold WRITE setDebandThreshold NOTIFY debandChanged)
+    Q_PROPERTY(int debandRange READ debandRange WRITE setDebandRange NOTIFY debandChanged)
+    Q_PROPERTY(QString hdrToneMapping READ hdrToneMapping WRITE setHdrToneMapping NOTIFY hdrToneMappingChanged)
+    Q_PROPERTY(bool hdrComputePeak READ hdrComputePeak WRITE setHdrComputePeak NOTIFY hdrToneMappingChanged)
+    Q_PROPERTY(double videoSharpen READ videoSharpen WRITE setVideoSharpen NOTIFY videoSharpenChanged)
+
     // Audio Equalizer (10-Band)
     Q_PROPERTY(bool equalizerEnabled READ equalizerEnabled WRITE setEqualizerEnabled NOTIFY equalizerEnabledChanged)
     Q_PROPERTY(QString equalizerPreset READ equalizerPreset NOTIFY equalizerPresetChanged)
@@ -159,6 +168,14 @@ public:
     double gamma() const { return m_gamma; }
     int videoRotate() const { return m_videoRotate; }
 
+    bool debandEnabled() const { return m_debandEnabled; }
+    int debandIterations() const { return m_debandIterations; }
+    int debandThreshold() const { return m_debandThreshold; }
+    int debandRange() const { return m_debandRange; }
+    QString hdrToneMapping() const { return m_hdrToneMapping; }
+    bool hdrComputePeak() const { return m_hdrComputePeak; }
+    double videoSharpen() const { return m_videoSharpen; }
+
     bool equalizerEnabled() const { return m_equalizerEnabled; }
     QString equalizerPreset() const { return m_equalizerPreset; }
     QVariantList equalizerGains() const { return m_equalizerGains; }
@@ -208,6 +225,17 @@ public:
     Q_INVOKABLE void setGamma(double g);
     Q_INVOKABLE void setVideoRotate(int rot);
     Q_INVOKABLE void resetVideoAdjustments();
+
+    // Video Processing & Quality
+    Q_INVOKABLE void setDebandEnabled(bool enabled);
+    Q_INVOKABLE void setDebandIterations(int iter);
+    Q_INVOKABLE void setDebandThreshold(int thresh);
+    Q_INVOKABLE void setDebandRange(int range);
+    Q_INVOKABLE void toggleDeband();
+    Q_INVOKABLE void setHdrToneMapping(const QString &algorithm);
+    Q_INVOKABLE void setHdrComputePeak(bool computePeak);
+    Q_INVOKABLE void setVideoSharpen(double amount);
+    Q_INVOKABLE void toggleSharpen();
 
     // Audio Equalizer
     Q_INVOKABLE void setEqualizerEnabled(bool enabled);
@@ -363,6 +391,9 @@ signals:
     void hueChanged();
     void gammaChanged();
     void videoRotateChanged();
+    void debandChanged();
+    void hdrToneMappingChanged();
+    void videoSharpenChanged();
     void equalizerEnabledChanged();
     void equalizerPresetChanged();
     void equalizerGainsChanged();
@@ -457,6 +488,15 @@ private:
     double m_hue = 0.0;
     double m_gamma = 0.0;
     int m_videoRotate = 0;
+
+    // Video Processing & Quality
+    bool m_debandEnabled = false;
+    int m_debandIterations = 1;
+    int m_debandThreshold = 32;
+    int m_debandRange = 16;
+    QString m_hdrToneMapping = QStringLiteral("auto");
+    bool m_hdrComputePeak = true;
+    double m_videoSharpen = 0.0;
 
     // Audio Equalizer
     bool m_equalizerEnabled = false;

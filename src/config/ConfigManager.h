@@ -30,6 +30,19 @@ class ConfigManager : public QObject {
     Q_PROPERTY(double hue READ hue WRITE setHue NOTIFY videoAdjustmentsChanged)
     Q_PROPERTY(double gamma READ gamma WRITE setGamma NOTIFY videoAdjustmentsChanged)
 
+    // Video Processing & HDR
+    Q_PROPERTY(bool debandEnabled READ debandEnabled WRITE setDebandEnabled NOTIFY debandChanged)
+    Q_PROPERTY(int debandIterations READ debandIterations WRITE setDebandIterations NOTIFY debandChanged)
+    Q_PROPERTY(int debandThreshold READ debandThreshold WRITE setDebandThreshold NOTIFY debandChanged)
+    Q_PROPERTY(int debandRange READ debandRange WRITE setDebandRange NOTIFY debandChanged)
+    Q_PROPERTY(QString hdrToneMapping READ hdrToneMapping WRITE setHdrToneMapping NOTIFY hdrToneMappingChanged)
+    Q_PROPERTY(bool hdrComputePeak READ hdrComputePeak WRITE setHdrComputePeak NOTIFY hdrToneMappingChanged)
+    Q_PROPERTY(double videoSharpen READ videoSharpen WRITE setVideoSharpen NOTIFY videoSharpenChanged)
+
+    // Appearance & Keymap
+    Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
+    Q_PROPERTY(QString keymapPreset READ keymapPreset WRITE setKeymapPreset NOTIFY keymapPresetChanged)
+
     // Subtitles
     Q_PROPERTY(double subtitleFontSize READ subtitleFontSize WRITE setSubtitleFontSize NOTIFY subtitleFontSizeChanged)
     Q_PROPERTY(double subtitlePosition READ subtitlePosition WRITE setSubtitlePosition NOTIFY subtitlePositionChanged)
@@ -66,6 +79,16 @@ public:
     double hue() const { return m_hue; }
     double gamma() const { return m_gamma; }
 
+    bool debandEnabled() const { return m_debandEnabled; }
+    int debandIterations() const { return m_debandIterations; }
+    int debandThreshold() const { return m_debandThreshold; }
+    int debandRange() const { return m_debandRange; }
+    QString hdrToneMapping() const { return m_hdrToneMapping; }
+    bool hdrComputePeak() const { return m_hdrComputePeak; }
+    double videoSharpen() const { return m_videoSharpen; }
+    QString theme() const { return m_theme; }
+    QString keymapPreset() const { return m_keymapPreset; }
+
     bool equalizerEnabled() const { return m_equalizerEnabled; }
     QString equalizerPreset() const { return m_equalizerPreset; }
     QVariantList equalizerGains() const { return m_equalizerGains; }
@@ -84,6 +107,16 @@ public:
     Q_INVOKABLE void setSaturation(double s);
     Q_INVOKABLE void setHue(double h);
     Q_INVOKABLE void setGamma(double g);
+
+    Q_INVOKABLE void setDebandEnabled(bool enabled);
+    Q_INVOKABLE void setDebandIterations(int iter);
+    Q_INVOKABLE void setDebandThreshold(int thresh);
+    Q_INVOKABLE void setDebandRange(int range);
+    Q_INVOKABLE void setHdrToneMapping(const QString &algorithm);
+    Q_INVOKABLE void setHdrComputePeak(bool computePeak);
+    Q_INVOKABLE void setVideoSharpen(double amount);
+    Q_INVOKABLE void setTheme(const QString &theme);
+    Q_INVOKABLE void setKeymapPreset(const QString &preset);
 
     Q_INVOKABLE void setSubtitleFontSize(double s);
     Q_INVOKABLE void setSubtitlePosition(double p);
@@ -108,6 +141,11 @@ signals:
     void windowGeometryChanged();
     void alwaysOnTopChanged();
     void videoAdjustmentsChanged();
+    void debandChanged();
+    void hdrToneMappingChanged();
+    void videoSharpenChanged();
+    void themeChanged();
+    void keymapPresetChanged();
     void equalizerChanged();
     void configReloaded();
 
@@ -148,6 +186,17 @@ private:
     double m_saturation = 0.0;
     double m_hue = 0.0;
     double m_gamma = 0.0;
+
+    // Video Processing & Quality
+    bool m_debandEnabled = false;
+    int m_debandIterations = 1;
+    int m_debandThreshold = 32;
+    int m_debandRange = 16;
+    QString m_hdrToneMapping = QStringLiteral("auto");
+    bool m_hdrComputePeak = true;
+    double m_videoSharpen = 0.0;
+    QString m_theme = QStringLiteral("midnight");
+    QString m_keymapPreset = QStringLiteral("parvaz");
 
     // Equalizer
     bool m_equalizerEnabled = false;

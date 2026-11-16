@@ -34,8 +34,8 @@ Item {
     // Draggable Floating Panel
     Rectangle {
         id: panel
-        width: 480
-        height: 440
+        width: 520
+        height: 500
         x: Math.round((root.width - width) / 2)
         y: Math.round((root.height - height) / 2)
 
@@ -136,11 +136,12 @@ Item {
                     { name: "Video", icon: "sliders" },
                     { name: "Audio & EQ", icon: "music" },
                     { name: "Subtitles", icon: "subtitles" },
-                    { name: "Playback", icon: "play" }
+                    { name: "Playback", icon: "play" },
+                    { name: "Theme", icon: "sliders" }
                 ]
 
                 delegate: Rectangle {
-                    width: (tabRow.width - (3 * tabRow.spacing)) / 4
+                    width: (tabRow.width - (4 * tabRow.spacing)) / 5
                     height: 32
                     radius: Theme.radiusSmall
                     color: panel.currentTab === index ? "#2A3348" : (tabMouse.containsMouse ? Theme.bgGlassHover : "#181B26")
@@ -320,10 +321,11 @@ Item {
                 }
 
                 Column {
+                    id: videoSlidersCol
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    spacing: 4
+                    spacing: 2
 
                     VideoSliderRow {
                         label: "Brightness"
@@ -354,19 +356,183 @@ Item {
                     }
 
                     VideoSliderRow {
-                        label: "Hue"
-                        val: Mpv.hue
-                        onValueChanged: (v) => { Mpv.setHue(v); Config.setHue(v); }
-                        onResetRequested: { Mpv.setHue(0); Config.setHue(0); }
+                        label: "Sharpen"
+                        val: Mpv.videoSharpen * 50.0
+                        onValueChanged: (v) => {
+                            var amt = Math.max(0.0, v / 50.0);
+                            Mpv.setVideoSharpen(amt);
+                            Config.setVideoSharpen(amt);
+                        }
+                        onResetRequested: {
+                            Mpv.setVideoSharpen(0.0);
+                            Config.setVideoSharpen(0.0);
+                        }
+                    }
+                }
+
+                // Section Divider
+                Rectangle {
+                    id: vDivider
+                    anchors.top: videoSlidersCol.bottom
+                    anchors.topMargin: 8
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 1
+                    color: "#222736"
+                }
+
+                // Quality Enhancements (Deband & HDR)
+                Column {
+                    id: vEnhanceCol
+                    anchors.top: vDivider.bottom
+                    anchors.topMargin: 8
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    spacing: 8
+
+                    // Deband Row
+                    Row {
+                        width: parent.width
+                        spacing: 8
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 78
+                            text: "Deband:"
+                            color: Theme.textSecondary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontNormal
+                        }
+
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 90
+                            height: 26
+                            radius: Theme.radiusSmall
+                            color: Mpv.debandEnabled ? "#2563EB" : (dbMouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                            border.color: Mpv.debandEnabled ? "#3B82F6" : "#242938"
+                            border.width: 1
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: Mpv.debandEnabled ? "Active" : "Disabled"
+                                color: "#FFFFFF"
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSmall
+                                font.bold: Mpv.debandEnabled
+                            }
+
+                            MouseArea {
+                                id: dbMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    Mpv.toggleDeband();
+                                    Config.setDebandEnabled(Mpv.debandEnabled);
+                                }
+                            }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Rounds:"
+                            color: Theme.textMuted
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSmall
+                        }
+
+                        Repeater {
+                            model: [1, 2, 3]
+                            delegate: Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 28
+                                height: 24
+                                radius: Theme.radiusSmall
+                                color: Mpv.debandIterations === modelData ? "#2A3348" : "#181B26"
+                                border.color: Mpv.debandIterations === modelData ? "#4A90E2" : "#242938"
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData
+                                    color: Mpv.debandIterations === modelData ? "#FFFFFF" : Theme.textSecondary
+                                    font.family: Theme.fontDigits
+                                    font.pixelSize: Theme.fontSmall
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        Mpv.setDebandIterations(modelData);
+                                        Config.setDebandIterations(modelData);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // HDR Tone-mapping Row
+                    Row {
+                        width: parent.width
+                        spacing: 8
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 78
+                            text: "HDR Tone:"
+                            color: Theme.textSecondary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontNormal
+                        }
+
+                        Repeater {
+                            model: [
+                                { id: "auto", name: "Auto" },
+                                { id: "bt.2446a", name: "BT.2446a" },
+                                { id: "spline", name: "Spline" },
+                                { id: "mobius", name: "Mobius" }
+                            ]
+
+                            delegate: Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 85
+                                height: 26
+                                radius: Theme.radiusSmall
+                                color: Mpv.hdrToneMapping === modelData.id ? "#2A3348" : (tmMouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                                border.color: Mpv.hdrToneMapping === modelData.id ? "#4A90E2" : "#242938"
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.name
+                                    color: Mpv.hdrToneMapping === modelData.id ? "#FFFFFF" : Theme.textSecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSmall
+                                    font.bold: Mpv.hdrToneMapping === modelData.id
+                                }
+
+                                MouseArea {
+                                    id: tmMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        Mpv.setHdrToneMapping(modelData.id);
+                                        Config.setHdrToneMapping(modelData.id);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
                 // Reset All Video Button
                 Rectangle {
                     anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 4
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: 220
-                    height: 30
+                    height: 28
                     radius: Theme.radiusSmall
                     color: resetAllMouse.containsMouse ? "#2A3348" : "#1C202C"
                     border.color: "#2C3244"
@@ -374,7 +540,7 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        text: "Reset All Video Adjustments"
+                        text: "Reset Video Adjustments"
                         color: resetAllMouse.containsMouse ? "#FFFFFF" : Theme.textSecondary
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSmall
@@ -386,11 +552,13 @@ Item {
                         hoverEnabled: true
                         onClicked: {
                             Mpv.resetVideoAdjustments();
+                            Mpv.setVideoSharpen(0.0);
                             Config.setBrightness(0);
                             Config.setContrast(0);
                             Config.setSaturation(0);
                             Config.setGamma(0);
                             Config.setHue(0);
+                            Config.setVideoSharpen(0.0);
                         }
                     }
                 }
@@ -1330,6 +1498,206 @@ Item {
                                     hoverEnabled: true
                                     onClicked: Mpv.setVideoRotate(modelData)
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ==========================================
+            // TAB 4: THEME & KEYMAP SETTINGS
+            // ==========================================
+            Item {
+                id: themeTab
+                anchors.fill: parent
+                visible: panel.currentTab === 4
+
+                Column {
+                    anchors.fill: parent
+                    spacing: 12
+
+                    // Title 1
+                    Text {
+                        text: "Studio Theme & Visual Style"
+                        color: "#FFFFFF"
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontMedium
+                        font.bold: true
+                    }
+
+                    // 4 Theme Cards Grid
+                    Grid {
+                        width: parent.width
+                        columns: 2
+                        spacing: 10
+
+                        Repeater {
+                            model: Theme.availableThemes
+
+                            delegate: Rectangle {
+                                width: (parent.width - 10) / 2
+                                height: 56
+                                radius: Theme.radiusSmall
+                                color: Theme.currentTheme === modelData.id ? "#2A3348" : (thMouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                                border.color: Theme.currentTheme === modelData.id ? "#4A90E2" : "#282E3E"
+                                border.width: Theme.currentTheme === modelData.id ? 2 : 1
+
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.margins: 10
+                                    spacing: 12
+
+                                    // Palette preview box
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 34
+                                        height: 34
+                                        radius: 6
+                                        color: modelData.surface
+                                        border.color: "#3A4256"
+                                        border.width: 1
+
+                                        Rectangle {
+                                            anchors.centerIn: parent
+                                            width: 14
+                                            height: 14
+                                            radius: 7
+                                            color: modelData.accent
+                                        }
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
+                                        width: parent.width - 56
+
+                                        Text {
+                                            text: modelData.name
+                                            color: Theme.currentTheme === modelData.id ? "#FFFFFF" : Theme.textSecondary
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontNormal
+                                            font.bold: Theme.currentTheme === modelData.id
+                                            elide: Text.ElideRight
+                                            width: parent.width
+                                        }
+
+                                        Text {
+                                            text: Theme.currentTheme === modelData.id ? "Active Theme" : "Click to apply"
+                                            color: Theme.currentTheme === modelData.id ? "#4A90E2" : Theme.textMuted
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSmall
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: thMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        Theme.setTheme(modelData.id);
+                                        Config.setTheme(modelData.id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Divider
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: "#222736"
+                    }
+
+                    // Title 2: Keyboard Mapping Preset
+                    Text {
+                        text: "Keyboard Shortcuts Preset"
+                        color: "#FFFFFF"
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontMedium
+                        font.bold: true
+                    }
+
+                    Row {
+                        width: parent.width
+                        spacing: 12
+
+                        // Option 1: Parvaz Standard
+                        Rectangle {
+                            width: (parent.width - 12) / 2
+                            height: 64
+                            radius: Theme.radiusSmall
+                            color: Config.keymapPreset === "parvaz" ? "#2A3348" : (km1Mouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                            border.color: Config.keymapPreset === "parvaz" ? "#4A90E2" : "#282E3E"
+                            border.width: Config.keymapPreset === "parvaz" ? 2 : 1
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 4
+
+                                Text {
+                                    text: "Parvaz Standard"
+                                    color: Config.keymapPreset === "parvaz" ? "#FFFFFF" : Theme.textSecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontNormal
+                                    font.bold: true
+                                }
+                                Text {
+                                    text: "VLC/mpv style: Space, F, Left/Right 5s, Shift+Left 30s"
+                                    color: Theme.textMuted
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 10
+                                    wrapMode: Text.WordWrap
+                                    width: parent.width
+                                }
+                            }
+
+                            MouseArea {
+                                id: km1Mouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: Config.setKeymapPreset("parvaz")
+                            }
+                        }
+
+                        // Option 2: PotPlayer Classic
+                        Rectangle {
+                            width: (parent.width - 12) / 2
+                            height: 64
+                            radius: Theme.radiusSmall
+                            color: Config.keymapPreset === "potplayer" ? "#2A3348" : (km2Mouse.containsMouse ? Theme.bgGlassHover : "#181B26")
+                            border.color: Config.keymapPreset === "potplayer" ? "#4A90E2" : "#282E3E"
+                            border.width: Config.keymapPreset === "potplayer" ? 2 : 1
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 4
+
+                                Text {
+                                    text: "PotPlayer Classic"
+                                    color: Config.keymapPreset === "potplayer" ? "#FFFFFF" : Theme.textSecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontNormal
+                                    font.bold: true
+                                }
+                                Text {
+                                    text: "Z (Reset), X (-Speed), C (+Speed), Ctrl+Enter (Full), 5/30/60s"
+                                    color: Theme.textMuted
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 10
+                                    wrapMode: Text.WordWrap
+                                    width: parent.width
+                                }
+                            }
+
+                            MouseArea {
+                                id: km2Mouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: Config.setKeymapPreset("potplayer")
                             }
                         }
                     }

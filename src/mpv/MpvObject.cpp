@@ -101,6 +101,8 @@ MpvObject::MpvObject(QObject *parent)
     mpv_set_option_string(m_mpv, "volume-max", "150");
     // Place secondary subtitles at top of video (10% from top)
     mpv_set_option_string(m_mpv, "secondary-sub-pos", "10");
+    mpv_set_option_string(m_mpv, "target-colorspace-hint", "yes");
+    mpv_set_option_string(m_mpv, "hdr-compute-peak", "yes");
 
     // Memory & CPU optimizations for low-end systems
     mpv_set_option_string(m_mpv, "demuxer-max-bytes", "32MiB");
@@ -164,6 +166,9 @@ MpvObject::MpvObject(QObject *parent)
     mpv_observe_property(m_mpv, 0, "seeking",               MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "core-idle",             MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 0, "eof-reached",           MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "deband",                MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 0, "tone-mapping",          MPV_FORMAT_STRING);
+    mpv_observe_property(m_mpv, 0, "sharpen",               MPV_FORMAT_DOUBLE);
 
     // Apply cover-art extraction results to the current file only; the file
     // identity check here is the final guard against stale async results.
@@ -374,6 +379,25 @@ void MpvObject::drainEvents()
                 if (m_eofReached != reached) {
                     m_eofReached = reached;
                     emit eofReachedChanged();
+                }
+            } else if (name == QLatin1String("deband") && prop->format == MPV_FORMAT_FLAG) {
+                const bool d = *static_cast<int *>(prop->data) != 0;
+                if (m_debandEnabled != d) {
+                    m_debandEnabled = d;
+                    emit debandChanged();
+                }
+            } else if (name == QLatin1String("tone-mapping") && prop->format == MPV_FORMAT_STRING) {
+                const char *s = *static_cast<char **>(prop->data);
+                const QString t = s ? QString::fromUtf8(s) : QStringLiteral("auto");
+                if (m_hdrToneMapping != t) {
+                    m_hdrToneMapping = t;
+                    emit hdrToneMappingChanged();
+                }
+            } else if (name == QLatin1String("sharpen") && prop->format == MPV_FORMAT_DOUBLE) {
+                const double v = *static_cast<double *>(prop->data);
+                if (!qFuzzyCompare(m_videoSharpen, v)) {
+                    m_videoSharpen = v;
+                    emit videoSharpenChanged();
                 }
             }
             break;
@@ -1568,6 +1592,112 @@ void MpvObject::resetVideoAdjustments()
     setHue(0.0);
     setGamma(0.0);
     showOsd(QStringLiteral("Video adjustments reset"));
+}
+
+void MpvObject::setDebandEnabled(bool enabled)
+{
+    if (m_debandEnabled == enabled)
+        return;
+    m_debandEnabled = enabled;
+    emit debandChanged();
+    if (m_mpv) {
+        mpv_set_property_string(m_mpv, "deband", enabled ? "yes" : "no");
+        showOsd(enabled ? QStringLiteral("Deband: ON") : QStringLiteral("Deband: OFF"));
+    }
+}
+
+void MpvObject::setDebandIterations(int iter)
+{
+    iter = qBound(1, iter, 4);
+    if (m_debandIterations == iter)
+        return;
+    m_debandIterations = iter;
+    emit debandChanged();
+    if (m_mpv) {
+        int64_t v = iter;
+        mpv_set_property_async(m_mpv, 0, "deband-iterations", MPV_FORMAT_INT64, &v);
+    }
+}
+
+void MpvObject::setDebandThreshold(int thresh)
+{
+    thresh = qBound(16, thresh, 128);
+    if (m_debandThreshold == thresh)
+        return;
+    m_debandThreshold = thresh;
+    emit debandChanged();
+    if (m_mpv) {
+        int64_t v = thresh;
+        mpv_set_property_async(m_mpv, 0, "deband-threshold", MPV_FORMAT_INT64, &v);
+    }
+}
+
+void MpvObject::setDebandRange(int range)
+{
+    range = qBound(4, range, 32);
+    if (m_debandRange == range)
+        return;
+    m_debandRange = range;
+    emit debandChanged();
+    if (m_mpv) {
+        int64_t v = range;
+        mpv_set_property_async(m_mpv, 0, "deband-range", MPV_FORMAT_INT64, &v);
+    }
+}
+
+void MpvObject::toggleDeband()
+{
+    setDebandEnabled(!m_debandEnabled);
+}
+
+void MpvObject::setHdrToneMapping(const QString &algorithm)
+{
+    const QString algo = algorithm.trimmed().toLower();
+    if (m_hdrToneMapping == algo)
+        return;
+    m_hdrToneMapping = algo;
+    emit hdrToneMappingChanged();
+    if (m_mpv) {
+        const QByteArray bytes = algo.toUtf8();
+        mpv_set_property_string(m_mpv, "tone-mapping", bytes.constData());
+        showOsd(QStringLiteral("HDR Tone-Mapping: %1").arg(algo));
+    }
+}
+
+void MpvObject::setHdrComputePeak(bool computePeak)
+{
+    if (m_hdrComputePeak == computePeak)
+        return;
+    m_hdrComputePeak = computePeak;
+    emit hdrToneMappingChanged();
+    if (m_mpv) {
+        mpv_set_property_string(m_mpv, "hdr-compute-peak", computePeak ? "yes" : "no");
+    }
+}
+
+void MpvObject::setVideoSharpen(double amount)
+{
+    amount = qBound(0.0, amount, 2.0);
+    if (qFuzzyCompare(m_videoSharpen, amount))
+        return;
+    m_videoSharpen = amount;
+    emit videoSharpenChanged();
+    if (m_mpv) {
+        double v = amount;
+        mpv_set_property_async(m_mpv, 0, "sharpen", MPV_FORMAT_DOUBLE, &v);
+        if (amount > 0.0)
+            showOsd(QStringLiteral("Sharpen: %1").arg(QString::number(amount, 'f', 2)));
+        else
+            showOsd(QStringLiteral("Sharpen: OFF"));
+    }
+}
+
+void MpvObject::toggleSharpen()
+{
+    if (m_videoSharpen > 0.0)
+        setVideoSharpen(0.0);
+    else
+        setVideoSharpen(0.5);
 }
 
 void MpvObject::setEqualizerEnabled(bool enabled)

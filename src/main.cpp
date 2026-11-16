@@ -492,6 +492,40 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("isLoading is accessible", mpv.isLoading() == true || mpv.isLoading() == false);
             check("isBuffering is accessible", mpv.isBuffering() == true || mpv.isBuffering() == false);
             check("eofReached is accessible", mpv.eofReached() == true || mpv.eofReached() == false);
+
+            // Test Deband, HDR Tone-mapping, Sharpen, Theming & Keymap
+            mpv.setDebandEnabled(true);
+            check("debandEnabled is true", mpv.debandEnabled() == true);
+            mpv.setDebandIterations(2);
+            check("debandIterations is 2", mpv.debandIterations() == 2);
+            mpv.setDebandThreshold(48);
+            check("debandThreshold is 48", mpv.debandThreshold() == 48);
+            mpv.setDebandRange(20);
+            check("debandRange is 20", mpv.debandRange() == 20);
+            mpv.toggleDeband();
+            check("debandEnabled is false after toggle", mpv.debandEnabled() == false);
+
+            mpv.setHdrToneMapping(QStringLiteral("bt.2446a"));
+            check("hdrToneMapping is bt.2446a", mpv.hdrToneMapping() == QLatin1String("bt.2446a"));
+            mpv.setHdrComputePeak(true);
+            check("hdrComputePeak is true", mpv.hdrComputePeak() == true);
+
+            mpv.setVideoSharpen(0.75);
+            check("videoSharpen is 0.75", qAbs(mpv.videoSharpen() - 0.75) < 0.001);
+            mpv.setVideoSharpen(0.0);
+            check("videoSharpen reset to 0.0", qAbs(mpv.videoSharpen() - 0.0) < 0.001);
+
+            if (parvaz::ConfigManager::instance()) {
+                parvaz::ConfigManager::instance()->setTheme(QStringLiteral("potplayer"));
+                check("theme set to potplayer", parvaz::ConfigManager::instance()->theme() == QLatin1String("potplayer"));
+                parvaz::ConfigManager::instance()->setKeymapPreset(QStringLiteral("potplayer"));
+                check("keymapPreset set to potplayer", parvaz::ConfigManager::instance()->keymapPreset() == QLatin1String("potplayer"));
+                parvaz::ConfigManager::instance()->setDebandEnabled(true);
+                check("config debandEnabled is true", parvaz::ConfigManager::instance()->debandEnabled() == true);
+                parvaz::ConfigManager::instance()->setDebandEnabled(false);
+                parvaz::ConfigManager::instance()->setTheme(QStringLiteral("midnight"));
+                parvaz::ConfigManager::instance()->setKeymapPreset(QStringLiteral("parvaz"));
+            }
             break;
         }
         default: {

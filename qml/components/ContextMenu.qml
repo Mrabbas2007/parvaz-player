@@ -358,7 +358,7 @@ Menu {
         }
     }
 
-    // 6. Video (Aspect ratio)
+    // 6. Video (Aspect ratio, Deband, HDR Tone-mapping, Sharpen)
     StyledMenu {
         title: "Video"
         StyledMenu {
@@ -386,6 +386,47 @@ Menu {
                 checkable: true
                 checked: Mpv.videoAspect === "2.35:1"
                 onTriggered: Mpv.setVideoAspect("2.35:1")
+            }
+        }
+        StyledSeparator {}
+        StyledItem {
+            text: "Deband filter (Ctrl+Shift+D)"
+            checkable: true
+            checked: Mpv.debandEnabled
+            onTriggered: Mpv.toggleDeband()
+        }
+        StyledItem {
+            text: "Sharpen image (Ctrl+Shift+F)"
+            checkable: true
+            checked: Mpv.videoSharpen > 0.0
+            onTriggered: Mpv.toggleSharpen()
+        }
+        StyledSeparator {}
+        StyledMenu {
+            title: "HDR Tone-mapping"
+            StyledItem {
+                text: "Auto"
+                checkable: true
+                checked: Mpv.hdrToneMapping === "auto"
+                onTriggered: Mpv.setHdrToneMapping("auto")
+            }
+            StyledItem {
+                text: "BT.2446a (Cinema Grade)"
+                checkable: true
+                checked: Mpv.hdrToneMapping === "bt.2446a"
+                onTriggered: Mpv.setHdrToneMapping("bt.2446a")
+            }
+            StyledItem {
+                text: "Spline (Smooth Dynamic)"
+                checkable: true
+                checked: Mpv.hdrToneMapping === "spline"
+                onTriggered: Mpv.setHdrToneMapping("spline")
+            }
+            StyledItem {
+                text: "Mobius (Classic)"
+                checkable: true
+                checked: Mpv.hdrToneMapping === "mobius"
+                onTriggered: Mpv.setHdrToneMapping("mobius")
             }
         }
     }
@@ -525,9 +566,38 @@ Menu {
         }
     }
 
+    // 12. Appearance & Theme
+    StyledMenu {
+        title: "Theme"
+        StyledItem {
+            text: "Midnight Studio (Default)"
+            checkable: true
+            checked: Theme.currentTheme === "midnight"
+            onTriggered: Theme.setTheme("midnight")
+        }
+        StyledItem {
+            text: "OLED Pure Black"
+            checkable: true
+            checked: Theme.currentTheme === "oled"
+            onTriggered: Theme.setTheme("oled")
+        }
+        StyledItem {
+            text: "PotPlayer Classic Dark"
+            checkable: true
+            checked: Theme.currentTheme === "potplayer"
+            onTriggered: Theme.setTheme("potplayer")
+        }
+        StyledItem {
+            text: "Cyber Neon"
+            checkable: true
+            checked: Theme.currentTheme === "cyber"
+            onTriggered: Theme.setTheme("cyber")
+        }
+    }
+
     StyledSeparator {}
 
-    // 9. Exit
+    // 13. Exit
     StyledItem {
         text: "Exit (Ctrl+Q)"
         onTriggered: Qt.quit()

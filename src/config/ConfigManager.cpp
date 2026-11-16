@@ -112,6 +112,31 @@ ConfigManager::ConfigManager(MpvObject *mpv, const QString &explicitPath, QObjec
             if (!m_applyingToPlayer && m_mpv)
                 setEqualizerGains(m_mpv->equalizerGains());
         });
+        connect(m_mpv, &MpvObject::debandChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv) {
+                m_debandEnabled = m_mpv->debandEnabled();
+                m_debandIterations = m_mpv->debandIterations();
+                m_debandThreshold = m_mpv->debandThreshold();
+                m_debandRange = m_mpv->debandRange();
+                emit debandChanged();
+                scheduleSave();
+            }
+        });
+        connect(m_mpv, &MpvObject::hdrToneMappingChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv) {
+                m_hdrToneMapping = m_mpv->hdrToneMapping();
+                m_hdrComputePeak = m_mpv->hdrComputePeak();
+                emit hdrToneMappingChanged();
+                scheduleSave();
+            }
+        });
+        connect(m_mpv, &MpvObject::videoSharpenChanged, this, [this]() {
+            if (!m_applyingToPlayer && m_mpv) {
+                m_videoSharpen = m_mpv->videoSharpen();
+                emit videoSharpenChanged();
+                scheduleSave();
+            }
+        });
 
         applyToPlayer();
     }
@@ -167,6 +192,20 @@ void ConfigManager::load()
                 m_hue = *h;
             if (auto g = (*video)["gamma"].value<double>())
                 m_gamma = *g;
+            if (auto db = (*video)["deband_enabled"].value<bool>())
+                m_debandEnabled = *db;
+            if (auto dbi = (*video)["deband_iterations"].value<int64_t>())
+                m_debandIterations = static_cast<int>(*dbi);
+            if (auto dbt = (*video)["deband_threshold"].value<int64_t>())
+                m_debandThreshold = static_cast<int>(*dbt);
+            if (auto dbr = (*video)["deband_range"].value<int64_t>())
+                m_debandRange = static_cast<int>(*dbr);
+            if (auto htm = (*video)["hdr_tone_mapping"].value<std::string>())
+                m_hdrToneMapping = QString::fromStdString(*htm);
+            if (auto hcp = (*video)["hdr_compute_peak"].value<bool>())
+                m_hdrComputePeak = *hcp;
+            if (auto sh = (*video)["sharpen"].value<double>())
+                m_videoSharpen = *sh;
         }
 
         // [equalizer]
@@ -204,11 +243,28 @@ void ConfigManager::load()
                 m_alwaysOnTop = *top;
         }
 
+        // [appearance]
+        if (auto app = tbl["appearance"].as_table()) {
+            if (auto th = (*app)["theme"].value<std::string>())
+                m_theme = QString::fromStdString(*th);
+        }
+
+        // [shortcuts]
+        if (auto sc = tbl["shortcuts"].as_table()) {
+            if (auto kp = (*sc)["keymap_preset"].value<std::string>())
+                m_keymapPreset = QString::fromStdString(*kp);
+        }
+
         emit volumeChanged();
         emit mutedChanged();
         emit audioNormalizerChanged();
         emit videoAspectChanged();
         emit performanceProfileChanged();
+        emit debandChanged();
+        emit hdrToneMappingChanged();
+        emit videoSharpenChanged();
+        emit themeChanged();
+        emit keymapPresetChanged();
         emit subtitleFontSizeChanged();
         emit subtitlePositionChanged();
         emit subtitleDelayChanged();
@@ -239,6 +295,13 @@ void ConfigManager::applyToPlayer()
     m_mpv->setSaturation(m_saturation);
     m_mpv->setHue(m_hue);
     m_mpv->setGamma(m_gamma);
+    m_mpv->setDebandEnabled(m_debandEnabled);
+    m_mpv->setDebandIterations(m_debandIterations);
+    m_mpv->setDebandThreshold(m_debandThreshold);
+    m_mpv->setDebandRange(m_debandRange);
+    m_mpv->setHdrToneMapping(m_hdrToneMapping);
+    m_mpv->setHdrComputePeak(m_hdrComputePeak);
+    m_mpv->setVideoSharpen(m_videoSharpen);
     m_mpv->setEqualizerEnabled(m_equalizerEnabled);
     if (!m_equalizerPreset.isEmpty())
         m_mpv->applyEqualizerPreset(m_equalizerPreset);
@@ -285,7 +348,14 @@ void ConfigManager::writeToDisk()
         { "contrast", m_contrast },
         { "saturation", m_saturation },
         { "hue", m_hue },
-        { "gamma", m_gamma }
+        { "gamma", m_gamma },
+        { "deband_enabled", m_debandEnabled },
+        { "deband_iterations", m_debandIterations },
+        { "deband_threshold", m_debandThreshold },
+        { "deband_range", m_debandRange },
+        { "hdr_tone_mapping", m_hdrToneMapping.toStdString() },
+        { "hdr_compute_peak", m_hdrComputePeak },
+        { "sharpen", m_videoSharpen }
     });
 
     // [equalizer]
@@ -311,6 +381,16 @@ void ConfigManager::writeToDisk()
         { "width", m_windowWidth },
         { "height", m_windowHeight },
         { "always_on_top", m_alwaysOnTop }
+    });
+
+    // [appearance]
+    tbl.insert_or_assign("appearance", toml::table{
+        { "theme", m_theme.toStdString() }
+    });
+
+    // [shortcuts]
+    tbl.insert_or_assign("shortcuts", toml::table{
+        { "keymap_preset", m_keymapPreset.toStdString() }
     });
 
     std::stringstream ss;
@@ -530,6 +610,106 @@ void ConfigManager::setEqualizerGains(const QVariantList &gains)
         return;
     m_equalizerGains = gains;
     emit equalizerChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setDebandEnabled(bool enabled)
+{
+    if (m_debandEnabled == enabled)
+        return;
+    m_debandEnabled = enabled;
+    emit debandChanged();
+    if (!m_applyingToPlayer && m_mpv)
+        m_mpv->setDebandEnabled(enabled);
+    scheduleSave();
+}
+
+void ConfigManager::setDebandIterations(int iter)
+{
+    iter = qBound(1, iter, 4);
+    if (m_debandIterations == iter)
+        return;
+    m_debandIterations = iter;
+    emit debandChanged();
+    if (!m_applyingToPlayer && m_mpv)
+        m_mpv->setDebandIterations(iter);
+    scheduleSave();
+}
+
+void ConfigManager::setDebandThreshold(int thresh)
+{
+    thresh = qBound(16, thresh, 128);
+    if (m_debandThreshold == thresh)
+        return;
+    m_debandThreshold = thresh;
+    emit debandChanged();
+    if (!m_applyingToPlayer && m_mpv)
+        m_mpv->setDebandThreshold(thresh);
+    scheduleSave();
+}
+
+void ConfigManager::setDebandRange(int range)
+{
+    range = qBound(4, range, 32);
+    if (m_debandRange == range)
+        return;
+    m_debandRange = range;
+    emit debandChanged();
+    if (!m_applyingToPlayer && m_mpv)
+        m_mpv->setDebandRange(range);
+    scheduleSave();
+}
+
+void ConfigManager::setHdrToneMapping(const QString &algorithm)
+{
+    const QString algo = algorithm.trimmed().toLower();
+    if (m_hdrToneMapping == algo || algo.isEmpty())
+        return;
+    m_hdrToneMapping = algo;
+    emit hdrToneMappingChanged();
+    if (!m_applyingToPlayer && m_mpv)
+        m_mpv->setHdrToneMapping(algo);
+    scheduleSave();
+}
+
+void ConfigManager::setHdrComputePeak(bool computePeak)
+{
+    if (m_hdrComputePeak == computePeak)
+        return;
+    m_hdrComputePeak = computePeak;
+    emit hdrToneMappingChanged();
+    if (!m_applyingToPlayer && m_mpv)
+        m_mpv->setHdrComputePeak(computePeak);
+    scheduleSave();
+}
+
+void ConfigManager::setVideoSharpen(double amount)
+{
+    amount = qBound(0.0, amount, 2.0);
+    if (qFuzzyCompare(m_videoSharpen, amount))
+        return;
+    m_videoSharpen = amount;
+    emit videoSharpenChanged();
+    if (!m_applyingToPlayer && m_mpv)
+        m_mpv->setVideoSharpen(amount);
+    scheduleSave();
+}
+
+void ConfigManager::setTheme(const QString &theme)
+{
+    if (m_theme == theme || theme.isEmpty())
+        return;
+    m_theme = theme;
+    emit themeChanged();
+    scheduleSave();
+}
+
+void ConfigManager::setKeymapPreset(const QString &preset)
+{
+    if (m_keymapPreset == preset || preset.isEmpty())
+        return;
+    m_keymapPreset = preset;
+    emit keymapPresetChanged();
     scheduleSave();
 }
 

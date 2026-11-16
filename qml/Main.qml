@@ -443,6 +443,8 @@ Window {
     PlayerShortcut { sequence: "4"; onActivated: { root.visibility = Window.Windowed; root.width = 1920; root.height = 1080 } }
     PlayerShortcut { sequence: "Enter"; onActivated: root.toggleFullscreen() }
     PlayerShortcut { sequence: "Return"; onActivated: root.toggleFullscreen() }
+    PlayerShortcut { sequence: "Ctrl+Enter"; onActivated: root.toggleFullscreen() }
+    PlayerShortcut { sequence: "Ctrl+Return"; onActivated: root.toggleFullscreen() }
     PlayerShortcut { sequence: "F"; onActivated: root.toggleFullscreen() }
     PlayerShortcut {
         sequence: "Escape"
@@ -480,6 +482,10 @@ Window {
             root.poke()
         }
     }
+
+    // Video Processing (Deband & Sharpen)
+    PlayerShortcut { sequence: "Ctrl+Shift+D"; onActivated: Mpv.toggleDeband() }
+    PlayerShortcut { sequence: "Ctrl+Shift+F"; onActivated: Mpv.toggleSharpen() }
 
     // Control Center (PotPlayer F7)
     PlayerShortcut { sequence: "F7"; onActivated: { controlCenter.toggle(); root.poke() } }
