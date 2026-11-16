@@ -611,12 +611,34 @@ void SubtitleSearchService::onDownloadReplyFinished()
                            ? m_results.at(completedIndex).toMap()
                            : QVariantMap();
 
+    QString subId = item.value(QStringLiteral("id")).toString();
+    subId.replace(QRegularExpression(QStringLiteral("[^a-zA-Z0-9_-]")), QStringLiteral("_"));
+    if (subId.isEmpty())
+        subId = QString::number(QDateTime::currentMSecsSinceEpoch());
+
     QString releaseName = item.value(QStringLiteral("release")).toString();
     if (releaseName.isEmpty())
-        releaseName = QStringLiteral("subtitle_%1").arg(QDateTime::currentMSecsSinceEpoch());
+        releaseName = QStringLiteral("subtitle");
 
+    // Clean up filename: keep alphanumeric, dot, underscore, dash
     QString safeFileName = releaseName;
     safeFileName.replace(QRegularExpression(QStringLiteral("[^a-zA-Z0-9._-]")), QStringLiteral("_"));
+    safeFileName.replace(QRegularExpression(QStringLiteral("_+")), QStringLiteral("_"));
+    safeFileName = safeFileName.trimmed();
+    while (safeFileName.startsWith(QLatin1Char('_')) || safeFileName.startsWith(QLatin1Char('.'))) {
+        safeFileName.remove(0, 1);
+    }
+    // Limit base filename to 60 chars so total filename is well under Linux NAME_MAX (255 bytes)
+    if (safeFileName.length() > 60) {
+        safeFileName = safeFileName.left(60);
+    }
+    while (safeFileName.endsWith(QLatin1Char('_')) || safeFileName.endsWith(QLatin1Char('.'))) {
+        safeFileName.chop(1);
+    }
+    if (safeFileName.isEmpty()) {
+        safeFileName = QStringLiteral("sub");
+    }
+    safeFileName = QStringLiteral("%1_%2").arg(safeFileName, subId);
 
     // Check if zip format (magic bytes: PK\x03\x04)
     bool isZip = data.startsWith("PK\x03\x04");
@@ -629,13 +651,16 @@ void SubtitleSearchService::onDownloadReplyFinished()
             zipFile.write(data);
             zipFile.close();
 
-            // Extract with unzip
+            // Extract with unzip into an isolated subdirectory to avoid picking old files
+            QString extractDir = cacheDir + QStringLiteral("/zip_") + safeFileName;
+            QDir().mkpath(extractDir);
+
             QProcess unzip;
-            unzip.start(QStringLiteral("unzip"), {QStringLiteral("-o"), zipPath, QStringLiteral("-d"), cacheDir});
+            unzip.start(QStringLiteral("unzip"), {QStringLiteral("-o"), zipPath, QStringLiteral("-d"), extractDir});
             if (unzip.waitForFinished(5000) && unzip.exitCode() == 0) {
-                // Find extracted .srt or .ass file
-                QDir dir(cacheDir);
-                QStringList entries = dir.entryList({QStringLiteral("*.srt"), QStringLiteral("*.ass")}, QDir::Files, QDir::Time);
+                // Find extracted .srt or .ass or .vtt file
+                QDir dir(extractDir);
+                QStringList entries = dir.entryList({QStringLiteral("*.srt"), QStringLiteral("*.ass"), QStringLiteral("*.vtt")}, QDir::Files, QDir::Time);
                 if (!entries.isEmpty()) {
                     finalSubtitlePath = dir.filePath(entries.first());
                 }
@@ -644,10 +669,19 @@ void SubtitleSearchService::onDownloadReplyFinished()
     }
 
     if (finalSubtitlePath.isEmpty()) {
-        // Save as raw .srt file
-        finalSubtitlePath = cacheDir + QStringLiteral("/") + safeFileName + QStringLiteral(".srt");
+        // Detect extension from content
+        QString ext = QStringLiteral(".srt");
+        if (data.startsWith("WEBVTT")) {
+            ext = QStringLiteral(".vtt");
+        } else if (data.contains("[Script Info]")) {
+            ext = QStringLiteral(".ass");
+        }
+
+        finalSubtitlePath = cacheDir + QStringLiteral("/") + safeFileName + ext;
         QFile file(finalSubtitlePath);
         if (!file.open(QIODevice::WriteOnly)) {
+            std::fprintf(stderr, "parvaz: failed to open subtitle file for write: %s (error: %s)\n",
+                         qPrintable(finalSubtitlePath), qPrintable(file.errorString()));
             setStatus(QStringLiteral("Failed to write subtitle file to disk"));
             return;
         }
