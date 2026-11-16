@@ -268,18 +268,13 @@ Window {
             }
             root.poke()
         }
-        onPressed: (mouse) => {
-            root.requestActivate()
-            root.forceActiveFocus()
-        }
         onClicked: (mouse) => {
-            root.requestActivate()
-            root.forceActiveFocus()
             if (playlistDrawer.isOpen) {
                 playlistDrawer.close()
                 return
             }
             if (mouse.button === Qt.LeftButton) {
+                root.forceActiveFocus()
                 Mpv.togglePause()
             } else if (mouse.button === Qt.RightButton) {
                 contextMenu.popup()
@@ -459,10 +454,6 @@ Window {
             root.visibility = Window.Windowed
             root.width = w
             root.height = h
-        }
-        onClosed: {
-            root.requestActivate()
-            root.forceActiveFocus()
         }
     }
 
