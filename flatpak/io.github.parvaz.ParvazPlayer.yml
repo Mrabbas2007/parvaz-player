@@ -60,6 +60,18 @@ modules:
         url: https://code.videolan.org/videolan/libplacebo.git
         tag: v7.349.0
 
+  # mpv's meson.build also declares libass (>= 0.12.2) as a required
+  # dependency; the KDE runtime does not ship it either. It links shared,
+  # so it is bundled into the app at runtime for subtitle rendering.
+  - name: libass
+    buildsystem: meson
+    config-opts:
+      - -Dtests=disabled
+    sources:
+      - type: git
+        url: https://github.com/libass/libass.git
+        tag: 0.17.4
+
   - name: mpv
     buildsystem: meson
     config-opts:
