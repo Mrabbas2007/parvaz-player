@@ -59,12 +59,13 @@ jobs:
       # Ubuntu 24.04 ships Qt 6.4.2, but the project requires >= 6.5 —
       # pull an official Qt build directly via aqtinstall instead of
       # install-qt-action (its v4.5.0 Node build is currently broken).
-      # Qt Quick Controls 2 ships inside qtdeclarative for Qt 6.
+      # Note: on Linux the base desktop archive already includes
+      # qtdeclarative / Qt Quick Controls 2; no extra --modules needed.
       - name: Install Qt
         run: |
           python3 -m pip install --user aqtinstall
           python3 -m aqt install-qt linux desktop 6.8.3 linux_gcc_64 \
-            --outputdir "$HOME/Qt" --modules qtdeclarative
+            --outputdir "$HOME/Qt"
           echo "CMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64" >> "$GITHUB_ENV"
 
       - name: Setup Compiler Cache (CCache)
