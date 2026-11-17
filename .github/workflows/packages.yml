@@ -44,6 +44,9 @@ jobs:
 
       - name: Build package
         run: |
+          # The workspace is mounted with a different uid inside the container;
+          # without this git refuses every operation ("dubious ownership").
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git archive --prefix=parvaz-0.1.0/ HEAD -o packaging/arch/parvaz-0.1.0.tar.gz
           # makepkg refuses to run as root — build under a regular user.
           useradd -m builder
@@ -64,12 +67,13 @@ jobs:
     steps:
       - name: Install build and test dependencies
         run: |
+          # mpv-libs and ffmpeg live in RPM Fusion, not in the Fedora base
+          # repos — the fusion release repo must be added BEFORE the install
+          # transaction or dnf fails to resolve mpv-libs-devel.
+          dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
           dnf install -y git cmake ninja-build gcc-c++ \
             qt6-qtbase-devel qt6-qtdeclarative-devel mpv-libs-devel \
-            rpm-build unzip libgl-devel xorg-x11-server-Xvfb
-          # ffmpeg lives in RPM Fusion, not in the Fedora base repos.
-          dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
-          dnf install -y ffmpeg
+            rpm-build unzip libgl-devel xorg-x11-server-Xvfb ffmpeg
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -82,8 +86,10 @@ jobs:
       - name: Smoke test
         run: xvfb-run -a ninja -C build check
 
+      # cpack writes into its working directory, so run it from build/ —
+      # running it from the repo root put the RPMs outside the upload glob.
       - name: Package (CPack RPM)
-        run: cpack --config build/CPackConfig.cmake -G RPM
+        run: cd build && cpack -G RPM
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -118,7 +124,7 @@ jobs:
         run: xvfb-run -a ninja -C build check
 
       - name: Package (CPack DEB)
-        run: cpack --config build/CPackConfig.cmake -G DEB
+        run: cd build && cpack -G DEB
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
