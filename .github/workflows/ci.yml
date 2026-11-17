@@ -54,7 +54,9 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.*'
-          modules: 'qtdeclarative qtquickcontrols2'
+          # Qt Quick Controls 2 ships inside qtdeclarative for Qt 6 — there
+          # is no separate qtquickcontrols2 module in the aqt package list.
+          modules: 'qtdeclarative'
           cache: true
           cache-key-prefix: install-qt-linux-6.8
 
