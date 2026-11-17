@@ -76,7 +76,7 @@ bool isMediaFile(const QString &fileName)
 
 } // namespace
 
-MpvObject::MpvObject(QObject *parent)
+MpvObject::MpvObject(QObject *parent, bool hermeticAudio)
     : QObject(parent)
 {
     s_instance = this;
@@ -100,6 +100,8 @@ MpvObject::MpvObject(QObject *parent)
     mpv_set_option_string(m_mpv, "video-sync", "audio"); // Audio clock as master reference
     mpv_set_option_string(m_mpv, "keep-open", "yes");
     mpv_set_option_string(m_mpv, "idle", "yes");
+    if (hermeticAudio)
+        mpv_set_option_string(m_mpv, "audio-fallback-to-null", "yes");
     mpv_set_option_string(m_mpv, "osc", "no");
     mpv_set_option_string(m_mpv, "input-default-bindings", "no");
     mpv_set_option_string(m_mpv, "input-vo-keyboard", "no");

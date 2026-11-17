@@ -693,8 +693,9 @@ int main(int argc, char *argv[])
     // Must happen AFTER QGuiApplication, which resets the locale.
     std::setlocale(LC_NUMERIC, "C");
 
-    // Declared before the engine so it outlives every QML object.
-    MpvObject mpv;
+    // Declared before the engine so it outlives every QML object. Smoke and
+    // bench runs are hermetic: they must not depend on a real sound device.
+    MpvObject mpv(nullptr, parser.isSet(smokeOpt) || parser.isSet(benchOpt));
     qmlRegisterSingletonInstance("Parvaz", 1, 0, "Mpv", &mpv);
 
     // Persistent configuration (TOML)
