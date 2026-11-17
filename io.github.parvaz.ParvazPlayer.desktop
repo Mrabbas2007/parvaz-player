@@ -1,0 +1,23 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Parvaz
+Name[fa]=پرواز
+GenericName=Media Player
+GenericName[fa]=پخش‌کننده چندرسانه‌ای
+Comment=Modern, lightweight media player with zero-copy OpenGL rendering and PotPlayer-style workflow
+Comment[fa]=پخش‌کننده مدرن و سبک با رندر مستقیم OpenGL و کاربری مشابه پات‌پلیر
+Exec=parvaz %U
+Icon=io.github.parvaz.ParvazPlayer
+Terminal=false
+Categories=AudioVideo;Player;Video;Audio;Qt;
+Keywords=Player;Video;Audio;Media;Film;Movie;Subtitles;PotPlayer;mpv;موزیک;ویدیو;فیلم;زیرنویس;
+MimeType=video/mp4;video/x-matroska;video/x-msvideo;video/quicktime;video/webm;video/x-flv;video/mpeg;video/ogg;video/3gpp;video/x-ms-wmv;audio/mp3;audio/mpeg;audio/flac;audio/x-wav;audio/aac;audio/ogg;audio/x-m4a;audio/x-matroska;application/x-matroska;application/ogg;application/x-ogg;application/vnd.apple.mpegurl;audio/x-mpegurl;application/x-extension-m4a;
+StartupNotify=true
+StartupWMClass=parvaz
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=Open New Window
+Name[fa]=پنجره جدید
+Exec=parvaz

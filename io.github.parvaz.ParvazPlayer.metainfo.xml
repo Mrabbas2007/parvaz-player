@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.parvaz.ParvazPlayer</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Parvaz</name>
+  <name xml:lang="fa">پرواز</name>
+  <summary>High-performance media player with zero-copy OpenGL rendering</summary>
+  <summary xml:lang="fa">پخش‌کننده چندرسانه‌ای با کارایی بالا و رندر بدون کپی سخت‌افزاری</summary>
+
+  <description>
+    <p>
+      Parvaz (پرواز) is a modern, lightweight media player engineered for Linux with Wayland-first architecture. Powered by libmpv and Qt 6 / QML, it delivers buttery-smooth zero-copy hardware video rendering on OpenGL Framebuffer Objects with no frame duplication.
+    </p>
+    <p xml:lang="fa">
+      پرواز یک مدیاپلیر مدرن، سریع و سبک برای لینوکس است که بر پایه‌ی موتور libmpv و فریم‌ورک Qt 6 / QML ساخته شده است. تصویر ویدیو مستقیماً و بدون کپی در حافظه سخت‌افزاری FBO رندر می‌شود.
+    </p>
+    <p>Key highlights include:</p>
+    <ul>
+      <li>Zero-copy hardware rendering via libmpv and QQuickFramebufferObject</li>
+      <li>Rich PotPlayer-style workflow and complete context menu ergonomics</li>
+      <li>First-class Persian typography with Vazirmatn font and automatic Windows-1256 codepage detection</li>
+      <li>Integrated online subtitle search (OpenSubtitles, Stremio, SubSource) and auto-sync via ffsubsync</li>
+      <li>Dedicated studio music player view with dynamic 32-band audio visualizer</li>
+      <li>AMD FidelityFX Super Resolution (FSR) upscaling and Debanding shaders</li>
+      <li>10-band audio equalizer, dynaudnorm speech clarity, and 150% volume boost</li>
+      <li>HDR tone-mapping and technical diagnostics HUD</li>
+      <li>Native Wayland and MPRIS v2 D-Bus media integration</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.parvaz.ParvazPlayer.desktop</launchable>
+
+  <provides>
+    <binary>parvaz</binary>
+    <mediatype>video/mp4</mediatype>
+    <mediatype>video/x-matroska</mediatype>
+    <mediatype>video/webm</mediatype>
+    <mediatype>audio/mpeg</mediatype>
+    <mediatype>audio/flac</mediatype>
+  </provides>
+
+  <developer id="io.github.parvaz">
+    <name>Parvaz Player Community</name>
+    <name xml:lang="fa">تیم توسعه پرواز</name>
+  </developer>
+
+  <url type="homepage">https://github.com/parvaz-player/parvaz</url>
+  <url type="bugtracker">https://github.com/parvaz-player/parvaz/issues</url>
+  <url type="vcs-browser">https://github.com/parvaz-player/parvaz</url>
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Player</category>
+    <category>Video</category>
+    <category>Audio</category>
+  </categories>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-11-17">
+      <description>
+        <p>First public Alpha release featuring complete playback engine, PotPlayer ergonomics, studio music visualizer, subtitle search, and hardware-accelerated shaders.</p>
+        <p xml:lang="fa">اولین نسخه آلفا عمومی شامل هسته پخش مستقیم OpenGL، ویژوالایزر استودیویی موزیک، جستجوی آنلاین زیرنویس و فیلترهای تصویری FSR.</p>
+      </description>
+    </release>
+  </releases>
+</component>

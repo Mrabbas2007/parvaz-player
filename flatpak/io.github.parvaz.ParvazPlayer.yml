@@ -1,0 +1,65 @@
+app-id: io.github.parvaz.ParvazPlayer
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: parvaz
+
+finish-args:
+  # Display & Windowing
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+
+  # Audio & Video Acceleration
+  - --socket=pulseaudio
+  - --device=dri
+
+  # Network (Streaming URLs & Subtitle Search)
+  - --share=network
+
+  # File Access (Media libraries & Direct playback)
+  - --filesystem=xdg-videos:ro
+  - --filesystem=xdg-music:ro
+  - --filesystem=xdg-download:ro
+  - --filesystem=host:ro
+
+  # D-Bus integration
+  - --own-name=org.mpris.MediaPlayer2.parvaz
+  - --talk-name=org.mpris.MediaPlayer2.*
+  - --talk-name=org.freedesktop.ScreenSaver
+
+add-extensions:
+  org.freedesktop.Platform.ffmpeg-full:
+    directory: lib/ffmpeg
+    version: '24.08'
+    add-ld-path: .
+
+cleanup-commands:
+  - mkdir -p ${FLATPAK_DEST}/lib/ffmpeg
+
+modules:
+  - name: tomlplusplus
+    buildsystem: cmake-ninja
+    sources:
+      - type: git
+        url: https://github.com/marzer/tomlplusplus.git
+        tag: v3.4.0
+
+  - name: mpv
+    buildsystem: meson
+    config-opts:
+      - -Dlibmpv=true
+      - -Dcplayer=false
+      - -Dmanpage-build=disabled
+    sources:
+      - type: git
+        url: https://github.com/mpv-player/mpv.git
+        tag: v0.39.0
+
+  - name: parvaz
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    sources:
+      - type: dir
+        path: ..

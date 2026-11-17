@@ -1,0 +1,61 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build & Smoke Tests (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            gcc-14 \
+            g++-14 \
+            libmpv-dev \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-tools-dev \
+            libgl-dev \
+            ffmpeg \
+            xvfb \
+            desktop-file-utils \
+            appstream
+
+      - name: Validate Desktop Entry
+        run: desktop-file-validate io.github.parvaz.ParvazPlayer.desktop
+
+      - name: Validate AppStream Metadata
+        run: appstreamcli validate --no-net io.github.parvaz.ParvazPlayer.metainfo.xml
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_CXX_COMPILER=g++-14 \
+            -DCMAKE_C_COMPILER=gcc-14
+
+      - name: Build Project
+        run: ninja -C build
+
+      - name: Verify Install Target
+        run: |
+          DESTDIR=/tmp/parvaz_install ninja -C build install
+          test -f /tmp/parvaz_install/usr/local/bin/parvaz
+          test -f /tmp/parvaz_install/usr/local/share/applications/io.github.parvaz.ParvazPlayer.desktop
+          test -f /tmp/parvaz_install/usr/local/share/metainfo/io.github.parvaz.ParvazPlayer.metainfo.xml
+          test -f /tmp/parvaz_install/usr/local/share/icons/hicolor/scalable/apps/io.github.parvaz.ParvazPlayer.svg
+
+      - name: Run Smoke Tests (Headless Xvfb)
+        run: xvfb-run -a -s "-screen 0 1280x720x24" ninja -C build check

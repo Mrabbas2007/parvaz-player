@@ -131,16 +131,24 @@ parvaz-player/
 
 ---
 
-## ۷. فاز ۴ — بسته‌بندی، ریلیز و پایداری (Packaging & Distribution) ⏳ در اولویت بعدی
+## ۷. فاز ۴ — بسته‌بندی، ریلیز و پایداری (Packaging & Distribution) 🚀 تکمیل شد
 
-- [ ] **بسته‌ی رسمی Flatpak:**
-  - ثبت مانیفست `io.github.parvaz.ParvazPlayer.yml` با ران‌تایم `org.freedesktop.Platform 24.08`.
+- [x] **استانداردسازی یکپارچگی دسکتاپ لینوکس:**
+  - ساخت فایل دسکتاپ `io.github.parvaz.ParvazPlayer.desktop` با دسته‌بندی‌ها و MimeType‌های جامع.
+  - ثبت متادیتای معتبر AppStream (`io.github.parvaz.ParvazPlayer.metainfo.xml`) سازگار با Flathub.
+  - طراحی آیکون وکتور مقیاس‌پذیر اختصاصی (`assets/icons/io.github.parvaz.ParvazPlayer.svg`).
+  - افزودن قوانین نصب استاندارد لینوکس با `GNUInstallDirs` در `CMakeLists.txt`.
+  - تنظیم آیکون پنجره و نگاشت شناسه دسکتاپ Wayland در `src/main.cpp`.
+- [x] **بسته‌ی رسمی Flatpak:**
+  - ثبت مانیفست کامل `flatpak/io.github.parvaz.ParvazPlayer.yml` با ران‌تایم `org.freedesktop.Platform 24.08`.
   - یکپارچه‌سازی افزونه‌ی `org.freedesktop.Platform.ffmpeg-full` جهت پخش تمامی کدک‌های انحصاری و متن‌باز.
-- [ ] **بسته‌ی مستقل AppImage:** بیلد قابل حمل لینوکس با استفاده از ابزار `linuxdeploy` و پلاگین‌های Qt.
-- [ ] **پکیج‌های توزیعی بومی:**
-  - فدورا: ساخت بسته‌ی RPM و انتشار مخزن در Fedora Copr.
-  - آرچ‌لینوکس: انتشار پکیج در Arch User Repository (AUR).
-- [ ] **تکمیل تست‌های اتوماسیون و CI/CD:** اضافه کردن کامپایل و اجرای `ninja -C build check` در پایپ‌لاین گیت‌هاب اکشنز بر روی ایمیج‌های تمیز.
+  - تعریف دسترسی‌های حداقلی و ایمن به دیسک، شبکه، Wayland، PulseAudio و سرویس‌های MPRIS/ScreenSaver.
+- [x] **تکمیل تست‌های اتوماسیون و CI/CD در GitHub Actions:**
+  - راه‌اندازی پایپ‌لاین اتوماتیک در `.github/workflows/ci.yml`.
+  - اعتبارسنجی خودکار فایل‌های Desktop و AppStream Metadata.
+  - بیلد تمیز و اجرای تست‌های اسموک با سرور مجازی Xvfb.
+- [ ] **بسته‌ی مستقل AppImage و پکیج‌های توزیعی بومی (RPM/AUR):**
+  - آماده‌سازی اسکریپت بیلد AppImage و مخازن Copr / AUR در مراحل آتی.
 
 ---
 
@@ -150,8 +158,8 @@ parvaz-player/
 فاز ۰ (رندرینگ FBO)          [====================] ۱۰۰٪ سبز
 فاز ۱ (پلیر پایه و شل)       [====================] ۱۰۰٪ سبز
 فاز ۲ (ارگونومی PotPlayer)   [====================] ۱۰۰٪ سبز
-فاز ۳ (تمایز، موزیک، HDR)    [====================] ۹۰٪ پیاده شد
-فاز ۴ (بسته‌بندی و ریلیز)     [====................] ۲۰٪ در حال آماده‌سازی
+فاز ۳ (تمایز، موزیک، HDR)    [====================] ۱۰۰٪ سبز
+فاز ۴ (بسته‌بندی و ریلیز)     [=================...] ۸۵٪ آماده‌ی ریلیز
 ```
 
 > برای جزئیات فنی و خطوط لوله‌ی کد به مستند **[docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md)** مراجعه کنید.

@@ -15,6 +15,7 @@
 #include <QUrl>
 #include <QVariantMap>
 #include <QFontDatabase>
+#include <QIcon>
 #include <qqml.h>
 
 #include "config/ConfigManager.h"
@@ -608,6 +609,8 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("Parvaz"));
     app.setOrganizationName(QStringLiteral("Parvaz"));
     app.setApplicationVersion(QStringLiteral("0.1.0"));
+    app.setDesktopFileName(QStringLiteral("io.github.parvaz.ParvazPlayer"));
+    app.setWindowIcon(QIcon(QStringLiteral(":/assets/icons/io.github.parvaz.ParvazPlayer.svg")));
 
     QFontDatabase::addApplicationFont(QStringLiteral(":/Parvaz/qml/fonts/Vazirmatn.ttf"));
     QFontDatabase::addApplicationFont(QStringLiteral(":/Parvaz/qml/fonts/JetBrainsMono-Medium.otf"));

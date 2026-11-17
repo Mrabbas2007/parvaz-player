@@ -110,6 +110,12 @@ qt_add_resources(parvaz "parvaz-assets"
         ${PARVAZ_ICONS}
 )
 
+qt_add_resources(parvaz "parvaz-app-icon"
+    PREFIX "/"
+    FILES
+        assets/icons/io.github.parvaz.ParvazPlayer.svg
+)
+
 target_include_directories(parvaz PRIVATE
     src
     3rdparty
@@ -134,6 +140,25 @@ endif()
 if(WIN32)
     target_link_libraries(parvaz PRIVATE user32 shell32)
 endif()
+
+# Installation rules for desktop Linux and packages
+include(GNUInstallDirs)
+
+install(TARGETS parvaz
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(FILES io.github.parvaz.ParvazPlayer.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
+
+install(FILES io.github.parvaz.ParvazPlayer.metainfo.xml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo
+)
+
+install(FILES assets/icons/io.github.parvaz.ParvazPlayer.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+)
 
 # make check : build + generate a test clip with one audio and one video track
 # (so the track-list assertions have something to find) + a matching UTF-8
