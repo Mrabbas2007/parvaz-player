@@ -65,8 +65,9 @@ modules:
   # so it is bundled into the app at runtime for subtitle rendering.
   - name: libass
     buildsystem: meson
-    config-opts:
-      - -Dtests=disabled
+    # NOTE: no build options — libass's meson has no "tests" option and
+    # its defaults (harfbuzz/fribidi/freetype/fontconfig) resolve from the
+    # KDE runtime.
     sources:
       - type: git
         url: https://github.com/libass/libass.git
