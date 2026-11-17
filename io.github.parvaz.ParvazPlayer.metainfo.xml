@@ -45,9 +45,9 @@
     <name xml:lang="fa">تیم توسعه پرواز</name>
   </developer>
 
-  <url type="homepage">https://github.com/parvaz-player/parvaz</url>
-  <url type="bugtracker">https://github.com/parvaz-player/parvaz/issues</url>
-  <url type="vcs-browser">https://github.com/parvaz-player/parvaz</url>
+  <url type="homepage">https://github.com/Mrabbas2007/parvaz-player</url>
+  <url type="bugtracker">https://github.com/Mrabbas2007/parvaz-player/issues</url>
+  <url type="vcs-browser">https://github.com/Mrabbas2007/parvaz-player</url>
 
   <categories>
     <category>AudioVideo</category>
