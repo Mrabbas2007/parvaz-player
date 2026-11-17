@@ -160,6 +160,10 @@ install(FILES assets/icons/io.github.parvaz.ParvazPlayer.svg
     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
 )
 
+install(DIRECTORY assets/icons/hicolor/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor
+)
+
 # make check : build + generate a test clip with one audio and one video track
 # (so the track-list assertions have something to find) + a matching UTF-8
 # sidecar (mpv's default sub-auto=exact loads <video>.srt) + a 3s smoke run.
