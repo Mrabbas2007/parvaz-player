@@ -42,6 +42,20 @@ cleanup-commands:
 
 modules:
   # tomlplusplus is vendored in 3rdparty/ (single header) — no module needed.
+  # mpv's meson.build declares libplacebo as a REQUIRED dependency and links
+  # it statically; the KDE runtime ships the ffmpeg/libass stack but not
+  # libplacebo, so it must be built here. Static matching mpv's request.
+  - name: libplacebo
+    buildsystem: meson
+    config-opts:
+      - -Ddefault_library=static
+      - -Ddemos=false
+      - -Dtests=false
+    sources:
+      - type: git
+        url: https://code.videolan.org/videolan/libplacebo.git
+        tag: v7.349.0
+
   - name: mpv
     buildsystem: meson
     config-opts:
