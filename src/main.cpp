@@ -406,6 +406,8 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             // can bounce the track-list cache mid-step on slow runners.
             int64_t rawAid = -1;
             const int aidErr = mpv_get_property(mpv.handle(), "aid", MPV_FORMAT_INT64, &rawAid);
+            std::fprintf(stderr, "parvaz check: raw aid err=%d(%s) value=%lld\n",
+                         aidErr, mpv_error_string(aidErr), static_cast<long long>(rawAid));
             check("currentAudioTrack > 0 (raw aid)", aidErr >= 0 && rawAid > 0);
             mpv.selectAudioTrack(0);
             check("currentAudioTrack <= 0 after selectAudioTrack(0)", mpv.currentAudioTrack() <= 0);

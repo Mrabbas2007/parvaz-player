@@ -1145,11 +1145,23 @@ void MpvObject::frameStep(int n)
     if (n > 0) {
         // Forward: mpv plays n frames and pauses again ("play" mode).
         const char *cmd[] = {"frame-step", frames.constData(), "play", nullptr};
-        mpv_command(m_mpv, cmd);
+        if (mpv_command(m_mpv, cmd) >= 0)
+            return;
     } else {
         // Backward always needs a seek; -1 lands exactly on the previous frame.
         const char *cmd[] = {"frame-step", frames.constData(), "seek", nullptr};
-        mpv_command(m_mpv, cmd);
+        if (mpv_command(m_mpv, cmd) >= 0)
+            return;
+    }
+    // libmpv < 0.39 (e.g. Ubuntu 24.04's 0.37) rejects the count/mode
+    // arguments outright, so fall back to the argument-less single-frame
+    // command issued n times. While playing, plain frame-step first pauses,
+    // then steps — the end state is still "n frames later, paused".
+    int steps = qAbs(n);
+    while (steps-- > 0) {
+        const char *single[] = {n > 0 ? "frame-step" : "frame-back-step", nullptr};
+        if (mpv_command(m_mpv, single) < 0)
+            break;
     }
 }
 

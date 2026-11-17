@@ -29,6 +29,8 @@ QImage ScreenshotController::captureRawFrame()
     mpv_node res;
     int err = mpv_command_ret(m_mpv, args, &res);
     if (err < 0) {
+        std::fprintf(stderr, "parvaz screenshot: command failed err=%d(%s)\n",
+                     err, mpv_error_string(err));
         emit screenshotFailed(QStringLiteral("mpv command failed: %1").arg(err));
         return QImage();
     }
@@ -60,6 +62,8 @@ QImage ScreenshotController::captureRawFrame()
     }
 
     if (w <= 0 || h <= 0 || stride <= 0 || !data) {
+        std::fprintf(stderr, "parvaz screenshot: frame node w=%d h=%d stride=%d data=%p\n",
+                     w, h, stride, reinterpret_cast<const void *>(data));
         mpv_free_node_contents(&res);
         emit screenshotFailed(QStringLiteral("Missing image frame data"));
         return QImage();
