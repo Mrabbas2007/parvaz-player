@@ -46,19 +46,26 @@ jobs:
             ffmpeg \
             xvfb \
             desktop-file-utils \
-            appstream
+            appstream \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xinerama0 \
+            libxkbcommon-x11-0
 
       # Ubuntu 24.04 ships Qt 6.4.2, but the project requires >= 6.5 —
-      # install an up-to-date Qt from the official releases instead.
+      # pull an official Qt build directly via aqtinstall instead of
+      # install-qt-action (its v4.5.0 Node build is currently broken).
+      # Qt Quick Controls 2 ships inside qtdeclarative for Qt 6.
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.*'
-          # Qt Quick Controls 2 ships inside qtdeclarative for Qt 6 — there
-          # is no separate qtquickcontrols2 module in the aqt package list.
-          modules: 'qtdeclarative'
-          cache: true
-          cache-key-prefix: install-qt-linux-6.8
+        run: |
+          python3 -m pip install --user aqtinstall
+          python3 -m aqt install-qt linux desktop 6.8.3 linux_gcc_64 \
+            --outputdir "$HOME/Qt" --modules qtdeclarative
+          echo "CMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64" >> "$GITHUB_ENV"
 
       - name: Setup Compiler Cache (CCache)
         uses: actions/cache@v4
