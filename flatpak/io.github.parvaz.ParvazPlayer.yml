@@ -1,7 +1,10 @@
 app-id: io.github.parvaz.ParvazPlayer
-runtime: org.freedesktop.Platform
-runtime-version: '24.08'
-sdk: org.freedesktop.Sdk
+# Qt 6 lives in the KDE runtime, NOT in org.freedesktop.Platform — a Qt6 app
+# built against the freedesktop runtime finds no Qt at configure time.
+# org.kde.Platform 6.8 tracks Qt 6.8 (>= our 6.5 floor) on the 24.08 base.
+runtime: org.kde.Platform
+runtime-version: '6.8'
+sdk: org.kde.Sdk
 command: parvaz
 
 finish-args:
@@ -38,13 +41,7 @@ cleanup-commands:
   - mkdir -p ${FLATPAK_DEST}/lib/ffmpeg
 
 modules:
-  - name: tomlplusplus
-    buildsystem: cmake-ninja
-    sources:
-      - type: git
-        url: https://github.com/marzer/tomlplusplus.git
-        tag: v3.4.0
-
+  # tomlplusplus is vendored in 3rdparty/ (single header) — no module needed.
   - name: mpv
     buildsystem: meson
     config-opts:

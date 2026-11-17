@@ -11,7 +11,10 @@ url="https://github.com/Mrabbas2007/parvaz-player"
 license=('GPL-3.0-or-later')
 # Runtime: Qt6 Quick stack, libmpv, and the ffmpeg/unzip binaries the app
 # shells out to (thumbnails, cover art, subtitle archive extraction).
-depends=('qt6-base' 'qt6-declarative' 'qt6-quickcontrols2' 'mpv' 'ffmpeg' 'unzip')
+# NOTE: Qt Quick Controls 2 ships inside qt6-declarative on Arch (verified
+# via `pacman -F Qt6QuickControls2`); there is no separate quickcontrols2
+# package on current Arch.
+depends=('qt6-base' 'qt6-declarative' 'mpv' 'ffmpeg' 'unzip')
 makedepends=('cmake' 'ninja')
 # Optional runtime enhancements, probed at runtime and never required:
 optdepends=('ffsubsync: automatic subtitle-to-speech synchronization'
