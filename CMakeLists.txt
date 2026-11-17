@@ -189,3 +189,48 @@ add_custom_target(check
     USES_TERMINAL
     COMMENT "build + smoke test"
 )
+
+# ---- Packaging (native RPM / DEB via CPack) --------------------------------
+# Only active with -Dparvaz_packaging=ON so the regular build/smoke tree is
+# untouched. CPack packages exactly the install rules above: the binary plus
+# desktop entry, AppStream metainfo and hicolor icons — everything else
+# (QML, fonts, shaders) is compiled into the binary as Qt resources.
+#
+# NOTE on dependencies: the app also shells out to the `ffmpeg` binary
+# (thumbnails, cover art) and `unzip` (subtitle archive extraction); ffsubsync
+# and yt-dlp are optional enhancements, not dependencies.
+option(parvaz_packaging "Generate RPM/DEB packaging metadata via CPack" OFF)
+if(parvaz_packaging)
+    set(CPACK_PACKAGE_NAME parvaz)
+    set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+    set(CPACK_PACKAGE_VENDOR "Parvaz Player Community")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "PotPlayer-style media player for Linux, powered by libmpv and Qt 6")
+    set(CPACK_PACKAGE_DESCRIPTION "Parvaz is a native Wayland-first video and music player built on
+libmpv and Qt 6 / QML. Zero-copy hardware rendering, PotPlayer ergonomics,
+first-class Persian subtitles with Vazirmatn typography, online subtitle
+search, a dedicated music mode with a 32-band visualizer, HDR tone mapping
+and AMD FSR upscaling.")
+    set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/Mrabbas2007/parvaz-player")
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+    set(CPACK_PACKAGE_CONTACT "Parvaz Player Community")
+
+    # RPM (Fedora / RHEL / CachyOS-adjacent)
+    set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
+    set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
+    set(CPACK_RPM_PACKAGE_REQUIRES
+        "qt6-qtbase >= 6.5, qt6-qtdeclarative, mpv-libs, ffmpeg, unzip")
+    # Keep the %{?dist} tag in the file name so Fedora/CachyOS builds are
+    # distinguishable: parvaz-0.1.0-1.fc42.x86_64.rpm
+    set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
+
+    # DEB (Ubuntu 25.04+ — 24.04's system Qt 6.4 is below the >= 6.5 floor)
+    set(CPACK_DEBIAN_PACKAGE_SECTION "video")
+    set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+    # Qt/mpv shared libraries are discovered from the actual linked libs via
+    # dpkg-shlibdeps; ffmpeg/unzip are PATH lookups and must be listed here.
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "ffmpeg, unzip")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION TRUE)
+
+    include(CPack)
+endif()
