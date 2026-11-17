@@ -163,8 +163,10 @@ jobs:
 
       - name: Create bundle
         run: |
+          # The builder committed under --default-branch=stable; build-bundle
+          # looks for "master" unless the branch is given explicitly.
           flatpak build-bundle repo parvaz-0.1.0-x86_64.flatpak \
-            io.github.parvaz.ParvazPlayer
+            io.github.parvaz.ParvazPlayer stable
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
