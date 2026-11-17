@@ -1,0 +1,185 @@
+# Native distro packages: Arch (PKGBUILD), Fedora (RPM), Ubuntu 25.04 (DEB)
+# and a universal Flatpak bundle — built in the real distro containers and
+# attached to the release of the pushed tag.
+#
+# Runs ONLY on v* tags and manual dispatch: this repo is private, so every
+# job burns Actions minutes from the monthly quota.
+
+name: Distro Packages
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arch:
+    name: Arch Linux (.pkg.tar.zst)
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install build and test dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            git cmake ninja qt6-base qt6-declarative mpv ffmpeg unzip \
+            xorg-server-xvfb
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build
+
+      - name: Smoke test
+        run: xvfb-run -a ninja -C build check
+
+      - name: Build package
+        run: |
+          git archive --prefix=parvaz-0.1.0/ HEAD -o packaging/arch/parvaz-0.1.0.tar.gz
+          # makepkg refuses to run as root — build under a regular user.
+          useradd -m builder
+          chown -R builder:builder .
+          runuser -u builder -- bash -c "cd packaging/arch && makepkg"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-arch
+          path: packaging/arch/*.pkg.tar.zst
+          if-no-files-found: error
+
+  fedora:
+    name: Fedora (RPM)
+    runs-on: ubuntu-24.04
+    container: fedora:latest
+    steps:
+      - name: Install build and test dependencies
+        run: |
+          dnf install -y git cmake ninja-build gcc-c++ \
+            qt6-qtbase-devel qt6-qtdeclarative-devel mpv-libs-devel \
+            rpm-build unzip libgl-devel xorg-x11-server-Xvfb
+          # ffmpeg lives in RPM Fusion, not in the Fedora base repos.
+          dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+          dnf install -y ffmpeg
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -Dparvaz_packaging=ON
+          cmake --build build
+
+      - name: Smoke test
+        run: xvfb-run -a ninja -C build check
+
+      - name: Package (CPack RPM)
+        run: cpack --config build/CPackConfig.cmake -G RPM
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-fedora
+          path: build/*.rpm
+          if-no-files-found: error
+
+  deb:
+    name: Ubuntu 25.04 (DEB)
+    runs-on: ubuntu-24.04
+    container: ubuntu:25.04
+    steps:
+      - name: Install build and test dependencies
+        run: |
+          apt-get update
+          # Qt 6.8 ships here (24.04 has 6.4, below our >= 6.5 floor).
+          # Qt6QuickControls2 dev files are part of qt6-declarative-dev.
+          apt-get install -y git cmake ninja-build g++ \
+            qt6-base-dev qt6-declarative-dev libmpv-dev dpkg-dev ffmpeg unzip \
+            libgl-dev xvfb desktop-file-utils appstream
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -Dparvaz_packaging=ON
+          cmake --build build
+
+      - name: Smoke test
+        run: xvfb-run -a ninja -C build check
+
+      - name: Package (CPack DEB)
+        run: cpack --config build/CPackConfig.cmake -G DEB
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-deb
+          path: build/*.deb
+          if-no-files-found: error
+
+  flatpak:
+    name: Flatpak bundle
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+
+      - name: Install runtimes
+        run: |
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          # Qt 6 lives in the KDE runtime (org.freedesktop.Platform has none).
+          flatpak install -y --noninteractive --user flathub \
+            org.kde.Platform/x86_64/6.8 org.kde.Sdk/x86_64/6.8 \
+            org.freedesktop.Platform.ffmpeg-full/x86_64/24.08
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          flatpak-builder --user --repo=repo --force-clean \
+            --default-branch=stable build-dir \
+            flatpak/io.github.parvaz.ParvazPlayer.yml
+
+      - name: Create bundle
+        run: |
+          flatpak build-bundle repo parvaz-0.1.0-x86_64.flatpak \
+            io.github.parvaz.ParvazPlayer
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-flatpak
+          path: parvaz-0.1.0-x86_64.flatpak
+          if-no-files-found: error
+
+  publish:
+    name: Attach packages to release
+    needs: [arch, fedora, deb, flatpak]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload to tag release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber \
+            --repo "${{ github.repository }}"

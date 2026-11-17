@@ -1,0 +1,39 @@
+# Maintainer: Parvaz Player Community
+# Local build on Arch / CachyOS:
+#   git archive --prefix=parvaz-0.1.0/ HEAD -o parvaz-0.1.0.tar.gz   (from repo root)
+#   makepkg -si                                                      (from this directory)
+pkgname=parvaz
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="PotPlayer-style media player for Linux, powered by libmpv and Qt 6"
+arch=('x86_64')
+url="https://github.com/Mrabbas2007/parvaz-player"
+license=('GPL-3.0-or-later')
+# Runtime: Qt6 Quick stack, libmpv, and the ffmpeg/unzip binaries the app
+# shells out to (thumbnails, cover art, subtitle archive extraction).
+# NOTE: Qt Quick Controls 2 ships inside qt6-declarative on Arch (verified
+# via `pacman -F Qt6QuickControls2`); there is no separate quickcontrols2
+# package on current Arch.
+depends=('qt6-base' 'qt6-declarative' 'mpv' 'ffmpeg' 'unzip')
+makedepends=('cmake' 'ninja')
+# Optional runtime enhancements, probed at runtime and never required:
+optdepends=('ffsubsync: automatic subtitle-to-speech synchronization'
+            'yt-dlp: online stream playback via mpv ytdl hook (YouTube, Aparat, ...)')
+source=("$pkgname-$pkgver.tar.gz")
+# The tarball is produced by `git archive` (CI or locally), so its hash changes
+# with every commit; verification is done upstream, not here.
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  cmake -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -Dparvaz_packaging=OFF
+  cmake --build build
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  DESTDIR="$pkgdir" cmake --install build
+}

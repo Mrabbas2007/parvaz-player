@@ -147,8 +147,11 @@ parvaz-player/
   - راه‌اندازی پایپ‌لاین اتوماتیک در `.github/workflows/ci.yml`.
   - اعتبارسنجی خودکار فایل‌های Desktop و AppStream Metadata.
   - بیلد تمیز و اجرای تست‌های اسموک با سرور مجازی Xvfb.
-- [ ] **بسته‌ی مستقل AppImage و پکیج‌های توزیعی بومی (RPM/AUR):**
-  - آماده‌سازی اسکریپت بیلد AppImage و مخازن Copr / AUR در مراحل آتی.
+- [x] **پکیج‌های بومی توزیع‌ها و Flatpak:**
+  - PKGBUILD آرچ (تست‌شده روی CachyOS با makepkg)، RPM فدورا و DEB اوبونتو 25.04+ با CPack، و ران‌تایم اصلاح‌شده‌ی `org.kde.Platform 6.8` برای Flatpak.
+  - workflow `packages.yml`: ساخت در کانتینر واقعی هر توزیع فقط روی تگ‌های `v*` و اجرای دستی، به‌همراه اسموک در هر کانتینر و اتصال خروجی‌ها به ریلیز همان تگ.
+- [ ] **بسته‌ی مستقل AppImage و مخازن توزیعی عمومی (Copr / AUR / PPA):**
+  - پس از عمومی‌سازی مخزن؛ AUR/Copr/PPA به سورس عمومی نیاز دارند.
 - [ ] **عمومی‌سازی مخزن گیت‌هاب:**
   - مخزن فعلاً private است؛ AppStream متادیتا و Flathub به URL عمومی نیاز دارند (`gh repo edit --visibility public`).
 
