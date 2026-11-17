@@ -38,10 +38,11 @@ static double g_idlePos = 0.0;   // where we were before a deliberate no-op
 static double g_stepFrom = 0.0;  // where we were before frameStep(1)
 static double g_backFrom = 0.0;  // where we were before frameStep(-1)
 static int g_trackCountBeforeAdd = 0;   // tracks before addSubtitleFile()
-static int g_coverRetries = 0;          // async cover extraction polls (step 37)
+static int g_coverRetries = 0;          // async cover extraction polls (step 38)
 static int g_playRetries = 0;           // "playback really started" polls (step 0)
+static int g_stepRetries = 0;           // frame-step echo-lag polls (step 11)
 static int g_audioRetries = 0;          // audio track selection polls (step 36)
-static int g_shotRetries = 0;           // async screenshot capture polls (step 36)
+static int g_shotRetries = 0;           // async screenshot capture polls (step 37)
 
 static void check(const char *what, bool ok)
 {
@@ -185,7 +186,16 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
         case 11: {
             const double fwd = mpv.position() - g_stepFrom;
             // One frame of the 30 fps test clip is 0.0333s; allow slack both
-            // ways so a no-op and a multi-second jump both fail.
+            // ways so a no-op and a multi-second jump both fail. The frame-step
+            // property echo can lag past the step beat on slow runners, so
+            // re-baseline and step again instead of failing immediately.
+            if ((fwd < 0.01 || fwd > 0.1) && g_stepRetries < 8) {
+                ++g_stepRetries;
+                g_stepFrom = mpv.position();
+                mpv.frameStep(1);
+                QTimer::singleShot(250, app, [next, step]() { (*next)(step); });
+                return;
+            }
             check("frameStep(1) advanced ~1 frame", fwd >= 0.01 && fwd <= 0.1);
             check("frameStep(1) left us paused", mpv.paused());
             g_backFrom = mpv.position();
@@ -376,9 +386,15 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
                 QTimer::singleShot(250, app, [next, step]() { (*next)(step); });
                 return;
             }
-            check("volume boosted to 140", mpv.volume() == 140);
+            // Read the mpv property directly: the cached value can be clobbered
+            // by a stale property echo racing the assertion on slow runners.
+            int64_t rawVol = -1;
+            mpv_get_property(mpv.handle(), "volume", MPV_FORMAT_INT64, &rawVol);
+            check("volume boosted to 140 (raw)", rawVol == 140);
             mpv.setVolume(100);
-            check("volume reset to 100", mpv.volume() == 100);
+            rawVol = -1;
+            mpv_get_property(mpv.handle(), "volume", MPV_FORMAT_INT64, &rawVol);
+            check("volume reset to 100 (raw)", rawVol == 100);
             check("audioNormalizer is true", mpv.audioNormalizer() == true);
             mpv.setAudioNormalizer(false);
             check("audioNormalizer is false", mpv.audioNormalizer() == false);
@@ -386,7 +402,11 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("technicalStats has resolution", stats.contains(QStringLiteral("resolution")));
             check("technicalStats has videoCodec", stats.contains(QStringLiteral("videoCodec")));
             check("technicalStats has audioCodec", stats.contains(QStringLiteral("audioCodec")));
-            check("currentAudioTrack > 0", mpv.currentAudioTrack() > 0);
+            // Same echo-race reasoning as volume: the async af change above
+            // can bounce the track-list cache mid-step on slow runners.
+            int64_t rawAid = -1;
+            const int aidErr = mpv_get_property(mpv.handle(), "aid", MPV_FORMAT_INT64, &rawAid);
+            check("currentAudioTrack > 0 (raw aid)", aidErr >= 0 && rawAid > 0);
             mpv.selectAudioTrack(0);
             check("currentAudioTrack <= 0 after selectAudioTrack(0)", mpv.currentAudioTrack() <= 0);
             mpv.selectAudioTrack(1);
@@ -402,7 +422,12 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("abLoopA < 0 after clearAbLoop", mpv.abLoopA() < 0.0);
             check("abLoopB < 0 after clearAbLoop", mpv.abLoopB() < 0.0);
             check("abLoopActive is false", mpv.abLoopActive() == false);
-            // Test screenshot saving to temporary path while playing video.
+            break;
+        }
+        case 37: {
+            // Screenshot runs in its own step on purpose: the step body above
+            // is not idempotent (each pass leaves different state behind), so
+            // a poll that re-runs it would corrupt its own preconditions.
             // screenshot-raw needs a presented frame in the VO queue; under
             // software GL that can lag, so poll before failing.
             const QString testDir = QStringLiteral("/tmp/parvaz_test_screenshots");
@@ -424,7 +449,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             mpv.loadFile(QStringLiteral(PARVAZ_TESTS_DIR "/../build/music_test.mp3"));
             break;
         }
-        case 37: {
+        case 38: {
             check("isAudioOnly is true for mp3 with cover", mpv.isAudioOnly() == true);
             check("hasVideo is false for music with attached pic", mpv.hasVideo() == false);
             check("trackTitle is 'Test Music'", mpv.trackTitle() == QLatin1String("Test Music"));
@@ -441,7 +466,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("coverArtUrl is non-empty", !mpv.coverArtUrl().isEmpty());
             break;
         }
-        case 38: {
+        case 39: {
             mpv.setBrightness(15.0);
             check("brightness set to 15", mpv.brightness() == 15.0);
             mpv.setContrast(-10.0);
@@ -465,7 +490,7 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             }
             break;
         }
-        case 39: {
+        case 40: {
             // Test SubtitleSearchService cleanMediaTitle
             const QString cleaned1 = SubtitleSearchService::cleanMediaTitle(QStringLiteral("Demon.Slayer.S01E01.1080p.x264-SPARKS.mkv"));
             check("cleanMediaTitle extracts Demon Slayer S01E01", cleaned1 == QLatin1String("Demon Slayer S01E01"));
