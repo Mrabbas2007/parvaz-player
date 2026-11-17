@@ -25,7 +25,11 @@ QImage ScreenshotController::captureRawFrame()
         return QImage();
     }
 
-    const char *args[] = {"screenshot-raw", "subtitles", "bgr0", nullptr};
+    // NOTE: no explicit format argument — libmpv < 0.39 (e.g. Ubuntu 24.04's
+    // 0.37) rejects it with MPV_ERROR_INVALID_PARAMETER. The default format
+    // is bgr0 on every version, which is exactly what the QImage mapping
+    // below assumes.
+    const char *args[] = {"screenshot-raw", "subtitles", nullptr};
     mpv_node res;
     int err = mpv_command_ret(m_mpv, args, &res);
     if (err < 0) {

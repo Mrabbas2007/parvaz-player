@@ -402,13 +402,18 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("technicalStats has resolution", stats.contains(QStringLiteral("resolution")));
             check("technicalStats has videoCodec", stats.contains(QStringLiteral("videoCodec")));
             check("technicalStats has audioCodec", stats.contains(QStringLiteral("audioCodec")));
-            // Same echo-race reasoning as volume: the async af change above
-            // can bounce the track-list cache mid-step on slow runners.
-            int64_t rawAid = -1;
-            const int aidErr = mpv_get_property(mpv.handle(), "aid", MPV_FORMAT_INT64, &rawAid);
-            std::fprintf(stderr, "parvaz check: raw aid err=%d(%s) value=%lld\n",
-                         aidErr, mpv_error_string(aidErr), static_cast<long long>(rawAid));
-            check("currentAudioTrack > 0 (raw aid)", aidErr >= 0 && rawAid > 0);
+            // Read "aid" as a string: libmpv 0.37 rejects MPV_FORMAT_INT64 for
+            // it (the value can be "auto"/"no"). A numeric id > 0 means an
+            // audio track is selected; "auto" means mpv picks one itself.
+            char *aidStr = mpv_get_property_string(mpv.handle(), "aid");
+            const QString aidVal = aidStr ? QString::fromUtf8(aidStr) : QString();
+            if (aidStr)
+                mpv_free(aidStr);
+            std::fprintf(stderr, "parvaz check: raw aid string=[%s]\n", qPrintable(aidVal));
+            bool aidNumericOk = false;
+            const qlonglong aidNum = aidVal.toLongLong(&aidNumericOk);
+            check("currentAudioTrack > 0 (raw aid)",
+                  (aidNumericOk && aidNum > 0) || aidVal == QLatin1String("auto"));
             mpv.selectAudioTrack(0);
             check("currentAudioTrack <= 0 after selectAudioTrack(0)", mpv.currentAudioTrack() <= 0);
             mpv.selectAudioTrack(1);
