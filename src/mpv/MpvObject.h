@@ -130,7 +130,10 @@ class MpvObject : public QObject {
     Q_PROPERTY(QVariantList audioBands READ audioBands NOTIFY audioBandsChanged)
 
 public:
-    explicit MpvObject(QObject *parent = nullptr);
+    // hermeticAudio: smoke/bench mode. Enables mpv's audio-fallback-to-null
+    // so playback state does not depend on the host sound stack (CI runners
+    // have none; a failed AO init deselects the audio track — aid=no).
+    explicit MpvObject(QObject *parent = nullptr, bool hermeticAudio = false);
     ~MpvObject() override;
 
     static MpvObject *instance() { return s_instance; }
