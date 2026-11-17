@@ -39,6 +39,9 @@ static double g_stepFrom = 0.0;  // where we were before frameStep(1)
 static double g_backFrom = 0.0;  // where we were before frameStep(-1)
 static int g_trackCountBeforeAdd = 0;   // tracks before addSubtitleFile()
 static int g_coverRetries = 0;          // async cover extraction polls (step 37)
+static int g_playRetries = 0;           // "playback really started" polls (step 0)
+static int g_audioRetries = 0;          // audio track selection polls (step 36)
+static int g_shotRetries = 0;           // async screenshot capture polls (step 36)
 
 static void check(const char *what, bool ok)
 {
@@ -133,9 +136,18 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
     auto next = std::make_shared<std::function<void(int)>>();
     *next = [&mpv, app, next](int step) {
         switch (step) {
-        case 0:  check("frames >= 20", parvazRenderedFrames() >= 20);
-                 check("position advanced", mpv.position() > 0.0);
-                 break;
+        case 0:
+            // CI runners (llvmpipe) may need far longer than the fixed
+            // startup beat before the first frames land; poll like the
+            // cover-art step instead of asserting at a wall-clock point.
+            if (parvazRenderedFrames() < 20 && g_playRetries < 40) {
+                ++g_playRetries;
+                QTimer::singleShot(250, app, [next, step]() { (*next)(step); });
+                return;
+            }
+            check("frames >= 20", parvazRenderedFrames() >= 20);
+            check("position advanced", mpv.position() > 0.0);
+            break;
         case 1:  check("duration known", mpv.duration() > 0.0);
                  mpv.setPaused(true);
                  break;
@@ -356,6 +368,14 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             mpv.setAudioNormalizer(true);
             break;
         case 36: {
+            // The track list is filled asynchronously after file-loaded; on a
+            // slow CI runner the fixed step beat can fire before mpv selects
+            // the audio track. Poll before running the whole step body.
+            if (mpv.currentAudioTrack() <= 0 && g_audioRetries < 24) {
+                ++g_audioRetries;
+                QTimer::singleShot(250, app, [next, step]() { (*next)(step); });
+                return;
+            }
             check("volume boosted to 140", mpv.volume() == 140);
             mpv.setVolume(100);
             check("volume reset to 100", mpv.volume() == 100);
@@ -382,9 +402,16 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
             check("abLoopA < 0 after clearAbLoop", mpv.abLoopA() < 0.0);
             check("abLoopB < 0 after clearAbLoop", mpv.abLoopB() < 0.0);
             check("abLoopActive is false", mpv.abLoopActive() == false);
-            // Test screenshot saving to temporary path while playing video
+            // Test screenshot saving to temporary path while playing video.
+            // screenshot-raw needs a presented frame in the VO queue; under
+            // software GL that can lag, so poll before failing.
             const QString testDir = QStringLiteral("/tmp/parvaz_test_screenshots");
             const QString saved = mpv.saveScreenshot(testDir);
+            if (saved.isEmpty() && g_shotRetries < 12) {
+                ++g_shotRetries;
+                QTimer::singleShot(250, app, [next, step]() { (*next)(step); });
+                return;
+            }
             check("saveScreenshot produced a file path", !saved.isEmpty());
             check("saved screenshot file exists on disk", QFile::exists(saved));
             if (QFile::exists(saved)) {
