@@ -49,6 +49,10 @@ modules:
     buildsystem: meson
     config-opts:
       - -Ddefault_library=static
+      # Fedora-based SDKs default libdir to lib64, but pkg-config in the
+      # flatpak build env only searches /app/lib/pkgconfig — without this
+      # mpv's dependency('libplacebo') lookup fails.
+      - -Dlibdir=lib
       - -Ddemos=false
       - -Dtests=false
     sources:
