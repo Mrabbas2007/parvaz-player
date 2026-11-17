@@ -131,7 +131,7 @@ parvaz-player/
 
 ---
 
-## ۷. فاز ۴ — بسته‌بندی، ریلیز و پایداری (Packaging & Distribution) 🚀 تکمیل شد
+## ۷. فاز ۴ — بسته‌بندی، ریلیز و پایداری (Packaging & Distribution) 🚧 ۸۵٪ آماده‌ی ریلیز
 
 - [x] **استانداردسازی یکپارچگی دسکتاپ لینوکس:**
   - ساخت فایل دسکتاپ `io.github.parvaz.ParvazPlayer.desktop` با دسته‌بندی‌ها و MimeType‌های جامع.
@@ -149,6 +149,8 @@ parvaz-player/
   - بیلد تمیز و اجرای تست‌های اسموک با سرور مجازی Xvfb.
 - [ ] **بسته‌ی مستقل AppImage و پکیج‌های توزیعی بومی (RPM/AUR):**
   - آماده‌سازی اسکریپت بیلد AppImage و مخازن Copr / AUR در مراحل آتی.
+- [ ] **عمومی‌سازی مخزن گیت‌هاب:**
+  - مخزن فعلاً private است؛ AppStream متادیتا و Flathub به URL عمومی نیاز دارند (`gh repo edit --visibility public`).
 
 ---
 
