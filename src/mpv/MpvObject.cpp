@@ -2216,8 +2216,11 @@ void MpvObject::autoSyncCurrentSubtitle()
 
 bool MpvObject::hasYtdl() const
 {
+    // yt-dlp (pip) / youtube-dl both install as <name>.exe on Windows; the
+    // bare-name PATH lookup covers Linux/macOS, the .exe probe covers Windows.
     return !QStandardPaths::findExecutable(QStringLiteral("yt-dlp")).isEmpty()
-        || !QStandardPaths::findExecutable(QStringLiteral("youtube-dl")).isEmpty();
+        || !QStandardPaths::findExecutable(QStringLiteral("youtube-dl")).isEmpty()
+        || !QStandardPaths::findExecutable(QStringLiteral("yt-dlp.exe")).isEmpty();
 }
 
 QString MpvObject::clipboardText() const

@@ -133,7 +133,8 @@ void CoverArtProvider::startExtraction(const QString &file, const QString &outPa
         }
     });
 
-    proc->start(QStringLiteral("ffmpeg"), args);
+        const QString ffmpegBin = QStandardPaths::findExecutable(QStringLiteral("ffmpeg"));
+        proc->start(ffmpegBin.isEmpty() ? QStringLiteral("ffmpeg") : ffmpegBin, args);
 }
 
 } // namespace parvaz

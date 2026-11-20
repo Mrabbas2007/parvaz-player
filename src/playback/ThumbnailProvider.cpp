@@ -180,7 +180,9 @@ void ThumbnailResponse::run()
              << QStringLiteral("-f") << QStringLiteral("image2")
              << QStringLiteral("-y") << diskFile;
 
-        proc.start(QStringLiteral("ffmpeg"), args);
+        // Resolve the binary via PATH lookup so Windows (ffmpeg.exe) is found too.
+        const QString ffmpegBin = QStandardPaths::findExecutable(QStringLiteral("ffmpeg"));
+        proc.start(ffmpegBin.isEmpty() ? QStringLiteral("ffmpeg") : ffmpegBin, args);
         proc.waitForFinished(1200);
 
         {
