@@ -66,6 +66,19 @@ qt_add_executable(parvaz
     src/playback/ShaderManager.h src/playback/ShaderManager.cpp
 )
 
+# Windows: build as a GUI-subsystem executable (no console window) for the
+# desktop player, and deploy the libmpv runtime (mpv.dll) next to the binary.
+if(WIN32 AND MPV_LIBRARY)
+    set_target_properties(parvaz PROPERTIES WIN32_EXECUTABLE TRUE)
+    get_filename_component(MPV_BIN_DIR "${MPV_LIBRARY}" PATH)
+    add_custom_command(TARGET parvaz POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${MPV_BIN_DIR}/mpv.dll"
+            "$<TARGET_FILE_DIR:parvaz>/mpv.dll"
+        COMMENT "Deploying mpv.dll next to parvaz.exe"
+        VERBATIM)
+endif()
+
 # QML lives inside the binary: the executable must run from anywhere (install
 # tree, Flatpak) without a checkout next to it. Resource layout mirrors qml/:
 #   qrc:/Parvaz/qml/Main.qml, qrc:/Parvaz/qml/components/*.qml, qrc:/Parvaz/qmldir

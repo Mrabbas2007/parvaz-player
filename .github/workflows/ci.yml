@@ -105,3 +105,35 @@ jobs:
 
       - name: Run Smoke Tests (Headless Xvfb)
         run: xvfb-run -a -s "-screen 0 1280x720x24" ninja -C build check
+
+  build-and-test-windows:
+    name: Build & Smoke Tests (Windows 2022)
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Ubuntu 24.04 ships Qt 6.4.2, but the project requires >= 6.5 — pull an
+      # official Qt build via aqtinstall instead of install-qt-action (its
+      # v4.5.0 Node build is currently broken).
+      - name: Install Qt
+        run: |
+          python3 -m pip install --user aqtinstall
+          python3 -m aqt install-qt windows desktop 6.8.3 win64_msvc2019 --outputdir "$env:USERPROFILE\Qt"
+          echo "CMAKE_PREFIX_PATH=$env:USERPROFILE\Qt\6.8.3\msvc2019_64" >> $env:GITHUB_ENV
+
+      - name: Setup MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install FFmpeg
+        run: choco install -y ffmpeg
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=$env:USERPROFILE\Qt\6.8.3\msvc2019_64
+
+      - name: Build Project
+        run: cmake --build build
+
+      - name: Run Smoke Tests
+        run: cmake --build build --target check
