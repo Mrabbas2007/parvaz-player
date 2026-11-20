@@ -61,7 +61,10 @@ jobs:
           # makepkg refuses to run as root — build under a regular user.
           useradd -m builder
           chown -R builder:builder .
-          runuser -u builder -- bash -c "cd packaging/arch && makepkg --nodebug"
+          # makepkg's --nodebug option was removed in pacman 7.1 (rolling
+          # base-devel image); debug output is disabled explicitly via the
+          # options=(!debug) array in the PKGBUILD instead.
+          runuser -u builder -- bash -c "cd packaging/arch && makepkg"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
