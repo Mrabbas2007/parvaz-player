@@ -19,6 +19,12 @@ concurrency:
   group: packages-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Version used in artifact names, taken from the pushed tag (v0.1.1).
+  # Manual dispatch builds get a neutral placeholder — the publish job only
+  # runs on tag refs, so the placeholder never reaches a release.
+  APP_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v0.0.0' }}
+
 jobs:
   arch:
     name: Arch Linux (.pkg.tar.zst)
@@ -47,7 +53,11 @@ jobs:
           # The workspace is mounted with a different uid inside the container;
           # without this git refuses every operation ("dubious ownership").
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git archive --prefix=parvaz-0.1.0/ HEAD -o packaging/arch/parvaz-0.1.0.tar.gz
+          VERSION="${APP_VERSION#v}"
+          git archive --prefix=parvaz-$VERSION/ HEAD -o packaging/arch/parvaz-$VERSION.tar.gz
+          # Keep the PKGBUILD version in lockstep with the tag being built:
+          # the source tarball name and the built package version must match.
+          sed -i "s/^pkgver=.*/pkgver=$VERSION/" packaging/arch/PKGBUILD
           # makepkg refuses to run as root — build under a regular user.
           useradd -m builder
           chown -R builder:builder .
@@ -165,14 +175,15 @@ jobs:
         run: |
           # The builder committed under --default-branch=stable; build-bundle
           # looks for "master" unless the branch is given explicitly.
-          flatpak build-bundle repo parvaz-0.1.0-x86_64.flatpak \
+          VERSION="${APP_VERSION#v}"
+          flatpak build-bundle repo "parvaz-$VERSION-x86_64.flatpak" \
             io.github.parvaz.ParvazPlayer stable
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: package-flatpak
-          path: parvaz-0.1.0-x86_64.flatpak
+          path: parvaz-[0-9]*-x86_64.flatpak
           if-no-files-found: error
 
   windows:
@@ -222,11 +233,12 @@ jobs:
       - name: Package Windows Artifacts (Portable ZIP + Inno Setup)
         shell: pwsh
         run: |
+          $version = $env:APP_VERSION -replace '^v', ''
           New-Item -ItemType Directory -Force -Path dist
           # 1. Create Portable ZIP
-          Compress-Archive -Path build\release\* -DestinationPath dist\parvaz-0.1.0-windows-x64-portable.zip -CompressionLevel Optimal
+          Compress-Archive -Path build\release\* -DestinationPath "dist\parvaz-$version-windows-x64-portable.zip" -CompressionLevel Optimal
           # 2. Compile Inno Setup Installer
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss /DAppVersion=0.1.0 /DSourceDir=..\..\build\release
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss "/DAppVersion=$version" /DSourceDir=..\..\build\release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -251,5 +263,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The upload target must be an existing release. When a tag is pushed
+          # without a pre-created release, make a stub with generated notes
+          # (the maintainer can rewrite the notes afterwards).
+          gh release view "${GITHUB_REF_NAME}" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create "${GITHUB_REF_NAME}" --repo "${{ github.repository }}" \
+              --title "Parvaz Player ${GITHUB_REF_NAME#v}" --generate-notes
           gh release upload "${GITHUB_REF_NAME}" dist/* --clobber \
             --repo "${{ github.repository }}"

@@ -59,6 +59,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.1.1" date="2026-11-20">
+      <description>
+        <p>Windows support in the release pipeline: MSVC build with a smoke-tested CI, an Inno Setup installer with file-manager integration, and a portable bundle — shipped next to the refreshed Linux packages. Package versions now follow the release tag.</p>
+        <p xml:lang="fa">پشتیبانی ویندوز در خط تولید ریلیز: بیلد MSVC با اسموک‌تست خودکار، نصاب Inno Setup با یکپارچگی منوی فایل‌ها و باندل پرتابل، در کنار پکیج‌های به‌روز لینوکس. نسخه‌ی پکیج‌ها حالا از تگ ریلیز گرفته می‌شود.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-11-17">
       <description>
         <p>First public Alpha release featuring complete playback engine, PotPlayer ergonomics, studio music visualizer, subtitle search, and hardware-accelerated shaders.</p>

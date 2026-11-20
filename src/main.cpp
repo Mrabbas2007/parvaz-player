@@ -672,7 +672,7 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("Parvaz"));
     app.setOrganizationName(QStringLiteral("Parvaz"));
-    app.setApplicationVersion(QStringLiteral("0.1.0"));
+    app.setApplicationVersion(QStringLiteral("0.1.1"));
     app.setDesktopFileName(QStringLiteral("io.github.parvaz.ParvazPlayer"));
     app.setWindowIcon(QIcon(QStringLiteral(":/assets/icons/io.github.parvaz.ParvazPlayer.svg")));
 

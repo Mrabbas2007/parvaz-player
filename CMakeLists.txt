@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(parvaz VERSION 0.1.0 LANGUAGES CXX)
+project(parvaz VERSION 0.1.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -295,7 +295,7 @@ and AMD FSR upscaling.")
     set(CPACK_RPM_PACKAGE_REQUIRES
         "qt6-qtbase >= 6.5, qt6-qtdeclarative, mpv-libs, ffmpeg, unzip")
     # Keep the %{?dist} tag in the file name so Fedora/CachyOS builds are
-    # distinguishable: parvaz-0.1.0-1.fc42.x86_64.rpm
+    # distinguishable: parvaz-0.1.1-1.fc42.x86_64.rpm
     set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
 
     # DEB (Ubuntu 25.04+ — 24.04's system Qt 6.4 is below the >= 6.5 floor)
