@@ -103,24 +103,29 @@ if(WIN32 AND MPV_LIBRARY)
         COMMENT "Deploying ${MPV_DLL_NAME} next to parvaz.exe"
         VERBATIM)
 
-    # Portable release staging (Phase W4): flat folder with the GUI-subsystem
-    # exe, the libmpv runtime DLL and the Qt runtime plugins (qml/quick/...).
+    # Deploy Qt runtime DLLs and plugins using windeployqt
     get_target_property(QT6_CORE_IMPORTED_LOCATION Qt6::Core IMPORTED_LOCATION)
-    get_filename_component(QT6_ARCH_DIR "${QT6_CORE_IMPORTED_LOCATION}" DIRECTORY)
-    get_filename_component(QT6_PREFIX "${QT6_ARCH_DIR}" DIRECTORY)
+    get_filename_component(QT6_BIN_DIR "${QT6_CORE_IMPORTED_LOCATION}" DIRECTORY)
+    set(WINDEPLOYQT_EXE "${QT6_BIN_DIR}/windeployqt.exe")
+
+    add_custom_command(TARGET parvaz POST_BUILD
+        COMMAND "${WINDEPLOYQT_EXE}"
+            --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+            --no-translations
+            --no-compiler-runtime
+            "$<TARGET_FILE:parvaz>"
+        COMMENT "Running windeployqt on parvaz.exe"
+        VERBATIM)
+
+    # Portable release staging (Phase W4): flat folder with the GUI-subsystem
+    # exe, the libmpv runtime DLL and the full deployed Qt runtime tree.
     set(PARVAZ_PORTABLE_DIR "${CMAKE_BINARY_DIR}/release")
     add_custom_command(TARGET parvaz POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PARVAZ_PORTABLE_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:parvaz>"
-            "${PARVAZ_PORTABLE_DIR}/parvaz.exe"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MPV_RUNTIME_DLL}"
-            "${PARVAZ_PORTABLE_DIR}/${MPV_DLL_NAME}"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${QT6_PREFIX}/plugins"
-            "${PARVAZ_PORTABLE_DIR}/plugins"
-        COMMENT "Staging Windows portable release bundle (parvaz.exe + ${MPV_DLL_NAME} + Qt plugins)"
+            "$<TARGET_FILE_DIR:parvaz>"
+            "${PARVAZ_PORTABLE_DIR}"
+        COMMENT "Staging Windows portable release bundle"
         VERBATIM)
 endif()
 
