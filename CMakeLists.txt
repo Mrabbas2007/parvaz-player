@@ -25,6 +25,9 @@ if(PkgConfig_FOUND)
 endif()
 
 if(NOT TARGET PkgConfig::MPV)
+    if(WIN32)
+        list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES .dll.a .a)
+    endif()
     find_path(MPV_INCLUDE_DIR NAMES mpv/client.h
         HINTS "${MPV_ROOT}" "$ENV{MPV_ROOT}"
         PATH_SUFFIXES include
@@ -40,7 +43,7 @@ if(NOT TARGET PkgConfig::MPV)
             IMPORTED_LOCATION "${MPV_LIBRARY}"
         )
     else()
-        message(FATAL_ERROR "libmpv development files not found. Set MPV_ROOT or install libmpv-dev.")
+        message(FATAL_ERROR "libmpv development files not found (MPV_INCLUDE_DIR=${MPV_INCLUDE_DIR}, MPV_LIBRARY=${MPV_LIBRARY}). Set MPV_ROOT or install libmpv-dev.")
     endif()
 endif()
 

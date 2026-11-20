@@ -200,7 +200,14 @@ jobs:
           mkdir "$env:USERPROFILE\mpv-download"
           gh release download --repo shinchiro/mpv-winbuild-cmake --pattern "mpv-dev-x86_64-*.7z" --dir "$env:USERPROFILE\mpv-download"
           $archive = Get-ChildItem -Path "$env:USERPROFILE\mpv-download" -Filter "mpv-dev-x86_64-*.7z" | Select-Object -First 1
-          7z x $archive.FullName -o"$env:USERPROFILE\mpv-dev"
+          7z x $archive.FullName -o"$env:USERPROFILE\mpv-dev" -y
+          Push-Location "$env:USERPROFILE\mpv-dev"
+          $exports = & dumpbin /exports libmpv-2.dll
+          $symbols = $exports | Where-Object { $_ -match "^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)" } | ForEach-Object { $matches[1] }
+          @("LIBRARY libmpv-2.dll", "EXPORTS") + $symbols | Out-File -Encoding ascii mpv.def
+          & lib /def:mpv.def /out:mpv.lib /machine:x64
+          Get-ChildItem
+          Pop-Location
         env:
           GH_TOKEN: ${{ github.token }}
 
