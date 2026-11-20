@@ -25,8 +25,14 @@ if(PkgConfig_FOUND)
 endif()
 
 if(NOT TARGET PkgConfig::MPV)
-    find_path(MPV_INCLUDE_DIR NAMES mpv/client.h)
-    find_library(MPV_LIBRARY NAMES mpv mpv-2 libmpv)
+    find_path(MPV_INCLUDE_DIR NAMES mpv/client.h
+        HINTS "${MPV_ROOT}" "$ENV{MPV_ROOT}"
+        PATH_SUFFIXES include
+    )
+    find_library(MPV_LIBRARY NAMES mpv mpv-2 libmpv libmpv-2
+        HINTS "${MPV_ROOT}" "$ENV{MPV_ROOT}"
+        PATH_SUFFIXES lib ""
+    )
     if(MPV_INCLUDE_DIR AND MPV_LIBRARY)
         add_library(PkgConfig::MPV UNKNOWN IMPORTED)
         set_target_properties(PkgConfig::MPV PROPERTIES

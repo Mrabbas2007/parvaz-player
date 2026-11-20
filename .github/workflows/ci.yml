@@ -140,7 +140,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev"
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev" -DMPV_ROOT="$env:USERPROFILE\mpv-dev"
 
       - name: Build Project
         run: cmake --build build --config RelWithDebInfo
