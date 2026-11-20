@@ -122,6 +122,8 @@ jobs:
           python3 -m pip install --user aqtinstall
           python3 -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir "$env:USERPROFILE\Qt"
           echo "CMAKE_PREFIX_PATH=$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev" >> $env:GITHUB_ENV
+          echo "$env:USERPROFILE\Qt\6.8.3\msvc2022_64\bin" >> $env:GITHUB_PATH
+          echo "$env:USERPROFILE\mpv-dev" >> $env:GITHUB_PATH
 
       - name: Setup MSVC Developer Environment
         uses: ilammy/msvc-dev-cmd@v1

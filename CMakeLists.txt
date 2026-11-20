@@ -254,7 +254,7 @@ add_custom_target(check
             ${CMAKE_BINARY_DIR}/music_test.mp3
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/fa.srt ${CMAKE_BINARY_DIR}/test.srt
-    COMMAND ${CMAKE_BINARY_DIR}/parvaz --smoke ${CMAKE_BINARY_DIR}/test.mp4
+    COMMAND $<TARGET_FILE:parvaz> --smoke ${CMAKE_BINARY_DIR}/test.mp4
     DEPENDS parvaz
     USES_TERMINAL
     COMMENT "build + smoke test"
