@@ -21,10 +21,13 @@ ThumbnailProvider::ThumbnailProvider()
     // 1 worker thread to avoid saturating low-end / no-GPU CPUs with parallel FFmpeg spawns.
     m_threadPool.setMaxThreadCount(1);
 
-    const QString cacheBase = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-    m_diskCacheDir = cacheBase.isEmpty()
-                         ? QStringLiteral("/tmp/parvaz/thumbnails")
-                         : (cacheBase + QStringLiteral("/thumbnails"));
+    // Portable disk cache dir: QStandardPaths CacheLocation is the XDG cache
+    // (~/.cache) on Linux and %LOCALAPPDATA% on Windows — never a hard-coded
+    // /tmp fallback, which does not exist as a portable runtime location.
+    QString cacheBase = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    if (cacheBase.isEmpty())
+        cacheBase = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    m_diskCacheDir = cacheBase + QStringLiteral("/thumbnails");
     QDir().mkpath(m_diskCacheDir);
     // The disk cache is append-only otherwise; keep it bounded.
     parvaz::evictOldestCacheFiles(m_diskCacheDir, kMaxDiskCacheBytes);
