@@ -1,6 +1,5 @@
 #include "mpv/SubtitleController.h"
 
-#include <QFile>
 #include <QUrl>
 
 #include <cmath>
@@ -72,7 +71,7 @@ void SubtitleController::addSubtitleFile(const QString &path)
     if (!m_mpv || path.isEmpty())
         return;
     // The flags argument is a string ("select" = make it current right away).
-    const QByteArray encoded = QFile::encodeName(path);
+    const QByteArray encoded = path.toUtf8();
     const char *cmd[] = {"sub-add", encoded.constData(), "select", nullptr};
     if (mpv_command(m_mpv, cmd) < 0)
         std::fprintf(stderr, "parvaz: sub-add failed for %s\n", qPrintable(path));
@@ -84,7 +83,7 @@ void SubtitleController::setCodepage(const QString &codepage)
         return;
     // Without a leading '+', mpv still trusts data that already looks like
     // UTF-8; only "+cp1256" would force the legacy decoder onto UTF-8 files.
-    mpv_set_property_string(m_mpv, "sub-codepage", QFile::encodeName(codepage).constData());
+    mpv_set_property_string(m_mpv, "sub-codepage", codepage.toUtf8().constData());
     reload();
 }
 

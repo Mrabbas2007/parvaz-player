@@ -9,6 +9,12 @@
 
 namespace parvaz {
 
+/// mpv expects UTF-8 for string properties; convert Qt strings before use.
+static QByteArray mpvUtf8String(const QString &value)
+{
+    return value.toUtf8();
+}
+
 static const char *s_fsrGlsl = R"GLSL(//!HOOK MAIN
 //!DESC AMD FidelityFX Super Resolution (RCAS)
 //!BIND HOOKED
@@ -204,7 +210,7 @@ void ShaderManager::applyCurrentShader()
     }
 
     if (!shaderFile.isEmpty() && QFile::exists(shaderFile)) {
-        mpv_set_property_string(m_mpv, "glsl-shaders", shaderFile.toUtf8().constData());
+        mpv_set_property_string(m_mpv, "glsl-shaders", mpvUtf8String(shaderFile).constData());
     } else {
         mpv_set_property_string(m_mpv, "glsl-shaders", "");
     }

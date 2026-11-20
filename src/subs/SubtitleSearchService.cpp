@@ -651,13 +651,25 @@ void SubtitleSearchService::onDownloadReplyFinished()
             zipFile.write(data);
             zipFile.close();
 
-            // Extract with unzip into an isolated subdirectory to avoid picking old files
+            // Extract with unzip into an isolated subdirectory to avoid picking old files.
+            // Windows ships no `unzip` binary; fall back to 7z (7z.exe) before failing.
             QString extractDir = cacheDir + QStringLiteral("/zip_") + safeFileName;
             QDir().mkpath(extractDir);
 
-            QProcess unzip;
-            unzip.start(QStringLiteral("unzip"), {QStringLiteral("-o"), zipPath, QStringLiteral("-d"), extractDir});
-            if (unzip.waitForFinished(5000) && unzip.exitCode() == 0) {
+            QProcess extractor;
+            bool extracted = false;
+            const QString unzipBin = QStandardPaths::findExecutable(QStringLiteral("unzip"));
+            if (!unzipBin.isEmpty()) {
+                extractor.start(unzipBin, {QStringLiteral("-o"), zipPath, QStringLiteral("-d"), extractDir});
+                extracted = true;
+            } else {
+                const QString sevenZipBin = QStandardPaths::findExecutable(QStringLiteral("7z"));
+                if (!sevenZipBin.isEmpty()) {
+                    extractor.start(sevenZipBin, {QStringLiteral("x"), zipPath, QStringLiteral("-o") + extractDir});
+                    extracted = true;
+                }
+            }
+            if (extracted && extractor.waitForFinished(5000) && extractor.exitCode() == 0) {
                 // Find extracted .srt or .ass or .vtt file
                 QDir dir(extractDir);
                 QStringList entries = dir.entryList({QStringLiteral("*.srt"), QStringLiteral("*.ass"), QStringLiteral("*.vtt")}, QDir::Files, QDir::Time);

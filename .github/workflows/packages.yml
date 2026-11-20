@@ -51,13 +51,13 @@ jobs:
           # makepkg refuses to run as root — build under a regular user.
           useradd -m builder
           chown -R builder:builder .
-          runuser -u builder -- bash -c "cd packaging/arch && makepkg"
+          runuser -u builder -- bash -c "cd packaging/arch && makepkg --nodebug"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: package-arch
-          path: packaging/arch/*.pkg.tar.zst
+          path: packaging/arch/parvaz-[0-9]*.pkg.tar.zst
           if-no-files-found: error
 
   fedora:
@@ -175,9 +175,69 @@ jobs:
           path: parvaz-0.1.0-x86_64.flatpak
           if-no-files-found: error
 
+  windows:
+    name: Windows x64 (Setup & Portable)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        run: |
+          python3 -m pip install --user aqtinstall
+          python3 -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir "$env:USERPROFILE\Qt"
+          echo "CMAKE_PREFIX_PATH=$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev" >> $env:GITHUB_ENV
+          echo "$env:USERPROFILE\Qt\6.8.3\msvc2022_64\bin" >> $env:GITHUB_PATH
+          echo "$env:USERPROFILE\mpv-dev" >> $env:GITHUB_PATH
+
+      - name: Setup MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Inno Setup and FFmpeg
+        run: choco install -y innosetup ffmpeg
+
+      - name: Download libmpv development files
+        shell: pwsh
+        run: |
+          mkdir "$env:USERPROFILE\mpv-download"
+          gh release download --repo shinchiro/mpv-winbuild-cmake --pattern "mpv-dev-x86_64-*.7z" --dir "$env:USERPROFILE\mpv-download"
+          $archive = Get-ChildItem -Path "$env:USERPROFILE\mpv-download" -Filter "mpv-dev-x86_64-*.7z" | Select-Object -First 1
+          7z x $archive.FullName -o"$env:USERPROFILE\mpv-dev" -y
+          Push-Location "$env:USERPROFILE\mpv-dev"
+          $exports = & dumpbin /exports libmpv-2.dll
+          $symbols = $exports | Where-Object { $_ -match "^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)" } | ForEach-Object { $matches[1] }
+          @("LIBRARY libmpv-2.dll", "EXPORTS") + $symbols | Out-File -Encoding ascii mpv.def
+          & lib /def:mpv.def /out:mpv.lib /machine:x64
+          Get-ChildItem
+          Pop-Location
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev" -DMPV_ROOT="$env:USERPROFILE\mpv-dev"
+
+      - name: Build Project
+        run: cmake --build build --config RelWithDebInfo
+
+      - name: Package Windows Artifacts (Portable ZIP + Inno Setup)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          # 1. Create Portable ZIP
+          Compress-Archive -Path build\release\* -DestinationPath dist\parvaz-0.1.0-windows-x64-portable.zip -CompressionLevel Optimal
+          # 2. Compile Inno Setup Installer
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss /DAppVersion=0.1.0 /DSourceDir=..\..\build\release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-windows
+          path: dist/*
+          if-no-files-found: error
+
   publish:
     name: Attach packages to release
-    needs: [arch, fedora, deb, flatpak]
+    needs: [arch, fedora, deb, flatpak, windows]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v')
     steps:

@@ -105,3 +105,85 @@ jobs:
 
       - name: Run Smoke Tests (Headless Xvfb)
         run: xvfb-run -a -s "-screen 0 1280x720x24" ninja -C build check
+
+  build-and-test-windows:
+    name: Build & Smoke Tests (Windows 2022)
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Ubuntu 24.04 ships Qt 6.4.2, but the project requires >= 6.5 — pull an
+      # official Qt build via aqtinstall instead of install-qt-action (its
+      # v4.5.0 Node build is currently broken).
+      - name: Install Qt
+        run: |
+          python3 -m pip install --user aqtinstall
+          python3 -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir "$env:USERPROFILE\Qt"
+          echo "CMAKE_PREFIX_PATH=$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev" >> $env:GITHUB_ENV
+          echo "$env:USERPROFILE\Qt\6.8.3\msvc2022_64\bin" >> $env:GITHUB_PATH
+          echo "$env:USERPROFILE\mpv-dev" >> $env:GITHUB_PATH
+
+      - name: Setup MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install FFmpeg
+        run: choco install -y ffmpeg
+
+      - name: Download libmpv development files
+        shell: pwsh
+        run: |
+          mkdir "$env:USERPROFILE\mpv-download"
+          gh release download --repo shinchiro/mpv-winbuild-cmake --pattern "mpv-dev-x86_64-*.7z" --dir "$env:USERPROFILE\mpv-download"
+          $archive = Get-ChildItem -Path "$env:USERPROFILE\mpv-download" -Filter "mpv-dev-x86_64-*.7z" | Select-Object -First 1
+          7z x $archive.FullName -o"$env:USERPROFILE\mpv-dev" -y
+          Push-Location "$env:USERPROFILE\mpv-dev"
+          $exports = & dumpbin /exports libmpv-2.dll
+          $symbols = $exports | Where-Object { $_ -match "^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)" } | ForEach-Object { $matches[1] }
+          @("LIBRARY libmpv-2.dll", "EXPORTS") + $symbols | Out-File -Encoding ascii mpv.def
+          & lib /def:mpv.def /out:mpv.lib /machine:x64
+          Get-ChildItem
+          Pop-Location
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev" -DMPV_ROOT="$env:USERPROFILE\mpv-dev"
+
+      - name: Build Project
+        run: cmake --build build --config RelWithDebInfo
+
+      # The smoke run needs two DLLs that neither bare Windows nor this GPU-less
+      # runner ships. Both go next to parvaz.exe, which wins the DLL search order:
+      #  - vulkan-1.dll: shinchiro's libmpv-2.dll statically imports it (libplacebo
+      #    / FFmpeg Vulkan backends). Without it the process dies with
+      #    STATUS_DLL_NOT_FOUND (0xC0000135) before main() even runs.
+      #  - a real OpenGL provider: --smoke forces the OpenGL RHI backend
+      #    (QQuickFramebufferObject + MPV_RENDER_API_TYPE_OPENGL) and the runner
+      #    only has GDI's GL 1.1. Mesa's per-app opengl32.dll (llvmpipe, software
+      #    GL) takes over because a local opengl32.dll shadows the system one.
+      - name: Deploy smoke runtime DLLs (Vulkan loader + software OpenGL)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $exeDir = Join-Path $env:GITHUB_WORKSPACE "build\RelWithDebInfo"
+
+          $vulkanZip = Join-Path $env:RUNNER_TEMP "VulkanRT-Components.zip"
+          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/1.4.321.0/windows/VulkanRT-X64-1.4.321.0-Components.zip" -OutFile $vulkanZip
+          $vulkanDir = Join-Path $env:RUNNER_TEMP "VulkanRT"
+          7z x $vulkanZip -o"$vulkanDir" | Out-Null
+          Copy-Item (Join-Path $vulkanDir "VulkanRT-X64-1.4.321.0-Components\x64\vulkan-1.dll") $exeDir
+
+          $mesaDir = Join-Path $env:RUNNER_TEMP "mesa3d"
+          gh release download --repo pal1000/mesa-dist-win --pattern "mesa3d-*-release-msvc.7z" --dir $mesaDir
+          $mesaArchive = Get-ChildItem $mesaDir -Filter "mesa3d-*-release-msvc.7z" | Select-Object -First 1
+          7z x $mesaArchive.FullName -o"$mesaDir" | Out-Null
+          Copy-Item (Join-Path $mesaDir "x64\opengl32.dll") $exeDir
+          Copy-Item (Join-Path $mesaDir "x64\libgallium_wgl.dll") $exeDir
+
+          Get-ChildItem $exeDir | Select-Object Name, Length
+
+      - name: Run Smoke Tests
+        run: cmake --build build --config RelWithDebInfo --target check

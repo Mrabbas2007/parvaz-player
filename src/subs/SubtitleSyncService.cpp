@@ -48,7 +48,8 @@ void SubtitleSyncService::syncSubtitle(const QString &videoPath, const QString &
     QStringList args;
     args << videoPath << QStringLiteral("-i") << subtitlePath << QStringLiteral("-o") << m_targetOutputPath;
 
-    m_process->start(QStringLiteral("ffsubsync"), args);
+    const QString ffsubsyncBin = QStandardPaths::findExecutable(QStringLiteral("ffsubsync"));
+    m_process->start(ffsubsyncBin.isEmpty() ? QStringLiteral("ffsubsync") : ffsubsyncBin, args);
 }
 
 void SubtitleSyncService::cancelSync()

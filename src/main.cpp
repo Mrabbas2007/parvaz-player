@@ -22,7 +22,9 @@
 #include "mpv/MpvObject.h"
 #include "mpv/MpvFboItem.h"
 #include "platform/IdleInhibitor.h"
+#if !defined(_WIN32) && !defined(QT_DBUS_LIB)
 #include "platform/MprisService.h"
+#endif
 #include "playback/PlaybackHistory.h"
 #include "playback/ThumbnailProvider.h"
 #include "subs/SubtitleSearchService.h"
@@ -655,9 +657,12 @@ static void runSmokeChecks(QGuiApplication *app, MpvObject &mpv)
 
 int main(int argc, char *argv[])
 {
-    // Use native desktop portal file dialogs (GNOME 45 dark portal) and force dark theme
+    // Use native desktop portal file dialogs (GNOME 45 dark portal) and force dark theme;
+    // both are Linux desktop-concerned, so only set them on non-Windows platforms.
+#if !defined(_WIN32)
     qputenv("QT_USE_PORTAL", "1");
     qputenv("GTK_THEME", "Adwaita:dark");
+#endif
 
     // libmpv's public render API speaks OpenGL (or software), and
     // QQuickFramebufferObject needs the OpenGL RHI backend. Must be set
@@ -728,7 +733,9 @@ int main(int argc, char *argv[])
     // no resume seeking) so `check` is reproducible. Both are parented to the
     // app, on the GUI thread; all their D-Bus calls are async.
     if (!parser.isSet(smokeOpt) && !parser.isSet(benchOpt)) {
+#if !defined(_WIN32) && !defined(QT_DBUS_LIB)
         new parvaz::MprisService(&mpv, &app);
+#endif
         new parvaz::IdleInhibitor(&mpv, &app);
         new parvaz::PlaybackHistory(&mpv, QString(), &app);
     }

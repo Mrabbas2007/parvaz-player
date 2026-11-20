@@ -9,6 +9,15 @@ if(NOT WIN32)
     list(APPEND QT_COMPONENTS DBus)
 endif()
 find_package(Qt6 6.5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+find_package(Qt6 COMPONENTS Svg QUIET)
+if(TARGET Qt6::Svg)
+    # Qt6::Svg provides the QML image provider for qml/icons/*.svg; Qt6::Quick
+    # does not pull it in as a hard dependency and distro Qt splits it into a
+    # standalone module (Arch: qt6-svg, Debian/Ubuntu: qt6-svg-dev). Probe quietly
+    # and wire the component in only when the Qt installation provides it.
+    list(APPEND QT_COMPONENTS Svg)
+    find_package(Qt6 6.5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+endif()
 
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
@@ -16,8 +25,17 @@ if(PkgConfig_FOUND)
 endif()
 
 if(NOT TARGET PkgConfig::MPV)
-    find_path(MPV_INCLUDE_DIR NAMES mpv/client.h)
-    find_library(MPV_LIBRARY NAMES mpv mpv-2 libmpv)
+    if(WIN32)
+        list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES .dll.a .a)
+    endif()
+    find_path(MPV_INCLUDE_DIR NAMES mpv/client.h
+        HINTS "${MPV_ROOT}" "$ENV{MPV_ROOT}"
+        PATH_SUFFIXES include
+    )
+    find_library(MPV_LIBRARY NAMES mpv mpv-2 libmpv libmpv-2
+        HINTS "${MPV_ROOT}" "$ENV{MPV_ROOT}"
+        PATH_SUFFIXES lib ""
+    )
     if(MPV_INCLUDE_DIR AND MPV_LIBRARY)
         add_library(PkgConfig::MPV UNKNOWN IMPORTED)
         set_target_properties(PkgConfig::MPV PROPERTIES
@@ -25,7 +43,7 @@ if(NOT TARGET PkgConfig::MPV)
             IMPORTED_LOCATION "${MPV_LIBRARY}"
         )
     else()
-        message(FATAL_ERROR "libmpv development files not found. Set MPV_ROOT or install libmpv-dev.")
+        message(FATAL_ERROR "libmpv development files not found (MPV_INCLUDE_DIR=${MPV_INCLUDE_DIR}, MPV_LIBRARY=${MPV_LIBRARY}). Set MPV_ROOT or install libmpv-dev.")
     endif()
 endif()
 
@@ -40,6 +58,11 @@ if(NOT WIN32)
     )
 endif()
 
+set(WINDOWS_RESOURCES "")
+if(WIN32)
+    set(WINDOWS_RESOURCES packaging/windows/parvaz.rc)
+endif()
+
 qt_add_executable(parvaz
     src/main.cpp
     src/config/ConfigManager.h   src/config/ConfigManager.cpp
@@ -49,6 +72,7 @@ qt_add_executable(parvaz
     src/subs/SubtitleSearchService.h src/subs/SubtitleSearchService.cpp
     src/subs/SubtitleSyncService.h src/subs/SubtitleSyncService.cpp
     ${PLATFORM_SOURCES}
+    ${WINDOWS_RESOURCES}
     src/playback/PlaybackHistory.h src/playback/PlaybackHistory.cpp
     src/playback/ThumbnailProvider.h src/playback/ThumbnailProvider.cpp
     src/playback/CoverArtProvider.h src/playback/CoverArtProvider.cpp
@@ -56,6 +80,54 @@ qt_add_executable(parvaz
     src/playback/CacheMaintenance.h src/playback/CacheMaintenance.cpp
     src/playback/ShaderManager.h src/playback/ShaderManager.cpp
 )
+
+# Windows: build as a GUI-subsystem executable (no console window) for the
+# desktop player, and deploy the libmpv runtime DLL next to the binary.
+if(WIN32 AND MPV_LIBRARY)
+    set_target_properties(parvaz PROPERTIES WIN32_EXECUTABLE TRUE)
+    get_filename_component(MPV_BIN_DIR "${MPV_LIBRARY}" PATH)
+    find_file(MPV_RUNTIME_DLL
+        NAMES libmpv-2.dll mpv-2.dll mpv.dll libmpv.dll
+        PATHS "${MPV_BIN_DIR}" "${MPV_BIN_DIR}/../bin"
+        NO_DEFAULT_PATH
+    )
+    if(NOT MPV_RUNTIME_DLL)
+        set(MPV_RUNTIME_DLL "${MPV_BIN_DIR}/mpv.dll")
+    endif()
+    get_filename_component(MPV_DLL_NAME "${MPV_RUNTIME_DLL}" NAME)
+
+    add_custom_command(TARGET parvaz POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${MPV_RUNTIME_DLL}"
+            "$<TARGET_FILE_DIR:parvaz>/${MPV_DLL_NAME}"
+        COMMENT "Deploying ${MPV_DLL_NAME} next to parvaz.exe"
+        VERBATIM)
+
+    # Deploy Qt runtime DLLs and plugins using windeployqt
+    get_target_property(QT6_CORE_IMPORTED_LOCATION Qt6::Core IMPORTED_LOCATION)
+    get_filename_component(QT6_BIN_DIR "${QT6_CORE_IMPORTED_LOCATION}" DIRECTORY)
+    set(WINDEPLOYQT_EXE "${QT6_BIN_DIR}/windeployqt.exe")
+
+    add_custom_command(TARGET parvaz POST_BUILD
+        COMMAND "${WINDEPLOYQT_EXE}"
+            --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+            --no-translations
+            --no-compiler-runtime
+            "$<TARGET_FILE:parvaz>"
+        COMMENT "Running windeployqt on parvaz.exe"
+        VERBATIM)
+
+    # Portable release staging (Phase W4): flat folder with the GUI-subsystem
+    # exe, the libmpv runtime DLL and the full deployed Qt runtime tree.
+    set(PARVAZ_PORTABLE_DIR "${CMAKE_BINARY_DIR}/release")
+    add_custom_command(TARGET parvaz POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${PARVAZ_PORTABLE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "$<TARGET_FILE_DIR:parvaz>"
+            "${PARVAZ_PORTABLE_DIR}"
+        COMMENT "Staging Windows portable release bundle"
+        VERBATIM)
+endif()
 
 # QML lives inside the binary: the executable must run from anywhere (install
 # tree, Flatpak) without a checkout next to it. Resource layout mirrors qml/:
@@ -134,6 +206,9 @@ target_link_libraries(parvaz PRIVATE
     Qt6::Core Qt6::Gui Qt6::OpenGL Qt6::Quick Qt6::QuickControls2 Qt6::Sql Qt6::Network
     PkgConfig::MPV
 )
+if(TARGET Qt6::Svg)
+    target_link_libraries(parvaz PRIVATE Qt6::Svg)
+endif()
 if(TARGET Qt6::DBus)
     target_link_libraries(parvaz PRIVATE Qt6::DBus)
 endif()
@@ -184,7 +259,7 @@ add_custom_target(check
             ${CMAKE_BINARY_DIR}/music_test.mp3
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/fa.srt ${CMAKE_BINARY_DIR}/test.srt
-    COMMAND ${CMAKE_BINARY_DIR}/parvaz --smoke ${CMAKE_BINARY_DIR}/test.mp4
+    COMMAND $<TARGET_FILE:parvaz> --smoke ${CMAKE_BINARY_DIR}/test.mp4
     DEPENDS parvaz
     USES_TERMINAL
     COMMENT "build + smoke test"
@@ -226,6 +301,8 @@ and AMD FSR upscaling.")
     # DEB (Ubuntu 25.04+ — 24.04's system Qt 6.4 is below the >= 6.5 floor)
     set(CPACK_DEBIAN_PACKAGE_SECTION "video")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+    set(CPACK_DEBIAN_FILE_NAME "parvaz_${PROJECT_VERSION}_amd64.deb")
     # Qt/mpv shared libraries are discovered from the actual linked libs via
     # dpkg-shlibdeps; ffmpeg/unzip are PATH lookups and must be listed here.
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)

@@ -74,6 +74,14 @@ bool isMediaFile(const QString &fileName)
     return mediaExts.contains(fileName.mid(dotIdx + 1).toLower());
 }
 
+/// mpv expects UTF-8 for every string it consumes (property values, command
+/// args, filenames). Qt strings are UTF-16 on Windows, so convert before
+/// handing to mpv; on Linux this is an identity encoding.
+QByteArray mpvUtf8String(const QString &value)
+{
+    return value.toUtf8();
+}
+
 } // namespace
 
 MpvObject::MpvObject(QObject *parent, bool hermeticAudio)
@@ -135,7 +143,7 @@ MpvObject::MpvObject(QObject *parent, bool hermeticAudio)
     // 1. sub-fonts-dir tells libass where to discover fonts
     // 2. sub-font="Vazirmatn" provides high-quality Persian/Arabic rendering for SRT/plain subtitles
     // 3. sub-ass-override="scale" strictly respects custom fonts and styling defined in ASS/SSA scripts
-    mpv_set_option_string(m_mpv, "sub-fonts-dir", QFile::encodeName(cacheFontsDir).constData());
+    mpv_set_option_string(m_mpv, "sub-fonts-dir", mpvUtf8String(cacheFontsDir).constData());
     mpv_set_option_string(m_mpv, "sub-font", "Vazirmatn");
     mpv_set_option_string(m_mpv, "sub-ass-override", "scale");
 
@@ -804,7 +812,7 @@ void MpvObject::loadFiles(const QStringList &paths, const QString &mode)
 
     for (int i = 0; i < expanded.size(); ++i) {
         const QString &file = expanded[i];
-        const QByteArray encoded = QFile::encodeName(file);
+        const QByteArray encoded = mpvUtf8String(file);
 
         if (!isAppend && i == 0) {
             m_currentFile = file;
@@ -1791,7 +1799,7 @@ void MpvObject::setHdrToneMapping(const QString &algorithm)
     m_hdrToneMapping = algo;
     emit hdrToneMappingChanged();
     if (m_mpv) {
-        const QByteArray bytes = algo.toUtf8();
+        const QByteArray bytes = mpvUtf8String(algo);
         mpv_set_property_string(m_mpv, "tone-mapping", bytes.constData());
         showOsd(QStringLiteral("HDR Tone-Mapping: %1").arg(algo));
     }
@@ -2017,7 +2025,7 @@ void MpvObject::setHwdecMode(const QString &mode)
         return;
 
     m_hwdecMode = m;
-    mpv_set_property_string(m_mpv, "hwdec", m_hwdecMode.toUtf8().constData());
+    mpv_set_property_string(m_mpv, "hwdec", mpvUtf8String(m_hwdecMode).constData());
     emit hwdecModeChanged();
     applyPerformanceProfile();
     emit technicalStatsChanged();
@@ -2216,8 +2224,11 @@ void MpvObject::autoSyncCurrentSubtitle()
 
 bool MpvObject::hasYtdl() const
 {
+    // yt-dlp (pip) / youtube-dl both install as <name>.exe on Windows; the
+    // bare-name PATH lookup covers Linux/macOS, the .exe probe covers Windows.
     return !QStandardPaths::findExecutable(QStringLiteral("yt-dlp")).isEmpty()
-        || !QStandardPaths::findExecutable(QStringLiteral("youtube-dl")).isEmpty();
+        || !QStandardPaths::findExecutable(QStringLiteral("youtube-dl")).isEmpty()
+        || !QStandardPaths::findExecutable(QStringLiteral("yt-dlp.exe")).isEmpty();
 }
 
 QString MpvObject::clipboardText() const
