@@ -49,6 +49,11 @@ if(NOT WIN32)
     )
 endif()
 
+set(WINDOWS_RESOURCES "")
+if(WIN32)
+    set(WINDOWS_RESOURCES packaging/windows/parvaz.rc)
+endif()
+
 qt_add_executable(parvaz
     src/main.cpp
     src/config/ConfigManager.h   src/config/ConfigManager.cpp
@@ -58,6 +63,7 @@ qt_add_executable(parvaz
     src/subs/SubtitleSearchService.h src/subs/SubtitleSearchService.cpp
     src/subs/SubtitleSyncService.h src/subs/SubtitleSyncService.cpp
     ${PLATFORM_SOURCES}
+    ${WINDOWS_RESOURCES}
     src/playback/PlaybackHistory.h src/playback/PlaybackHistory.cpp
     src/playback/ThumbnailProvider.h src/playback/ThumbnailProvider.cpp
     src/playback/CoverArtProvider.h src/playback/CoverArtProvider.cpp
@@ -274,6 +280,8 @@ and AMD FSR upscaling.")
     # DEB (Ubuntu 25.04+ — 24.04's system Qt 6.4 is below the >= 6.5 floor)
     set(CPACK_DEBIAN_PACKAGE_SECTION "video")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+    set(CPACK_DEBIAN_FILE_NAME "parvaz_${PROJECT_VERSION}_amd64.deb")
     # Qt/mpv shared libraries are discovered from the actual linked libs via
     # dpkg-shlibdeps; ffmpeg/unzip are PATH lookups and must be listed here.
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)

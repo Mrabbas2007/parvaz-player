@@ -51,13 +51,13 @@ jobs:
           # makepkg refuses to run as root — build under a regular user.
           useradd -m builder
           chown -R builder:builder .
-          runuser -u builder -- bash -c "cd packaging/arch && makepkg"
+          runuser -u builder -- bash -c "cd packaging/arch && makepkg --nodebug"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: package-arch
-          path: packaging/arch/*.pkg.tar.zst
+          path: packaging/arch/parvaz-[0-9]*.pkg.tar.zst
           if-no-files-found: error
 
   fedora:
@@ -175,9 +175,50 @@ jobs:
           path: parvaz-0.1.0-x86_64.flatpak
           if-no-files-found: error
 
+  windows:
+    name: Windows x64 (Setup & Portable)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        run: |
+          python3 -m pip install --user aqtinstall
+          python3 -m aqt install-qt windows desktop 6.8.3 win64_msvc2019 --outputdir "$env:USERPROFILE\Qt"
+          echo "CMAKE_PREFIX_PATH=$env:USERPROFILE\Qt\6.8.3\msvc2019_64" >> $env:GITHUB_ENV
+
+      - name: Setup MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Inno Setup and FFmpeg
+        run: choco install -y innosetup ffmpeg
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="$env:USERPROFILE\Qt\6.8.3\msvc2019_64"
+
+      - name: Build Project
+        run: cmake --build build --config RelWithDebInfo
+
+      - name: Package Windows Artifacts (Portable ZIP + Inno Setup)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          # 1. Create Portable ZIP
+          Compress-Archive -Path build\release\* -DestinationPath dist\parvaz-0.1.0-windows-x64-portable.zip -CompressionLevel Optimal
+          # 2. Compile Inno Setup Installer
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss /DAppVersion=0.1.0 /DSourceDir=..\..\build\release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-windows
+          path: dist/*
+          if-no-files-found: error
+
   publish:
     name: Attach packages to release
-    needs: [arch, fedora, deb, flatpak]
+    needs: [arch, fedora, deb, flatpak, windows]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
