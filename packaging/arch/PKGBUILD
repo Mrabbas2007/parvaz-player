@@ -19,6 +19,9 @@ makedepends=('cmake' 'ninja')
 # Optional runtime enhancements, probed at runtime and never required:
 optdepends=('ffsubsync: automatic subtitle-to-speech synchronization'
             'yt-dlp: online stream playback via mpv ytdl hook (YouTube, Aparat, ...)')
+# No debug package: makepkg's --nodebug CLI option was removed in pacman 7.1,
+# so the split is disabled here explicitly (CI passes plain `makepkg`).
+options=('!debug')
 source=("$pkgname-$pkgver.tar.gz")
 # The tarball is produced by `git archive` (CI or locally), so its hash changes
 # with every commit; verification is done upstream, not here.
