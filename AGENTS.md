@@ -46,6 +46,7 @@ ninja -C build check                 # build + کلیپ تست + smoke واقع�
 | 8 | `hwdec=no` روی AMD | بسته‌ی `mesa-va-drivers-freeworld` (RPM Fusion) نصب نیست |
 | 9 | تصویر وارونه | `MPV_RENDER_PARAM_FLIP_Y` را ۰ کن |
 | 10 | کرش در خروج | اول `mpv_render_context_free` بعد `mpv_terminate_destroy` |
+| 11 | خروج `parvaz.exe` با `0xC0000135` (STATUS_DLL_NOT_FOUND) قبل از اجرای main، بدون هیچ لاگی | بیلد shinchiro `libmpv-2.dll` استاتیک `vulkan-1.dll` را import می‌کند؛ ویندوز خام و رانر CI لودر Vulkan ندارند. فیکس: `vulkan-1.dll` رسمی x64 کنار اکسه (step «Deploy smoke runtime DLLs» در ci.yml). مشکل دوم بعدی هم GL است: `--smoke` بک‌اند OpenGL می‌خواهد و رانر فقط GDI GL 1.1 دارد → `opengl32.dll` مِسا (llvmpipe) کنار اکسه |
 
 ## دیباگ
 
