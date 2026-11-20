@@ -22,7 +22,9 @@
 #include "mpv/MpvObject.h"
 #include "mpv/MpvFboItem.h"
 #include "platform/IdleInhibitor.h"
+#if !defined(_WIN32) && !defined(QT_DBUS_LIB)
 #include "platform/MprisService.h"
+#endif
 #include "playback/PlaybackHistory.h"
 #include "playback/ThumbnailProvider.h"
 #include "subs/SubtitleSearchService.h"
@@ -728,7 +730,9 @@ int main(int argc, char *argv[])
     // no resume seeking) so `check` is reproducible. Both are parented to the
     // app, on the GUI thread; all their D-Bus calls are async.
     if (!parser.isSet(smokeOpt) && !parser.isSet(benchOpt)) {
+#if !defined(_WIN32) && !defined(QT_DBUS_LIB)
         new parvaz::MprisService(&mpv, &app);
+#endif
         new parvaz::IdleInhibitor(&mpv, &app);
         new parvaz::PlaybackHistory(&mpv, QString(), &app);
     }

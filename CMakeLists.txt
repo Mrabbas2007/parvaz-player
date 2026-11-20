@@ -9,6 +9,15 @@ if(NOT WIN32)
     list(APPEND QT_COMPONENTS DBus)
 endif()
 find_package(Qt6 6.5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+find_package(Qt6 COMPONENTS Svg QUIET)
+if(TARGET Qt6::Svg)
+    # Qt6::Svg provides the QML image provider for qml/icons/*.svg; Qt6::Quick
+    # does not pull it in as a hard dependency and distro Qt splits it into a
+    # standalone module (Arch: qt6-svg, Debian/Ubuntu: qt6-svg-dev). Probe quietly
+    # and wire the component in only when the Qt installation provides it.
+    list(APPEND QT_COMPONENTS Svg)
+    find_package(Qt6 6.5 REQUIRED COMPONENTS ${QT_COMPONENTS})
+endif()
 
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
@@ -134,6 +143,9 @@ target_link_libraries(parvaz PRIVATE
     Qt6::Core Qt6::Gui Qt6::OpenGL Qt6::Quick Qt6::QuickControls2 Qt6::Sql Qt6::Network
     PkgConfig::MPV
 )
+if(TARGET Qt6::Svg)
+    target_link_libraries(parvaz PRIVATE Qt6::Svg)
+endif()
 if(TARGET Qt6::DBus)
     target_link_libraries(parvaz PRIVATE Qt6::DBus)
 endif()
