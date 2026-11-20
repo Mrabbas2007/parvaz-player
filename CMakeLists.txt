@@ -77,6 +77,29 @@ if(WIN32 AND MPV_LIBRARY)
             "$<TARGET_FILE_DIR:parvaz>/mpv.dll"
         COMMENT "Deploying mpv.dll next to parvaz.exe"
         VERBATIM)
+
+    # Portable release staging (Phase W4): flat folder with the GUI-subsystem
+    # exe, the libmpv runtime (mpv.dll) and the Qt runtime plugins (qml/quick/...).
+    # QML is compiled into the binary via qt_add_qml_module resources, but Qt
+    # plugin lookup still resolves <bundle>/plugins/<plugin>/<abi>/…, so the full
+    # plugins tree is staged next to the exe for a truly portable distribution.
+    get_target_property(QT6_CORE_IMPORTED_LOCATION Qt6::Core IMPORTED_LOCATION)
+    get_filename_component(QT6_ARCH_DIR "${QT6_CORE_IMPORTED_LOCATION}" DIRECTORY)
+    get_filename_component(QT6_PREFIX "${QT6_ARCH_DIR}" DIRECTORY)
+    set(PARVAZ_PORTABLE_DIR "${CMAKE_BINARY_DIR}/release")
+    add_custom_command(TARGET parvaz POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${PARVAZ_PORTABLE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:parvaz>"
+            "${PARVAZ_PORTABLE_DIR}/parvaz.exe"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${MPV_BIN_DIR}/mpv.dll"
+            "${PARVAZ_PORTABLE_DIR}/mpv.dll"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${QT6_PREFIX}/plugins"
+            "${PARVAZ_PORTABLE_DIR}/plugins"
+        COMMENT "Staging Windows portable release bundle (parvaz.exe + mpv.dll + Qt plugins)"
+        VERBATIM)
 endif()
 
 # QML lives inside the binary: the executable must run from anywhere (install
