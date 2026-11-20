@@ -73,22 +73,29 @@ qt_add_executable(parvaz
 )
 
 # Windows: build as a GUI-subsystem executable (no console window) for the
-# desktop player, and deploy the libmpv runtime (mpv.dll) next to the binary.
+# desktop player, and deploy the libmpv runtime DLL next to the binary.
 if(WIN32 AND MPV_LIBRARY)
     set_target_properties(parvaz PROPERTIES WIN32_EXECUTABLE TRUE)
     get_filename_component(MPV_BIN_DIR "${MPV_LIBRARY}" PATH)
+    find_file(MPV_RUNTIME_DLL
+        NAMES libmpv-2.dll mpv-2.dll mpv.dll libmpv.dll
+        PATHS "${MPV_BIN_DIR}" "${MPV_BIN_DIR}/../bin"
+        NO_DEFAULT_PATH
+    )
+    if(NOT MPV_RUNTIME_DLL)
+        set(MPV_RUNTIME_DLL "${MPV_BIN_DIR}/mpv.dll")
+    endif()
+    get_filename_component(MPV_DLL_NAME "${MPV_RUNTIME_DLL}" NAME)
+
     add_custom_command(TARGET parvaz POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MPV_BIN_DIR}/mpv.dll"
-            "$<TARGET_FILE_DIR:parvaz>/mpv.dll"
-        COMMENT "Deploying mpv.dll next to parvaz.exe"
+            "${MPV_RUNTIME_DLL}"
+            "$<TARGET_FILE_DIR:parvaz>/${MPV_DLL_NAME}"
+        COMMENT "Deploying ${MPV_DLL_NAME} next to parvaz.exe"
         VERBATIM)
 
     # Portable release staging (Phase W4): flat folder with the GUI-subsystem
-    # exe, the libmpv runtime (mpv.dll) and the Qt runtime plugins (qml/quick/...).
-    # QML is compiled into the binary via qt_add_qml_module resources, but Qt
-    # plugin lookup still resolves <bundle>/plugins/<plugin>/<abi>/…, so the full
-    # plugins tree is staged next to the exe for a truly portable distribution.
+    # exe, the libmpv runtime DLL and the Qt runtime plugins (qml/quick/...).
     get_target_property(QT6_CORE_IMPORTED_LOCATION Qt6::Core IMPORTED_LOCATION)
     get_filename_component(QT6_ARCH_DIR "${QT6_CORE_IMPORTED_LOCATION}" DIRECTORY)
     get_filename_component(QT6_PREFIX "${QT6_ARCH_DIR}" DIRECTORY)
@@ -99,12 +106,12 @@ if(WIN32 AND MPV_LIBRARY)
             "$<TARGET_FILE:parvaz>"
             "${PARVAZ_PORTABLE_DIR}/parvaz.exe"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MPV_BIN_DIR}/mpv.dll"
-            "${PARVAZ_PORTABLE_DIR}/mpv.dll"
+            "${MPV_RUNTIME_DLL}"
+            "${PARVAZ_PORTABLE_DIR}/${MPV_DLL_NAME}"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${QT6_PREFIX}/plugins"
             "${PARVAZ_PORTABLE_DIR}/plugins"
-        COMMENT "Staging Windows portable release bundle (parvaz.exe + mpv.dll + Qt plugins)"
+        COMMENT "Staging Windows portable release bundle (parvaz.exe + ${MPV_DLL_NAME} + Qt plugins)"
         VERBATIM)
 endif()
 

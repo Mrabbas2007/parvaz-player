@@ -185,8 +185,8 @@ jobs:
       - name: Install Qt
         run: |
           python3 -m pip install --user aqtinstall
-          python3 -m aqt install-qt windows desktop 6.8.3 win64_msvc2019 --outputdir "$env:USERPROFILE\Qt"
-          echo "CMAKE_PREFIX_PATH=$env:USERPROFILE\Qt\6.8.3\msvc2019_64" >> $env:GITHUB_ENV
+          python3 -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -m qtdeclarative qtsvg --outputdir "$env:USERPROFILE\Qt"
+          echo "CMAKE_PREFIX_PATH=$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev" >> $env:GITHUB_ENV
 
       - name: Setup MSVC Developer Environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -194,8 +194,18 @@ jobs:
       - name: Install Inno Setup and FFmpeg
         run: choco install -y innosetup ffmpeg
 
+      - name: Download libmpv development files
+        shell: pwsh
+        run: |
+          mkdir "$env:USERPROFILE\mpv-download"
+          gh release download --repo shinchiro/mpv-winbuild-cmake --pattern "mpv-dev-x86_64-*.7z" --dir "$env:USERPROFILE\mpv-download"
+          $archive = Get-ChildItem -Path "$env:USERPROFILE\mpv-download" -Filter "mpv-dev-x86_64-*.7z" | Select-Object -First 1
+          7z x $archive.FullName -o"$env:USERPROFILE\mpv-dev"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="$env:USERPROFILE\Qt\6.8.3\msvc2019_64"
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="$env:USERPROFILE\Qt\6.8.3\msvc2022_64;$env:USERPROFILE\mpv-dev"
 
       - name: Build Project
         run: cmake --build build --config RelWithDebInfo
